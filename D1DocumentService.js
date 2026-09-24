@@ -7,6 +7,9 @@ const D1DocumentService = (() => {
     'size','uploaded_by','created_at'
   ];
 
+  const SUPPORT_READY_KEY = 'VPDU_D1_SUPPORT_READY_V1';
+  let supportReadyRuntime = false;
+
   const HISTORY_HEADERS = [
     'history_id','document_id','action','actor_user_id','actor_name',
     'detail_json','created_at'
@@ -19,6 +22,16 @@ const D1DocumentService = (() => {
   ];
 
   function ensureSupportSheets_() {
+    if (supportReadyRuntime) return;
+
+    const cache = CacheService.getScriptCache();
+    try {
+      if (cache.get(SUPPORT_READY_KEY)) {
+        supportReadyRuntime = true;
+        return;
+      }
+    } catch (e) {}
+
     const ss = SystemConfig.getDb();
 
     if (!ss.getSheetByName(FILE_SHEET)) {
@@ -30,6 +43,9 @@ const D1DocumentService = (() => {
       const sh = ss.insertSheet(HISTORY_SHEET);
       initSupportSheet_(sh, HISTORY_HEADERS);
     }
+
+    supportReadyRuntime = true;
+    try { cache.put(SUPPORT_READY_KEY,'1',21600); } catch (e) {}
   }
 
   function initSupportSheet_(sh, headers) {
