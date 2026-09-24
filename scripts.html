@@ -2988,6 +2988,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ['#btnNewDocument','documents.create'],
       ['.open-create-modal[data-type="task"]','tasks.create'],
       ['.open-create-modal[data-type="calendar"]','calendar.create'],
+      ['#dashboardAddCalendar','calendar.create'],
       ['.open-create-modal[data-type="meeting"]','meetings.create'],
       ['.repo-upload','repository.upload'],
       ['.repo-new-folder','repository.upload'],
@@ -3002,9 +3003,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const quick=document.getElementById('quickCreate');
     if(quick){
-      const canCreate=[
-        'documents.create','tasks.create','calendar.create','meetings.create'
-      ].some(hasPermissionB5);
+      const quickPermissions=[
+        'documents.create',
+        'tasks.create',
+        'meetings.create',
+        'calendar.create',
+        'advisory.use',
+        'repository.upload'
+      ];
+      const buttons=quickMenu?.querySelectorAll('button')||[];
+      buttons.forEach((btn,i)=>{
+        const permission=quickPermissions[i];
+        btn.classList.toggle('access-hidden',permission&&!hasPermissionB5(permission));
+      });
+      const canCreate=quickPermissions.some(hasPermissionB5);
       quick.classList.toggle('access-hidden',!canCreate);
     }
 
