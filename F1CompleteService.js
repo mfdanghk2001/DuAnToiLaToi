@@ -1268,9 +1268,21 @@ const F1CompleteService = (() => {
     const me = me_();
     if (me.role !== 'ADMIN') throw new Error('Chỉ ADMIN được tạo sao lưu.');
 
-    const root = DriveApp.getFolderById(rootId_());
-    const it = root.getFoldersByName('99_Backup');
-    const folder = it.hasNext() ? it.next() : root.createFolder('99_Backup');
+    const props = PropertiesService.getScriptProperties();
+    const backupProp = 'VPDU_PRIVATE_BACKUP_FOLDER_ID';
+    let folder = null;
+    const savedId = props.getProperty(backupProp) || '';
+
+    if (savedId) {
+      try { folder = DriveApp.getFolderById(savedId); } catch (e) {}
+    }
+
+    if (!folder) {
+      const root = DriveApp.getRootFolder();
+      const it = root.getFoldersByName('VAN_PHONG_DANG_UY_SO_BACKUP');
+      folder = it.hasNext() ? it.next() : root.createFolder('VAN_PHONG_DANG_UY_SO_BACKUP');
+      props.setProperty(backupProp,folder.getId());
+    }
 
     const dbFile = DriveApp.getFileById(SystemConfig.getDbId());
     const name = 'VPDU_BACKUP_' + Utilities.formatDate(new Date(),TZ,'yyyyMMdd_HHmmss');
