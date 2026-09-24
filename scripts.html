@@ -773,6 +773,46 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
   }
 
+  function closeProfileMenu_(){
+    document.getElementById('profileMenu')?.classList.add('hidden-block');
+    document.getElementById('profileMenuToggle')?.setAttribute('aria-expanded','false');
+  }
+
+  function toggleProfileMenu_(){
+    const menu=document.getElementById('profileMenu');
+    const toggle=document.getElementById('profileMenuToggle');
+    if(!menu||!toggle) return;
+    const open=menu.classList.contains('hidden-block');
+    menu.classList.toggle('hidden-block',!open);
+    toggle.setAttribute('aria-expanded',open?'true':'false');
+  }
+
+  function clearClientSessionP2_(){
+    D1.list=null;D1.current=null;D1.loadedAt=0;D1.loadedKey='';
+    D2.list=null;D2.current=null;D2.loadedAt=0;D2.loadedKey='';
+    P2.prefetchPromise=null;P2.prefetched=false;
+    B2.user=null;B2.users=[];B2.dashboard=null;
+  }
+
+  function logoutGoogle_(){
+    closeProfileMenu_();
+    clearClientSessionP2_();
+
+    const gateway=document.getElementById('accessGateway');
+    gateway?.removeAttribute('hidden');
+    gateway?.classList.remove('access-exit','access-denied','access-error');
+    document.body.classList.add('access-pending');
+    document.body.classList.remove('access-ready');
+
+    const title=document.getElementById('accessTitle');
+    const msg=document.getElementById('accessMessage');
+    if(title) title.textContent='Đang đăng xuất';
+    if(msg) msg.textContent='Đang kết thúc phiên Google và đưa bạn về màn chọn tài khoản…';
+
+    const back=encodeURIComponent(window.location.href);
+    window.location.href='https://accounts.google.com/Logout?continue='+back;
+  }
+
   function switchGoogleAccount_(){
     const continueUrl=encodeURIComponent(window.location.href);
     window.location.href='https://accounts.google.com/AccountChooser?continue='+continueUrl;
@@ -2880,6 +2920,27 @@ document.addEventListener('DOMContentLoaded', () => {
       accessBootstrapRunning=false;
     }
   };
+
+  document.getElementById('profileMenuToggle')?.addEventListener('click',e=>{
+    e.stopPropagation();
+    toggleProfileMenu_();
+  });
+  document.querySelector('.sidebar-user')?.addEventListener('click',e=>{
+    e.stopPropagation();
+    document.getElementById('profileMenuToggle')?.click();
+  });
+  document.getElementById('profileSwitchAccount')?.addEventListener('click',()=>{
+    closeProfileMenu_();
+    clearClientSessionP2_();
+    switchGoogleAccount_();
+  });
+  document.getElementById('profileLogout')?.addEventListener('click',logoutGoogle_);
+  document.addEventListener('click',e=>{
+    if(!e.target.closest('#profileMenuWrap')) closeProfileMenu_();
+  });
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape') closeProfileMenu_();
+  });
 
   document.getElementById('accessRetryBtn')?.addEventListener('click',()=>bootstrapB2());
   document.getElementById('accessSwitchAccountBtn')?.addEventListener('click',switchGoogleAccount_);
