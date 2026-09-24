@@ -314,7 +314,7 @@ const D2TaskService = (() => {
     return {
       ok:true,
       items:all.slice(start,start+pageSize),
-      kanban:all.slice(0,300),
+      kanban:all.slice(0,filters.warm ? 80 : 300),
       stats,
       pagination:{
         page:safePage,
