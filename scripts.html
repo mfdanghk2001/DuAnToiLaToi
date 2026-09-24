@@ -323,6 +323,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentCreateType = null;
   const createTitles = {document:'Tiếp nhận văn bản',task:'Giao nhiệm vụ',meeting:'Tạo cuộc họp',calendar:'Thêm lịch công tác'};
   const openModal = type => {
+    if (type === 'document' && typeof openDocumentModalD1 === 'function') {
+      openDocumentModalD1();
+      return;
+    }
     if (type === 'task' && typeof openTaskModalD2 === 'function') {
       openTaskModalD2();
       return;
@@ -1132,13 +1136,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('calendarTodayBtn')?.addEventListener('click',()=>{
     calendarAnchor=new Date();
+    F1.miniCalendarAnchor=new Date();
     renderCalendarB3();
   });
   document.getElementById('calendarPrevWeek')?.addEventListener('click',()=>{
-    calendarAnchor=addDays(calendarAnchor,-7);renderCalendarB3();
+    calendarAnchor=F1.calendarView==='month'
+      ? new Date(calendarAnchor.getFullYear(),calendarAnchor.getMonth()-1,1)
+      : addDays(calendarAnchor,-7);
+    F1.miniCalendarAnchor=new Date(calendarAnchor);
+    renderCalendarB3();
   });
   document.getElementById('calendarNextWeek')?.addEventListener('click',()=>{
-    calendarAnchor=addDays(calendarAnchor,7);renderCalendarB3();
+    calendarAnchor=F1.calendarView==='month'
+      ? new Date(calendarAnchor.getFullYear(),calendarAnchor.getMonth()+1,1)
+      : addDays(calendarAnchor,7);
+    F1.miniCalendarAnchor=new Date(calendarAnchor);
+    renderCalendarB3();
   });
   document.querySelectorAll('[data-calendar-group]').forEach(cb=>{
     cb.addEventListener('change',renderCalendarB3);
@@ -2689,13 +2702,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelector('.repo-new-folder')?.addEventListener('click',createRepoFolderB4);
   document.querySelector('.repo-upload')?.addEventListener('click',()=>document.getElementById('repoUploadInput')?.click());
-  document.getElementById('repoUploadInput')?.addEventListener('change',e=>{
-    const f=e.target.files?.[0];
-    uploadRepoFileB4(f);
-    e.target.value='';
+  document.getElementById('repoUploadInput')?.addEventListener('change',async e=>{
+    const files=[...(e.target.files||[])];
+    if(!files.length) return;
+    try{
+      for(const file of files){
+        showToast('Đang tải lên',file.name);
+        await uploadRepoFileB4(file);
+      }
+      await loadRepositoryB4(B4.repoFolderId||'');
+      showToast('Tải lên thành công',`${files.length} tệp đã được lưu vào Google Drive.`);
+    }catch(err){
+      showToast('Không thể tải tệp',err.message||String(err));
+    }finally{
+      e.target.value='';
+    }
   });
 
   document.addEventListener('click',e=>{
+    if(e.target.closest('.f1-repo-action')) return;
     const folder=e.target.closest('.repo-item-open');
     if(folder?.dataset.folderId){
       loadRepositoryB4(folder.dataset.folderId);
@@ -4096,7 +4121,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('repoListView')?.classList.toggle('hidden-block', !list);
     lucide.createIcons();
   }));
-  bindSearch('repoSearch', '#repoFileGrid .file-card');
 
 
   // =========================
@@ -4805,6 +4829,84 @@ document.addEventListener('DOMContentLoaded', () => {
     else if(type==='MEETING'){document.querySelector('.nav-item[data-page="meetings"]')?.click();setTimeout(()=>openB3Meeting(id),100)}
   });
 
+
+  function simpleCompareF1(a,b){
+    const left=String(a||'').split(/\r?\n/);
+    const right=String(b||'').split(/\r?\n/);
+    const max=Math.max(left.length,right.length);
+    const rows=[];
+    let changed=0;
+    for(let i=0;i<max;i++){
+      const x=left[i]??'',y=right[i]??'';
+      if(x===y) continue;
+      changed++;
+      rows.push(`<div class="f1-diff-row"><span>Dòng ${i+1}</span><del>${esc(x||'∅')}</del><ins>${esc(y||'∅')}</ins></div>`);
+    }
+    return {changed,html:rows.join('')};
+  }
+
+  function proofreadBasicF1(text){
+    const issues=[];
+    if(/ {2,}/.test(text)) issues.push('Có khoảng trắng liên tiếp.');
+    if(/\s+[,.!?;:]/.test(text)) issues.push('Có khoảng trắng thừa trước dấu câu.');
+    if(/[,.!?;:][^\s\n”"')\]]/.test(text)) issues.push('Có vị trí thiếu khoảng trắng sau dấu câu.');
+    if(/\n{3,}/.test(text)) issues.push('Có quá nhiều dòng trống liên tiếp.');
+    if(!/[.!?…]\s*$/.test(text.trim())&&text.trim()) issues.push('Nội dung chưa kết thúc bằng dấu câu.');
+    const placeholders=(text.match(/\[CẦN BỔ SUNG:[^\]]+\]/gi)||[]).length;
+    if(placeholders) issues.push(`Còn ${placeholders} vị trí [CẦN BỔ SUNG].`);
+    return issues;
+  }
+
+  function moveToolToAdvisoryF1(promptText){
+    closeToolModal();
+    document.querySelector('.nav-item[data-page="advisory"]')?.click();
+    setTimeout(()=>{
+      const ta=document.getElementById('advisoryPrompt');
+      if(ta){ta.value=promptText;ta.focus()}
+    },100);
+  }
+
+  function runToolF1(type){
+    if(type==='compare'){
+      const a=document.getElementById('toolCompareA')?.value||'',b=document.getElementById('toolCompareB')?.value||'';
+      const result=document.getElementById('toolResult');
+      if(!a&&!b){showToast('Chưa có nội dung','Dán hai phiên bản để so sánh.');return}
+      const diff=simpleCompareF1(a,b);
+      if(result)result.innerHTML=diff.changed?`<strong>Phát hiện ${diff.changed} dòng khác nhau</strong>${diff.html}`:'<strong>Hai nội dung giống nhau.</strong>';
+      return;
+    }
+    if(type==='proofread'){
+      const text=document.getElementById('toolProofread')?.value||'';
+      if(!text.trim()){showToast('Chưa có nội dung','Dán văn bản cần kiểm tra.');return}
+      const issues=proofreadBasicF1(text);
+      const result=document.getElementById('toolResult');
+      if(result)result.innerHTML=issues.length?`<strong>Phát hiện ${issues.length} điểm cần rà soát</strong><ul>${issues.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<strong>Không phát hiện lỗi định dạng cơ bản.</strong><p>Nếu cần rà soát sâu về nội dung và logic, dùng Trợ lý tham mưu.</p>';
+      return;
+    }
+    if(type==='voice'){
+      const text=document.getElementById('toolVoiceText')?.value||'';
+      if(!text.trim()){showToast('Chưa có nội dung','Dán nội dung cần đọc.');return}
+      if(!('speechSynthesis' in window)){showToast('Không hỗ trợ','Trình duyệt này không hỗ trợ đọc văn bản.');return}
+      speechSynthesis.cancel();
+      const utter=new SpeechSynthesisUtterance(text);
+      utter.lang='vi-VN';utter.rate=1;
+      speechSynthesis.speak(utter);
+      showToast('Đang đọc văn bản','Có thể đóng cửa sổ, trình duyệt vẫn tiếp tục đọc.');
+      return;
+    }
+    if(type==='report'){
+      closeToolModal();document.querySelector('.nav-item[data-page="reports"]')?.click();return;
+    }
+    const prompt=document.getElementById('toolPrompt')?.value?.trim()||'';
+    const defaults={
+      ocr:'Hãy trích xuất nguyên văn nội dung từ ảnh hoặc PDF scan tôi đính kèm, giữ bố cục xuống dòng cơ bản và không tự bổ sung nội dung.',
+      summary:'Hãy tóm tắt nội dung sau thành các ý chính phục vụ công việc: ',
+      draft:'Hãy soạn dự thảo văn bản hành chính theo yêu cầu sau: ',
+      speech:'Hãy xây dựng dàn ý và bản nháp bài phát biểu từ nội dung sau: '
+    };
+    moveToolToAdvisoryF1((defaults[type]||'Hỗ trợ nội dung sau: ')+prompt);
+  }
+
   // Tool modal
   const toolModal = document.getElementById('toolModal');
   const toolModalTitle = document.getElementById('toolModalTitle');
@@ -4817,17 +4919,18 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const toolBodies = {
-    compare: `<div class="tool-workspace"><label class="tool-drop"><i data-lucide="file-up"></i><strong>Văn bản gốc</strong><span>Chọn DOCX, PDF hoặc TXT</span></label><label class="tool-drop"><i data-lucide="file-up"></i><strong>Văn bản cần so sánh</strong><span>Chọn phiên bản mới</span></label><div class="tool-options"><label class="tool-option"><input type="checkbox" checked><div><strong>Đánh dấu nội dung thay đổi</strong><span>Làm nổi bật phần thêm, xóa và sửa</span></div></label><label class="tool-option"><input type="checkbox" checked><div><strong>Tạo bảng tổng hợp</strong><span>Liệt kê các khác biệt chính</span></div></label></div></div>`,
-    ocr: `<div class="tool-single-form"><label class="tool-drop"><i data-lucide="scan-text"></i><strong>Chọn ảnh hoặc PDF scan</strong><span>Hỗ trợ PNG, JPG, PDF</span></label><label class="tool-option"><input type="checkbox" checked><div><strong>Giữ xuống dòng cơ bản</strong><span>Phù hợp với văn bản hành chính</span></div></label></div>`,
-    summary: `<div class="tool-single-form"><label class="tool-drop"><i data-lucide="file-up"></i><strong>Chọn tài liệu cần tóm tắt</strong><span>PDF, DOCX hoặc TXT</span></label><textarea placeholder="Yêu cầu thêm, ví dụ: Tóm tắt thành 5 ý để báo cáo lãnh đạo..."></textarea></div>`,
-    proofread: `<div class="tool-single-form"><textarea placeholder="Dán nội dung văn bản cần kiểm tra vào đây..."></textarea><div class="tool-options"><label class="tool-option"><input type="checkbox" checked><div><strong>Chính tả & câu chữ</strong><span>Rà lỗi thường gặp</span></div></label><label class="tool-option"><input type="checkbox" checked><div><strong>Thông tin còn thiếu</strong><span>Nhắc các trường cần kiểm tra</span></div></label></div></div>`,
-    draft: `<div class="tool-single-form"><textarea placeholder="Mô tả văn bản cần soạn, ví dụ: Soạn dự thảo thông báo kết luận cuộc họp..."></textarea><label class="tool-option"><input type="checkbox" checked><div><strong>Sử dụng mẫu văn bản của đơn vị</strong><span>Sang bước B sẽ đọc mẫu từ Google Drive</span></div></label></div>`,
-    speech: `<div class="tool-single-form"><textarea placeholder="Nhập chủ đề, bối cảnh, đối tượng nghe và những ý chính cần nhấn mạnh..."></textarea></div>`,
-    report: `<div class="tool-single-form"><textarea placeholder="Mô tả loại báo cáo cần tổng hợp..."></textarea><label class="tool-option"><input type="checkbox" checked><div><strong>Lấy dữ liệu nhiệm vụ</strong><span>Tổng hợp tiến độ từ hệ thống</span></div></label></div>`,
-    voice: `<div class="tool-single-form"><textarea placeholder="Dán nội dung cần đọc hoặc chọn tài liệu..."></textarea><label class="tool-option"><input type="checkbox" checked><div><strong>Giọng đọc tiếng Việt</strong><span>Bản A4 chỉ mô phỏng giao diện</span></div></label></div>`
+    compare: `<div class="f1-compare-grid"><label class="form-field"><span>Văn bản gốc</span><textarea id="toolCompareA" rows="12" placeholder="Dán nội dung bản gốc..."></textarea></label><label class="form-field"><span>Văn bản mới</span><textarea id="toolCompareB" rows="12" placeholder="Dán nội dung bản mới..."></textarea></label></div><div id="toolResult" class="f1-tool-result"></div>`,
+    ocr: `<div class="tool-single-form"><p class="f1-tool-help">OCR ảnh/PDF được xử lý qua Trợ lý tham mưu. Mở Trợ lý, đính kèm ảnh/PDF và hệ thống sẽ trích xuất nội dung.</p><textarea id="toolPrompt" rows="5" placeholder="Yêu cầu OCR bổ sung (không bắt buộc)..."></textarea></div>`,
+    summary: `<div class="tool-single-form"><textarea id="toolPrompt" rows="8" placeholder="Nhập yêu cầu tóm tắt hoặc nội dung cần tóm tắt..."></textarea></div>`,
+    proofread: `<div class="tool-single-form"><textarea id="toolProofread" rows="12" placeholder="Dán nội dung văn bản cần kiểm tra..."></textarea><div id="toolResult" class="f1-tool-result"></div></div>`,
+    draft: `<div class="tool-single-form"><textarea id="toolPrompt" rows="10" placeholder="Mô tả văn bản cần soạn..."></textarea></div>`,
+    speech: `<div class="tool-single-form"><textarea id="toolPrompt" rows="10" placeholder="Nhập chủ đề, bối cảnh và các ý chính..."></textarea></div>`,
+    report: `<div class="tool-single-form"><p class="f1-tool-help">Mở Báo cáo điều hành để tổng hợp dữ liệu thật và xuất PDF.</p></div>`,
+    voice: `<div class="tool-single-form"><textarea id="toolVoiceText" rows="12" placeholder="Dán nội dung cần đọc..."></textarea><div id="toolResult" class="f1-tool-result">Dùng giọng tiếng Việt của trình duyệt.</div></div>`
   };
 
   const openToolModal = type => {
+    F1.activeTool=type;
     toolModalTitle.textContent = toolTitles[type] || 'Công cụ';
     toolModalBody.innerHTML = toolBodies[type] || '';
     toolModal.classList.add('show');
@@ -4839,14 +4942,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.close-tool-modal').forEach(btn => btn.addEventListener('click', closeToolModal));
   toolModal?.addEventListener('click', e => { if (e.target === toolModal) closeToolModal(); });
   runToolAction?.addEventListener('click', () => {
-    closeToolModal();
-    showToast('Đã chạy thử công cụ', 'Bản A4 đang mô phỏng giao diện. Chức năng thật sẽ được nối sau.');
+    runToolF1(F1.activeTool);
   });
 
 
   globalSearch?.addEventListener('keydown', e => {
     if (e.key === 'Enter' && globalSearch.value.trim()) {
-      showToast('Tìm kiếm toàn hệ thống', `Đã nhận từ khóa: "${globalSearch.value.trim()}".`);
+      e.preventDefault();
+      runGlobalSearchF1();
     }
   });
 
