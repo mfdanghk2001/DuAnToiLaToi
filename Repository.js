@@ -90,5 +90,71 @@ const RepositoryService = (() => {
     return rowToObject_(headers, row);
   }
 
-  return {getAll, findById, append, updateById};
+
+  function batchUpdateByIds(sheetName, idColumn, updates) {
+    updates = Array.isArray(updates) ? updates.filter(Boolean) : [];
+    if (!updates.length) return {updated:0};
+
+    const sh = SystemConfig.getSheet(sheetName);
+    const headers = getHeaders_(sh);
+    const idIndex = headers.indexOf(idColumn);
+    if (idIndex < 0) throw new Error('Không tìm thấy cột ID: ' + idColumn);
+
+    const lastRow = sh.getLastRow();
+    if (lastRow <= 1) return {updated:0};
+
+    const data = sh.getRange(2,1,lastRow-1,headers.length).getValues();
+    const patchMap = {};
+    updates.forEach(x => {
+      if (x && x.id !== undefined) patchMap[String(x.id)] = x.patch || {};
+    });
+
+    let changed = 0;
+    data.forEach(row => {
+      const patch = patchMap[String(row[idIndex])];
+      if (!patch) return;
+      Object.keys(patch).forEach(key => {
+        const col = headers.indexOf(key);
+        if (col >= 0) row[col] = patch[key];
+      });
+      changed++;
+    });
+
+    if (changed) {
+      sh.getRange(2,1,data.length,headers.length).setValues(data);
+      invalidateSheetCaches_(sheetName);
+    }
+    return {updated:changed};
+  }
+
+  function deleteWhere(sheetName, predicate) {
+    const sh = SystemConfig.getSheet(sheetName);
+    const lastRow = sh.getLastRow();
+    const lastCol = sh.getLastColumn();
+    if (lastRow <= 1 || lastCol <= 0) return {deleted:0};
+
+    const headers = getHeaders_(sh);
+    const rows = sh.getRange(2,1,lastRow-1,lastCol).getValues();
+    const deleteRows = [];
+
+    rows.forEach((row,i) => {
+      const obj = rowToObject_(headers,row);
+      if (predicate(obj)) deleteRows.push(i+2);
+    });
+
+    for (let i=deleteRows.length-1;i>=0;i--) {
+      sh.deleteRow(deleteRows[i]);
+    }
+    if (deleteRows.length) invalidateSheetCaches_(sheetName);
+    return {deleted:deleteRows.length};
+  }
+
+  return {
+    getAll,
+    findById,
+    append,
+    updateById,
+    batchUpdateByIds,
+    deleteWhere
+  };
 })();
