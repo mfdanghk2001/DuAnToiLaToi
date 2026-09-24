@@ -93,7 +93,7 @@ const RepositoryService = (() => {
   }
 
   function getAll(sheetName) {
-    if (runtimeRows[sheetName]) return runtimeRows[sheetName];
+    if (runtimeRows[sheetName]) return runtimeRows[sheetName].slice();
 
     const ttl = ROW_CACHE_TTL[sheetName] || 0;
     if (ttl) {
@@ -101,7 +101,7 @@ const RepositoryService = (() => {
         const cached = CacheService.getScriptCache().get(rowCacheKey_(sheetName));
         if (cached) {
           runtimeRows[sheetName] = JSON.parse(cached);
-          return runtimeRows[sheetName];
+          return runtimeRows[sheetName].slice();
         }
       } catch (e) {}
     }
@@ -125,7 +125,7 @@ const RepositoryService = (() => {
         }
       } catch (e) {}
     }
-    return rows;
+    return rows.slice();
   }
 
   function findById(sheetName, idColumn, id) {
