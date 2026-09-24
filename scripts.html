@@ -798,36 +798,53 @@ document.addEventListener('DOMContentLoaded', () => {
     B2.user=null;B2.users=[];B2.dashboard=null;
   }
 
-  function accountChooserUrl_(){
-    const continueUrl=encodeURIComponent(window.location.href);
-    return 'https://accounts.google.com/AccountChooser?continue='+continueUrl;
-  }
-
-  function logoutGoogle_(){
-    closeProfileMenu_();
-    clearClientSessionP2_();
-
+  function setLoggedOutGateway_(){
     const gateway=document.getElementById('accessGateway');
     gateway?.removeAttribute('hidden');
     gateway?.classList.remove('access-exit','access-denied','access-error');
     document.body.classList.add('access-pending');
     document.body.classList.remove('access-ready');
+    document.getElementById('appShell')?.setAttribute('aria-hidden','true');
+
+    document.getElementById('accessIdentity')?.classList.add('hidden-block');
+    document.getElementById('accessLoadingLine')?.classList.add('hidden-block');
+    document.getElementById('accessStateCard')?.classList.remove('hidden-block');
+    document.getElementById('accessActions')?.classList.remove('hidden-block');
 
     const title=document.getElementById('accessTitle');
     const msg=document.getElementById('accessMessage');
-    if(title) title.textContent='Đã thoát khỏi hệ thống';
-    if(msg) msg.textContent='Vui lòng chọn tài khoản Google để đăng nhập lại.';
+    const stateTitle=document.getElementById('accessStateTitle');
+    const stateMsg=document.getElementById('accessStateMessage');
+    const stateEmail=document.getElementById('accessStateEmail');
+    const retry=document.getElementById('accessRetryBtn');
+    const switchBtn=document.getElementById('accessSwitchAccountBtn');
 
-    // Tránh endpoint logout kèm URL quay lại vì Google có thể trả HTTP 400.
-    // AccountChooser ổn định hơn cho Web App Apps Script và vẫn cho phép
-    // chuyển sang tài khoản khác ngay lập tức.
-    setTimeout(()=>{
-      window.location.replace(accountChooserUrl_());
-    },180);
+    if(title) title.textContent='Đã đăng xuất khỏi ứng dụng';
+    if(msg) msg.textContent='Phiên làm việc trong Văn phòng Đảng ủy số đã được đóng.';
+    if(stateTitle) stateTitle.textContent='Đổi tài khoản Google an toàn';
+    if(stateMsg) stateMsg.textContent='Apps Script có thể lỗi 404 khi trình duyệt đang đăng nhập nhiều tài khoản Google. Hãy mở Google ở tab mới, chuyển hoặc đăng xuất tài khoản tại đó, rồi quay lại đây và xác minh lại.';
+    if(stateEmail) stateEmail.textContent='Mẹo: nếu vẫn bị nhầm tài khoản, hãy mở Web App trong cửa sổ ẩn danh với đúng một tài khoản Google.';
+    if(retry) retry.innerHTML='<i data-lucide="refresh-cw"></i> Xác minh lại';
+    if(switchBtn) switchBtn.innerHTML='<i data-lucide="external-link"></i> Mở Google để đổi tài khoản';
+
+    setAccessStep_('identity',[]);
+    lucide.createIcons();
+  }
+
+  function openGoogleAccountPage_(){
+    window.open('https://www.google.com/','_blank','noopener');
+  }
+
+  function logoutGoogle_(){
+    closeProfileMenu_();
+    clearClientSessionP2_();
+    setLoggedOutGateway_();
   }
 
   function switchGoogleAccount_(){
-    window.location.replace(accountChooserUrl_());
+    closeProfileMenu_();
+    setLoggedOutGateway_();
+    openGoogleAccountPage_();
   }
 
   const renderUser = () => {
@@ -2982,7 +2999,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(e.key==='Escape') closeProfileMenu_();
   });
 
-  document.getElementById('accessRetryBtn')?.addEventListener('click',()=>bootstrapB2());
+  document.getElementById('accessRetryBtn')?.addEventListener('click',()=>window.location.reload());
   document.getElementById('accessSwitchAccountBtn')?.addEventListener('click',switchGoogleAccount_);
 
   bootstrapB2();
