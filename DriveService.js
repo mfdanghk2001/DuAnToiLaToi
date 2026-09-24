@@ -49,10 +49,17 @@ const DriveService = (() => {
     const folder = DriveApp.getFolderById(folderId);
     const raw = String(file.base64).replace(/^data:[^;]+;base64,/, '');
     const bytes = Utilities.base64Decode(raw);
+    if (bytes.length > 20 * 1024 * 1024) {
+      throw new Error('Mỗi tệp đính kèm tối đa 20 MB.');
+    }
+    const safeName = String(file.name || 'tai-lieu')
+      .replace(/[\\/:*?"<>|]/g,'-')
+      .trim()
+      .slice(0,180) || 'tai-lieu';
     const blob = Utilities.newBlob(
       bytes,
       file.mimeType || 'application/octet-stream',
-      file.name
+      safeName
     );
     const created = folder.createFile(blob);
 
