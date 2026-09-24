@@ -50,14 +50,15 @@ const B6NotificationService = (() => {
         !(n.is_read === true || String(n.is_read).toUpperCase() === 'TRUE')
       );
 
-    rows.forEach(n => {
-      RepositoryService.updateById(
-        'NOTIFICATIONS','notification_id',n.notification_id,{
-          is_read: true,
-          read_at: new Date()
-        }
-      );
-    });
+    const readAt = new Date();
+    RepositoryService.batchUpdateByIds(
+      'NOTIFICATIONS',
+      'notification_id',
+      rows.map(n => ({
+        id:n.notification_id,
+        patch:{is_read:true,read_at:readAt}
+      }))
+    );
 
     return {updated: rows.length};
   }
@@ -107,8 +108,7 @@ const B6NotificationService = (() => {
     const now = new Date();
     const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-    const users = RepositoryService.getAll('USERS')
-      .filter(u => u.status === 'ACTIVE');
+    const users = AuthService.listActiveUsersCached();
     const activeUserIds = new Set(users.map(u => u.user_id));
 
     const notifications = RepositoryService.getAll('NOTIFICATIONS');
@@ -241,7 +241,7 @@ const B6ActivityService = (() => {
       throw new Error('Chỉ ADMIN được xem nhật ký hoạt động.');
     }
 
-    const users = RepositoryService.getAll('USERS');
+    const users = AuthService.listUsersCached();
     const userMap = {};
     users.forEach(u => userMap[u.user_id] = u.full_name || u.email);
 
