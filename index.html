@@ -89,7 +89,7 @@
           <span class="nav-icon"><i data-lucide="settings"></i></span>
           <span class="nav-label">Quản trị</span>
         </a>
-        <a href="#" class="nav-item">
+        <a href="#" class="nav-item" data-page="help">
           <span class="nav-icon"><i data-lucide="circle-help"></i></span>
           <span class="nav-label">Trợ giúp</span>
         </a>
@@ -290,7 +290,7 @@
               </div>
 
               <div class="panel-footer">
-                <button class="text-btn">
+                <button class="text-btn" id="dashboardAllTasks">
                   Xem tất cả công việc
                   <i data-lucide="arrow-right"></i>
                 </button>
@@ -301,7 +301,7 @@
               <div class="panel-head">
                 <div>
                   <h2>Lịch hôm nay</h2>
-                  <p>Thứ Năm, 17/09</p>
+                  <p id="dashboardAgendaDate">Hôm nay</p>
                 </div>
                 <button class="icon-btn"><i data-lucide="calendar-plus"></i></button>
               </div>
@@ -327,7 +327,7 @@
                   <h2>Văn bản mới nhận</h2>
                   <p>Các văn bản vừa được tiếp nhận vào hệ thống</p>
                 </div>
-                <button class="text-btn">Xem tất cả <i data-lucide="arrow-right"></i></button>
+                <button class="text-btn" id="dashboardAllDocuments">Xem tất cả <i data-lucide="arrow-right"></i></button>
               </div>
 
               <div class="document-list" id="dashboardDocumentList">
@@ -373,10 +373,10 @@
             <div class="panel progress-panel">
               <div class="panel-head">
                 <div>
-                  <h2>Tiến độ tháng 9</h2>
+                  <h2 id="dashboardProgressTitle">Tiến độ nhiệm vụ</h2>
                   <p>Tình hình xử lý nhiệm vụ</p>
                 </div>
-                <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
+                
               </div>
 
               <div class="donut-wrap">
@@ -402,7 +402,7 @@
                 <h2>Công cụ nhanh</h2>
                 <p>Những tác vụ thường dùng trong công việc hằng ngày</p>
               </div>
-              <button class="text-btn">Mở tất cả công cụ <i data-lucide="arrow-right"></i></button>
+              <button class="text-btn" id="dashboardAllTools">Mở tất cả công cụ <i data-lucide="arrow-right"></i></button>
             </div>
 
             <div class="tool-grid">
@@ -1291,6 +1291,53 @@
                 <button class="btn btn-secondary" id="systemInstallReminder"><i data-lucide="bell-ring"></i> Cài nhắc việc mỗi giờ</button>
                 <button class="btn btn-primary" id="systemCreateBackup"><i data-lucide="database-backup"></i> Sao lưu dữ liệu ngay</button>
               </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="page hidden-page stabilized-page" id="page-help">
+          <section class="module-header">
+            <div>
+              <p class="eyebrow">HƯỚNG DẪN SỬ DỤNG</p>
+              <h1>Trợ giúp nhanh</h1>
+              <p>Các thao tác chính để sử dụng Văn phòng Đảng ủy số trong công việc hằng ngày.</p>
+            </div>
+          </section>
+
+          <section class="help-grid">
+            <article class="panel help-card">
+              <span class="help-icon blue-soft"><i data-lucide="inbox"></i></span>
+              <div><h2>Văn bản</h2><p>Tiếp nhận hoặc tạo văn bản, giao người xử lý, đặt hạn, đính kèm tài liệu và tạo nhiệm vụ liên quan.</p></div>
+            </article>
+            <article class="panel help-card">
+              <span class="help-icon green-soft"><i data-lucide="list-checks"></i></span>
+              <div><h2>Nhiệm vụ</h2><p>Theo dõi tiến độ, phối hợp xử lý, trình duyệt hoàn thành và xem toàn bộ lịch sử công việc.</p></div>
+            </article>
+            <article class="panel help-card">
+              <span class="help-icon amber-soft"><i data-lucide="calendar-days"></i></span>
+              <div><h2>Lịch & cuộc họp</h2><p>Tạo lịch công tác, hồ sơ cuộc họp, thành phần, biên bản, kết luận và nhiệm vụ sau họp.</p></div>
+            </article>
+            <article class="panel help-card">
+              <span class="help-icon purple-soft"><i data-lucide="folder-open"></i></span>
+              <div><h2>Kho tài liệu</h2><p>Tạo thư mục, tải nhiều tệp, tìm kiếm, đánh dấu, đổi tên và đưa tài liệu vào thùng rác Drive.</p></div>
+            </article>
+            <article class="panel help-card">
+              <span class="help-icon red-soft"><i data-lucide="chart-spline"></i></span>
+              <div><h2>Báo cáo</h2><p>Lọc theo tuần, tháng, quý hoặc khoảng thời gian; theo dõi số liệu và xuất báo cáo PDF.</p></div>
+            </article>
+            <article class="panel help-card">
+              <span class="help-icon blue-soft"><i data-lucide="search"></i></span>
+              <div><h2>Tìm kiếm nhanh</h2><p>Nhấn Ctrl + K hoặc dùng ô tìm kiếm phía trên để mở nhanh văn bản, nhiệm vụ và cuộc họp.</p></div>
+            </article>
+          </section>
+
+          <section class="panel help-notes">
+            <div class="panel-head"><div><h2>Lưu ý khi sử dụng</h2><p>Giữ dữ liệu nhất quán và an toàn.</p></div></div>
+            <div class="help-note-list">
+              <div><i data-lucide="save"></i><span>Sau khi bấm Lưu, chờ thông báo thành công trước khi đóng trình duyệt.</span></div>
+              <div><i data-lucide="paperclip"></i><span>Tệp đính kèm tối đa 20 MB/tệp; tệp lớn có thể cần thêm thời gian để tải lên Drive.</span></div>
+              <div><i data-lucide="shield-check"></i><span>Các chức năng hiển thị theo quyền của từng tài khoản; liên hệ quản trị viên nếu thiếu quyền cần thiết.</span></div>
+              <div><i data-lucide="sparkles"></i><span>Nội dung từ Trợ lý tham mưu là bản nháp hỗ trợ và cần được kiểm tra trước khi sử dụng chính thức.</span></div>
             </div>
           </section>
         </div>
