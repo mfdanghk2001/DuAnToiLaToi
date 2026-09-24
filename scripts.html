@@ -798,6 +798,11 @@ document.addEventListener('DOMContentLoaded', () => {
     B2.user=null;B2.users=[];B2.dashboard=null;
   }
 
+  function accountChooserUrl_(){
+    const continueUrl=encodeURIComponent(window.location.href);
+    return 'https://accounts.google.com/AccountChooser?continue='+continueUrl;
+  }
+
   function logoutGoogle_(){
     closeProfileMenu_();
     clearClientSessionP2_();
@@ -810,16 +815,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const title=document.getElementById('accessTitle');
     const msg=document.getElementById('accessMessage');
-    if(title) title.textContent='Đang đăng xuất';
-    if(msg) msg.textContent='Đang kết thúc phiên Google và đưa bạn về màn chọn tài khoản…';
+    if(title) title.textContent='Đã thoát khỏi hệ thống';
+    if(msg) msg.textContent='Vui lòng chọn tài khoản Google để đăng nhập lại.';
 
-    const back=encodeURIComponent(window.location.href);
-    window.location.href='https://accounts.google.com/Logout?continue='+back;
+    // Tránh endpoint logout kèm URL quay lại vì Google có thể trả HTTP 400.
+    // AccountChooser ổn định hơn cho Web App Apps Script và vẫn cho phép
+    // chuyển sang tài khoản khác ngay lập tức.
+    setTimeout(()=>{
+      window.location.replace(accountChooserUrl_());
+    },180);
   }
 
   function switchGoogleAccount_(){
-    const continueUrl=encodeURIComponent(window.location.href);
-    window.location.href='https://accounts.google.com/AccountChooser?continue='+continueUrl;
+    window.location.replace(accountChooserUrl_());
   }
 
   const renderUser = () => {
