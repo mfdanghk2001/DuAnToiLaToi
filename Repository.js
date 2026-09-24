@@ -67,14 +67,24 @@ const RepositoryService = (() => {
     runtimeIdRows[sheetName] = runtimeIdRows[sheetName] || {};
     const cacheKey = idColumn;
     if (!runtimeIdRows[sheetName][cacheKey]) {
-      const lastRow = sheet.getLastRow();
       const map = {};
-      if (lastRow > 1) {
-        const ids = sheet.getRange(2, idIndex + 1, lastRow - 1, 1).getDisplayValues();
-        ids.forEach((row, i) => {
-          const key = String(row[0]);
+
+      // Nếu getAll() đã chạy trong request này, thứ tự mảng chính là thứ tự hàng.
+      // Không cần quét lại cột ID.
+      if (runtimeRows[sheetName]) {
+        runtimeRows[sheetName].forEach((obj, i) => {
+          const key = String(obj[idColumn] == null ? '' : obj[idColumn]);
           if (key) map[key] = i + 2;
         });
+      } else {
+        const lastRow = sheet.getLastRow();
+        if (lastRow > 1) {
+          const ids = sheet.getRange(2, idIndex + 1, lastRow - 1, 1).getDisplayValues();
+          ids.forEach((row, i) => {
+            const key = String(row[0]);
+            if (key) map[key] = i + 2;
+          });
+        }
       }
       runtimeIdRows[sheetName][cacheKey] = map;
     }
@@ -119,6 +129,13 @@ const RepositoryService = (() => {
   }
 
   function findById(sheetName, idColumn, id) {
+    if (runtimeRows[sheetName]) {
+      const hit = runtimeRows[sheetName].find(
+        x => String(x[idColumn]) === String(id)
+      );
+      if (hit) return hit;
+    }
+
     const sh = SystemConfig.getSheet(sheetName);
     const headers = getHeaders_(sh);
     const rowNumber = findRowNumber_(sh, headers, idColumn, id);
