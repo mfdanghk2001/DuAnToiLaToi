@@ -327,6 +327,14 @@ document.addEventListener('DOMContentLoaded', () => {
       openTaskModalD2();
       return;
     }
+    if (type === 'calendar' && typeof openCalendarModalF1 === 'function') {
+      openCalendarModalF1();
+      return;
+    }
+    if (type === 'meeting' && typeof openMeetingModalF1 === 'function') {
+      openMeetingModalF1();
+      return;
+    }
     currentCreateType = type;
     createModalTitle.textContent = createTitles[type] || 'Tạo mới';
     if (createForm && modalForms[type]) createForm.innerHTML = modalForms[type];
@@ -356,7 +364,11 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (i === 1) openModal('task');
       else if (i === 2) openModal('meeting');
       else if (i === 3) openModal('calendar');
-      else showToast('Đã chọn thao tác', btn.innerText.trim() + ' sẽ được hoàn thiện ở bước A4/B.');
+      else if (i === 4) document.querySelector('.nav-item[data-page="advisory"]')?.click();
+      else if (i === 5) {
+        document.querySelector('.nav-item[data-page="repository"]')?.click();
+        setTimeout(()=>document.getElementById('repoUploadInput')?.click(),120);
+      }
     });
   });
 
@@ -468,6 +480,27 @@ document.addEventListener('DOMContentLoaded', () => {
     calendarLoaded:false,
     meetingsLoaded:false,
     aiConfigLoaded:false
+  };
+
+  const F1 = {
+    calendarView:'week',
+    calendarEditingId:'',
+    miniCalendarAnchor:new Date(),
+    meetingQuery:'',
+    meetingEditingId:'',
+    meetingCurrent:null,
+    repositoryMode:'folder',
+    repositoryItems:[],
+    reportFilters:{
+      period:'MONTH',
+      anchorDate:'',
+      dateFrom:'',
+      dateTo:'',
+      departmentId:'ALL'
+    },
+    reportLoaded:false,
+    diagnostics:null,
+    activeTool:''
   };
 
   const gasCall = (fn, ...args) => new Promise((resolve, reject) => {
@@ -640,7 +673,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     try{
-      B2.calendarEvents=await gasCall('apiListCalendarEvents')||[];
+      const data=await gasCall('apiF1ListCalendar',{});
+      B2.calendarEvents=data?.items||[];
       P1.calendarLoaded=true;
       renderCalendarB3();
     }catch(err){
@@ -654,7 +688,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     try{
-      B2.meetings=await gasCall('apiListMeetings')||[];
+      const data=await gasCall('apiF1ListMeetings',{q:F1.meetingQuery||''});
+      B2.meetings=data?.items||[];
       P1.meetingsLoaded=true;
       renderMeetingsB3();
     }catch(err){
@@ -2546,7 +2581,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fileGrid.innerHTML='';
 
     try{
-      const data=await gasCall('apiB4ListRepository',folderId||'');
+      const data=await gasCall('apiF1ListRepository',folderId||'');
       B4.repoData=data;
       B4.repoFolderId=data.folder.id;
       B4.repoRootId=data.rootFolderId;
@@ -2631,7 +2666,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const name=window.prompt('Tên thư mục mới:');
     if(!name||!name.trim()) return;
     try{
-      await gasCall('apiB4CreateRepositoryFolder',B4.repoFolderId||'',name.trim());
+      await gasCall('apiF1CreateRepositoryFolder',B4.repoFolderId||'',name.trim());
       await loadRepositoryB4(B4.repoFolderId||'');
       showToast('Đã tạo thư mục','Thư mục mới đã được tạo trên Google Drive.');
     }catch(err){
@@ -2644,7 +2679,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try{
       showToast('Đang tải lên',file.name);
       const encoded=await readFileAsBase64(file);
-      await gasCall('apiB4UploadRepositoryFile',B4.repoFolderId||'',encoded);
+      await gasCall('apiF1UploadRepositoryFile',B4.repoFolderId||'',encoded);
       await loadRepositoryB4(B4.repoFolderId||'');
       showToast('Tải lên thành công',`${file.name} đã được lưu vào Google Drive.`);
     }catch(err){
@@ -2692,7 +2727,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     repoSearchTimer=setTimeout(async()=>{
       try{
-        const results=await gasCall('apiB4SearchRepository',q);
+        const results=await gasCall('apiF1SearchRepository',q);
         const fileGrid=document.getElementById('repoFileGrid');
         const folderGrid=document.getElementById('repoFolderGrid');
         if(folderGrid) folderGrid.innerHTML='';
@@ -2720,7 +2755,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadReportB4(){
     try{
-      const data=await gasCall('apiB4GetReportData');
+      const data=await gasCall('apiF1GetReport');
       B4.report=data;
       renderReportB4();
     }catch(err){
@@ -2855,7 +2890,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ['.open-create-modal[data-type="meeting"]','meetings.create'],
       ['.repo-upload','repository.upload'],
       ['.repo-new-folder','repository.upload'],
-      ['.report-generate','reports.create']
+      ['#reportExportPdf','reports.create']
     ];
 
     controlRules.forEach(([selector,permission])=>{
@@ -3151,8 +3186,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('adminRolesPanel')?.classList.toggle('hidden-block',tab!=='roles');
     document.getElementById('adminDepartmentsPanel')?.classList.toggle('hidden-block',tab!=='departments');
     document.getElementById('adminActivityPanel')?.classList.toggle('hidden-block',tab!=='activity');
+    document.getElementById('adminSystemPanel')?.classList.toggle('hidden-block',tab!=='system');
 
     if(tab==='activity') loadActivityB6();
+    if(tab==='system') loadSystemDiagnosticsF1();
   }));
 
   document.getElementById('adminAddUser')?.addEventListener('click',()=>openAdminUserModalB5());
@@ -4045,15 +4082,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   // Reports
-  document.querySelectorAll('.report-period .segment').forEach(btn => btn.addEventListener('click', () => {
-    document.querySelectorAll('.report-period .segment').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    showToast('Đã đổi kỳ báo cáo', `Đang xem dữ liệu theo ${btn.textContent.toLowerCase()}.`);
-  }));
-  document.querySelectorAll('.report-generate').forEach(btn => btn.addEventListener('click', async () => {
-    await loadReportB4();
-    showToast('Đã cập nhật báo cáo', 'Số liệu đã được tổng hợp lại từ dữ liệu thật.');
-  }));
+
   document.getElementById('reportToTasks')?.addEventListener('click', () => {
     document.querySelector('.nav-item[data-page="tasks"]')?.click();
   });
