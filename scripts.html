@@ -3755,6 +3755,12 @@ document.addEventListener('DOMContentLoaded', () => {
       password:document.getElementById('adminUserPassword')?.value||''
     };
 
+    if(!B5.editingUserId && !payload.password){
+      showToast('Thiếu mật khẩu','Hãy đặt mật khẩu ban đầu cho tài khoản mới.');
+      document.getElementById('adminUserPassword')?.focus();
+      return;
+    }
+
     const btn=document.getElementById('adminSaveUser');
     if(btn){btn.disabled=true;btn.textContent='Đang lưu...'}
 
