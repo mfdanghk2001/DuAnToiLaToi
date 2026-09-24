@@ -523,7 +523,9 @@ const D2TaskService = (() => {
       throw new Error('Chỉ người quản lý nhiệm vụ mới có thể hủy.');
     }
 
-    if (status === 'WAITING_APPROVAL') progress = 100;
+    if (status === 'WAITING_APPROVAL') {
+      throw new Error('Hãy dùng chức năng Trình duyệt để chuyển nhiệm vụ sang Chờ duyệt.');
+    }
     if (status === 'NEW' && progress > 0) status = 'IN_PROGRESS';
     if (status === 'IN_PROGRESS' && progress >= 100) status = 'WAITING_APPROVAL';
 
@@ -594,17 +596,17 @@ const D2TaskService = (() => {
       throw new Error('Hành động duyệt không hợp lệ.');
     }
 
-    if (action === 'APPROVE') {
-      if (current.status !== 'WAITING_APPROVAL') {
-        throw new Error('Nhiệm vụ chưa ở trạng thái chờ duyệt.');
-      }
+    if (current.status !== 'WAITING_APPROVAL') {
+      throw new Error('Nhiệm vụ chưa ở trạng thái chờ duyệt.');
+    }
 
+    if (action === 'APPROVE') {
       RepositoryService.updateById(
         'TASKS','task_id',taskId,{
           progress:100,
           status:'COMPLETED',
           completed_at:new Date(),
-          result_note:note ? clean_(note) : current.result_note,
+          result_note:current.result_note,
           updated_at:new Date()
         }
       );
