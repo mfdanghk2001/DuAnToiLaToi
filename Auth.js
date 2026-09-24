@@ -24,11 +24,10 @@ const AuthService = (() => {
   };
 
   function getSessionEmail_() {
-    return (
-      Session.getActiveUser().getEmail() ||
-      Session.getEffectiveUser().getEmail() ||
-      ''
-    ).toLowerCase();
+    // SECURITY: chỉ dùng danh tính người đang truy cập.
+    // Không fallback sang EffectiveUser vì web app chạy dưới tài khoản deployer;
+    // fallback đó có thể khiến khách truy cập bị nhận nhầm thành tài khoản deploy.
+    return String(Session.getActiveUser().getEmail() || '').toLowerCase();
   }
 
   function listUsersCached() {
@@ -70,7 +69,7 @@ const AuthService = (() => {
         email:'',
         role:'',
         permissions:[],
-        message:'Không lấy được email người dùng trong chế độ triển khai hiện tại.'
+        message:'Không xác định được email người truy cập. Hãy đăng nhập bằng tài khoản Google đã được cấp quyền và mở lại ứng dụng.'
       };
     }
 

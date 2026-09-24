@@ -37,10 +37,11 @@ document.addEventListener('DOMContentLoaded', () => {
     reports: 'Báo cáo & thống kê',
     repository: 'Kho tài liệu',
     tools: 'Công cụ hỗ trợ',
-    admin: 'Quản trị hệ thống'
+    admin: 'Quản trị hệ thống',
+    help: 'Trợ giúp'
   };
 
-  const pageIds = ['dashboard','documents','tasks','calendar','meetings','advisory','reports','repository','tools','admin'];
+  const pageIds = ['dashboard','documents','tasks','calendar','meetings','advisory','reports','repository','tools','admin','help'];
 
   const formatToday = () => {
     if (!todayLabel) return;
@@ -323,8 +324,20 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentCreateType = null;
   const createTitles = {document:'Tiếp nhận văn bản',task:'Giao nhiệm vụ',meeting:'Tạo cuộc họp',calendar:'Thêm lịch công tác'};
   const openModal = type => {
+    if (type === 'document' && typeof openDocumentModalD1 === 'function') {
+      openDocumentModalD1();
+      return;
+    }
     if (type === 'task' && typeof openTaskModalD2 === 'function') {
       openTaskModalD2();
+      return;
+    }
+    if (type === 'calendar' && typeof openCalendarModalF1 === 'function') {
+      openCalendarModalF1();
+      return;
+    }
+    if (type === 'meeting' && typeof openMeetingModalF1 === 'function') {
+      openMeetingModalF1();
       return;
     }
     currentCreateType = type;
@@ -356,21 +369,36 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (i === 1) openModal('task');
       else if (i === 2) openModal('meeting');
       else if (i === 3) openModal('calendar');
-      else showToast('Đã chọn thao tác', btn.innerText.trim() + ' sẽ được hoàn thiện ở bước A4/B.');
+      else if (i === 4) document.querySelector('.nav-item[data-page="advisory"]')?.click();
+      else if (i === 5) {
+        document.querySelector('.nav-item[data-page="repository"]')?.click();
+        setTimeout(()=>document.getElementById('repoUploadInput')?.click(),120);
+      }
     });
   });
 
-  document.querySelectorAll('.demo-action').forEach(btn => btn.addEventListener('click', e => {
-    e.stopPropagation();
-    showToast('Giao diện thử nghiệm', 'Nút này đã sẵn sàng; dữ liệu thật sẽ được nối ở bước B.');
-  }));
-
-  document.querySelectorAll('.tool-card').forEach(card => card.addEventListener('click', () => {
-    showToast(card.querySelector('strong')?.textContent || 'Công cụ', 'Module Công cụ sẽ được hoàn thiện ở bước A4.');
-  }));
-
   document.getElementById('btnViewCalendar')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="calendar"]')?.click());
   document.getElementById('btnNewDocument')?.addEventListener('click', () => openModal('document'));
+
+  document.getElementById('dashboardOpenCalendar')?.addEventListener('click',()=>document.querySelector('.nav-item[data-page="calendar"]')?.click());
+  document.querySelectorAll('[data-dashboard-tool]').forEach(btn=>btn.addEventListener('click',()=>{
+    const type=btn.dataset.dashboardTool;
+    if(type==='report'){
+      document.querySelector('.nav-item[data-page="reports"]')?.click();
+      return;
+    }
+    document.querySelector('.nav-item[data-page="tools"]')?.click();
+    setTimeout(()=>document.querySelector(`.tool-launch[data-tool="${type}"]`)?.click(),80);
+  }));
+
+  document.getElementById('dashboardAllTasks')?.addEventListener('click',()=>document.querySelector('.nav-item[data-page="tasks"]')?.click());
+  document.getElementById('dashboardAllDocuments')?.addEventListener('click',()=>document.querySelector('.nav-item[data-page="documents"]')?.click());
+  document.getElementById('dashboardAllTools')?.addEventListener('click',()=>document.querySelector('.nav-item[data-page="tools"]')?.click());
+  document.getElementById('dashboardAddCalendar')?.addEventListener('click',()=>openCalendarModalF1(null,dateKeyLocal(new Date())));
+  document.querySelectorAll('#page-dashboard .stat-card').forEach((card,i)=>card.addEventListener('click',()=>{
+    const page=i===0?'documents':'tasks';
+    document.querySelector(`.nav-item[data-page="${page}"]`)?.click();
+  }));
 
 
 
@@ -470,6 +498,27 @@ document.addEventListener('DOMContentLoaded', () => {
     aiConfigLoaded:false
   };
 
+  const F1 = {
+    calendarView:'week',
+    calendarEditingId:'',
+    miniCalendarAnchor:new Date(),
+    meetingQuery:'',
+    meetingEditingId:'',
+    meetingCurrent:null,
+    repositoryMode:'folder',
+    repositoryItems:[],
+    reportFilters:{
+      period:'MONTH',
+      anchorDate:'',
+      dateFrom:'',
+      dateTo:'',
+      departmentId:'ALL'
+    },
+    reportLoaded:false,
+    diagnostics:null,
+    activeTool:''
+  };
+
   const gasCall = (fn, ...args) => new Promise((resolve, reject) => {
     if (!window.google || !google.script || !google.script.run) {
       reject(new Error('Không tìm thấy môi trường Google Apps Script.'));
@@ -544,12 +593,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const d=B2.dashboard;
     if (!d) return;
     const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=String(v).padStart(2,'0')};
+
+    const hour=new Date().getHours();
+    const greeting=hour<11?'Chào buổi sáng':hour<14?'Chào buổi trưa':hour<18?'Chào buổi chiều':'Chào buổi tối';
+    const displayName=B2.user?.fullName||B2.user?.email||'';
+    const greetingEl=document.getElementById('dashboardGreeting');
+    if(greetingEl) greetingEl.textContent=`${greeting}${displayName?', '+displayName:''} 👋`;
+
+    const summary=document.getElementById('dashboardSummary');
+    if(summary){
+      const due=Number(d.stats.tasksToday||0);
+      const soon=Number(d.stats.dueSoon||0);
+      const overdue=Number(d.stats.overdue||0);
+      summary.innerHTML=`Hôm nay có <strong>${due} nhiệm vụ đến hạn</strong>, <span class="${overdue?'text-danger':''}">${overdue} nhiệm vụ quá hạn</span> và ${soon} nhiệm vụ sắp đến hạn trong 48 giờ.`;
+    }
     set('dashNewDocuments',d.stats.newDocuments);
     set('dashTasksToday',d.stats.tasksToday);
     set('dashDueSoon',d.stats.dueSoon);
     set('dashOverdue',d.stats.overdue);
     document.getElementById('navDocumentCount') && (document.getElementById('navDocumentCount').textContent=d.documents.total);
     document.getElementById('navTaskCount') && (document.getElementById('navTaskCount').textContent=d.tasks.total);
+
+    const setText=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v};
+    setText('dashNewDocumentsHint',`${d.documents.total||0} văn bản trong hệ thống`);
+    setText('dashTasksTodayHint','Nhiệm vụ đến hạn hôm nay');
+    setText('dashDueSoonHint','Trong 48 giờ tới');
+    setText('dashOverdueHint',d.stats.overdue?'Cần ưu tiên xử lý':'Không có việc quá hạn');
+
+    const done=Number(d.tasks.completed||0);
+    const doing=Math.max(0,Number(d.tasks.inProgress||0)+Number(d.tasks.waitingApproval||0)+Number(d.tasks.newCount||0));
+    const overdueCount=Number(d.tasks.overdue||0);
+    const taskTotal=done+doing+overdueCount;
+    const pct=taskTotal?Math.round(done/taskTotal*100):0;
+    const donut=document.getElementById('dashboardProgressDonut');
+    if(donut) donut.style.setProperty('--value',pct);
+    setText('dashboardProgressPct',pct+'%');
+    setText('dashboardDoneCount',done);
+    setText('dashboardDoingCount',doing);
+    setText('dashboardOverdueCount',overdueCount);
 
     const taskBox=document.getElementById('dashboardTaskList');
     if (taskBox) {
@@ -634,13 +715,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function loadDashboardAgendaF1(){
+    const box=document.getElementById('dashboardAgendaList');
+    if(!box) return;
+    const today=dateKeyLocal(new Date());
+    try{
+      const data=await gasCall('apiF1ListCalendar',{from:today,to:today});
+      const rows=(data?.items||[]).filter(x=>!x.status||x.status==='ACTIVE');
+      const dateLabel=document.getElementById('dashboardAgendaDate');
+      if(dateLabel) dateLabel.textContent=new Intl.DateTimeFormat('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit'}).format(new Date());
+      box.innerHTML=rows.length?rows.map((e,i)=>`
+        <button class="agenda-item f1-dashboard-event b3-event-detail" data-id="${esc(e.event_id)}">
+          <div class="agenda-time">${esc(e.start_time||'—')}</div>
+          <div class="agenda-line ${i%3===1?'blue-line':i%3===2?'amber-line':'red-line'}"></div>
+          <div class="agenda-content"><strong>${esc(e.title)}</strong><span><i data-lucide="${e.location?'map-pin':'calendar-clock'}"></i> ${esc(e.location||calendarGroupLabelF1(e.calendar_group))}</span></div>
+        </button>`).join(''):`<div class="empty-data" style="min-height:180px"><i data-lucide="calendar-check"></i><strong>Hôm nay chưa có lịch</strong><span>Mở Lịch công tác để thêm lịch mới.</span></div>`;
+      lucide.createIcons();
+    }catch(err){
+      box.innerHTML=`<div class="empty-data" style="min-height:180px"><i data-lucide="circle-alert"></i><strong>Không tải được lịch hôm nay</strong><span>${esc(err.message||String(err))}</span></div>`;
+      lucide.createIcons();
+    }
+  }
+
   async function loadCalendarP1(force=false){
     if(P1.calendarLoaded&&!force){
       renderCalendarB3();
       return;
     }
     try{
-      B2.calendarEvents=await gasCall('apiListCalendarEvents')||[];
+      const data=await gasCall('apiF1ListCalendar',{});
+      B2.calendarEvents=data?.items||[];
       P1.calendarLoaded=true;
       renderCalendarB3();
     }catch(err){
@@ -654,7 +758,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     try{
-      B2.meetings=await gasCall('apiListMeetings')||[];
+      const data=await gasCall('apiF1ListMeetings',{q:F1.meetingQuery||''});
+      B2.meetings=data?.items||[];
       P1.meetingsLoaded=true;
       renderMeetingsB3();
     }catch(err){
@@ -1097,13 +1202,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('calendarTodayBtn')?.addEventListener('click',()=>{
     calendarAnchor=new Date();
+    F1.miniCalendarAnchor=new Date();
     renderCalendarB3();
   });
   document.getElementById('calendarPrevWeek')?.addEventListener('click',()=>{
-    calendarAnchor=addDays(calendarAnchor,-7);renderCalendarB3();
+    calendarAnchor=F1.calendarView==='month'
+      ? new Date(calendarAnchor.getFullYear(),calendarAnchor.getMonth()-1,1)
+      : addDays(calendarAnchor,-7);
+    F1.miniCalendarAnchor=new Date(calendarAnchor);
+    renderCalendarB3();
   });
   document.getElementById('calendarNextWeek')?.addEventListener('click',()=>{
-    calendarAnchor=addDays(calendarAnchor,7);renderCalendarB3();
+    calendarAnchor=F1.calendarView==='month'
+      ? new Date(calendarAnchor.getFullYear(),calendarAnchor.getMonth()+1,1)
+      : addDays(calendarAnchor,7);
+    F1.miniCalendarAnchor=new Date(calendarAnchor);
+    renderCalendarB3();
   });
   document.querySelectorAll('[data-calendar-group]').forEach(cb=>{
     cb.addEventListener('change',renderCalendarB3);
@@ -1488,16 +1602,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if(D2.selectedFiles.length) await uploadTaskFilesD2(taskId,D2.selectedFiles);
 
       const wasEditing=Boolean(D2.editingId);
+      const uploadedCount=D2.selectedFiles.length;
       document.getElementById('d2TaskModal')?.classList.remove('show');
       clearPendingTaskSourceD2();
       invalidateTasksP1();
-      await loadTasksD2();
 
-      showToast('Đã lưu nhiệm vụ',D2.selectedFiles.length
-        ? `Đã lưu nhiệm vụ và ${D2.selectedFiles.length} tài liệu.`
+      showToast('Đã lưu nhiệm vụ',uploadedCount
+        ? `Đã lưu nhiệm vụ và ${uploadedCount} tài liệu.`
         : 'Thông tin nhiệm vụ đã được cập nhật.');
 
-      if(wasEditing) await openTaskD2(taskId);
+      // Làm mới nền, không bắt người dùng chờ thêm một vòng đọc Sheets.
+      loadTasksD2();
+      if(wasEditing) setTimeout(()=>openTaskD2(taskId),30);
       D2.editingId='';
       D2.selectedFiles=[];
     }catch(err){
@@ -1649,8 +1765,9 @@ document.addEventListener('DOMContentLoaded', () => {
           result_note:document.getElementById('d2ProgressNote')?.value||'',
           note:'Cập nhật tiến độ từ hồ sơ nhiệm vụ'
         });
-        invalidateTasksP1(); await loadTasksD2(); await openTaskD2(t.task_id);
+        invalidateTasksP1();
         showToast('Đã cập nhật','Tiến độ nhiệm vụ đã được lưu.');
+        loadTasksD2(); setTimeout(()=>openTaskD2(t.task_id),20);
       }catch(err){showToast('Không thể cập nhật',err.message||String(err))}
     });
 
@@ -1658,8 +1775,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const note=prompt('Ghi chú khi trình duyệt (có thể để trống):')||'';
       try{
         await gasCall('apiD2SubmitTaskForApproval',t.task_id,note);
-        invalidateTasksP1(); await loadTasksD2(); await openTaskD2(t.task_id);
+        invalidateTasksP1();
         showToast('Đã trình duyệt','Nhiệm vụ đã chuyển sang Chờ duyệt.');
+        loadTasksD2(); setTimeout(()=>openTaskD2(t.task_id),20);
       }catch(err){showToast('Không thể trình duyệt',err.message||String(err))}
     });
 
@@ -1667,8 +1785,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const note=prompt('Ghi chú duyệt hoàn thành (có thể để trống):')||'';
       try{
         await gasCall('apiD2ApproveTask',t.task_id,'APPROVE',note);
-        invalidateTasksP1(); await loadTasksD2(); await openTaskD2(t.task_id);
+        invalidateTasksP1();
         showToast('Đã duyệt','Nhiệm vụ đã hoàn thành.');
+        loadTasksD2(); setTimeout(()=>openTaskD2(t.task_id),20);
       }catch(err){showToast('Không thể duyệt',err.message||String(err))}
     });
 
@@ -1677,8 +1796,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if(note===null) return;
       try{
         await gasCall('apiD2ApproveTask',t.task_id,'RETURN',note);
-        invalidateTasksP1(); await loadTasksD2(); await openTaskD2(t.task_id);
+        invalidateTasksP1();
         showToast('Đã trả lại','Nhiệm vụ được chuyển về Đang thực hiện.');
+        loadTasksD2(); setTimeout(()=>openTaskD2(t.task_id),20);
       }catch(err){showToast('Không thể trả lại',err.message||String(err))}
     });
 
@@ -1687,16 +1807,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const note=prompt('Lý do hủy (có thể để trống):')||'';
       try{
         await gasCall('apiD2CancelTask',t.task_id,note);
-        invalidateTasksP1(); await loadTasksD2(); await openTaskD2(t.task_id);
+        invalidateTasksP1();
         showToast('Đã hủy','Nhiệm vụ được đánh dấu Đã hủy.');
+        loadTasksD2(); setTimeout(()=>openTaskD2(t.task_id),20);
       }catch(err){showToast('Không thể hủy',err.message||String(err))}
     });
 
     document.getElementById('d2ReopenTask')?.addEventListener('click',async()=>{
       try{
         await gasCall('apiD2ReopenTask',t.task_id,'Mở lại từ hồ sơ nhiệm vụ');
-        invalidateTasksP1(); await loadTasksD2(); await openTaskD2(t.task_id);
+        invalidateTasksP1();
         showToast('Đã mở lại','Nhiệm vụ chuyển về Đang thực hiện.');
+        loadTasksD2(); setTimeout(()=>openTaskD2(t.task_id),20);
       }catch(err){showToast('Không thể mở lại',err.message||String(err))}
     });
 
@@ -1705,8 +1827,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if(!note){showToast('Chưa có nội dung','Nhập ghi chú trước khi thêm.');return;}
       try{
         await gasCall('apiD2AddTaskComment',t.task_id,note);
-        await openTaskD2(t.task_id);
         showToast('Đã thêm ghi chú','Trao đổi đã được lưu vào lịch sử.');
+        setTimeout(()=>openTaskD2(t.task_id),20);
       }catch(err){showToast('Không thể thêm',err.message||String(err))}
     });
 
@@ -1755,8 +1877,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const files=validateTaskFilesD2(e.target.files||[]);
       await uploadTaskFilesD2(taskId,files);
       e.target.value='';
-      await openTaskD2(taskId);
       showToast('Đã thêm tài liệu',`${files.length} tệp đã được tải lên.`);
+      setTimeout(()=>openTaskD2(taskId),20);
     }catch(err){
       e.target.value='';
       showToast('Không thể tải tài liệu',err.message||String(err));
@@ -2116,18 +2238,20 @@ document.addEventListener('DOMContentLoaded', () => {
         await uploadFilesD1(saved.document_id,D1.selectedFiles);
       }
 
+      const uploadedCount=D1.selectedFiles.length;
       closeDocumentModalD1();
       invalidateDocumentsP1();
-      await loadDocumentsD1();
 
       showToast(
         'Đã lưu văn bản',
-        D1.selectedFiles.length
-          ? `Đã lưu hồ sơ và ${D1.selectedFiles.length} tài liệu lên Google Drive.`
+        uploadedCount
+          ? `Đã lưu hồ sơ và ${uploadedCount} tài liệu lên Google Drive.`
           : 'Thông tin văn bản đã được cập nhật.'
       );
 
-      if(editingId) await openDocumentD1(saved.document_id);
+      // Refresh nền để thao tác lưu kết thúc ngay sau khi server xác nhận.
+      loadDocumentsD1();
+      if(editingId) setTimeout(()=>openDocumentD1(saved.document_id),30);
     }catch(err){
       showToast('Không thể lưu văn bản',err.message||String(err));
     }finally{
@@ -2343,9 +2467,8 @@ document.addEventListener('DOMContentLoaded', () => {
           note:document.getElementById('d1ProcessingNote')?.value||''
         });
         invalidateDocumentsP1();
-        await loadDocumentsD1();
-        await openDocumentD1(x.document_id);
         showToast('Đã cập nhật xử lý','Người xử lý, trạng thái và thời hạn đã được lưu.');
+        loadDocumentsD1(); setTimeout(()=>openDocumentD1(x.document_id),20);
       }catch(err){showToast('Không thể cập nhật',err.message||String(err))}
     });
 
@@ -2361,8 +2484,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if(!note){showToast('Chưa có nội dung','Nhập ghi chú xử lý trước khi thêm.');return;}
       try{
         await gasCall('apiD1AddDocumentNote',x.document_id,note);
-        await openDocumentD1(x.document_id);
         showToast('Đã thêm ghi chú','Lịch sử xử lý đã được cập nhật.');
+        setTimeout(()=>openDocumentD1(x.document_id),20);
       }catch(err){showToast('Không thể thêm ghi chú',err.message||String(err))}
     });
 
@@ -2372,8 +2495,8 @@ document.addEventListener('DOMContentLoaded', () => {
         await gasCall('apiD1ArchiveDocument',x.document_id,'Lưu trữ từ giao diện hồ sơ.');
         closeDrawer();
         invalidateDocumentsP1();
-        await loadDocumentsD1(true);
         showToast('Đã lưu trữ','Văn bản đã được chuyển vào tab Lưu trữ.');
+        loadDocumentsD1(true);
       }catch(err){showToast('Không thể lưu trữ',err.message||String(err))}
     });
   }
@@ -2419,8 +2542,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const files=validateFilesD1(e.target.files||[]);
       await uploadFilesD1(documentId,files);
       e.target.value='';
-      await openDocumentD1(documentId);
       showToast('Đã thêm tài liệu',`${files.length} tệp đã được tải lên hồ sơ.`);
+      setTimeout(()=>openDocumentD1(documentId),20);
     }catch(err){
       e.target.value='';
       showToast('Không thể tải tài liệu',err.message||String(err));
@@ -2509,6 +2632,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // P1: các module nặng chỉ tải khi người dùng thật sự mở.
       // Thông báo được trì hoãn nhẹ để không tranh tài nguyên với bootstrap.
       setTimeout(()=>loadNotificationsB6(),600);
+      setTimeout(()=>loadDashboardAgendaF1(),900);
     } catch(err) { showBackendError(err.message||String(err)); }
   };
 
@@ -2546,7 +2670,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fileGrid.innerHTML='';
 
     try{
-      const data=await gasCall('apiB4ListRepository',folderId||'');
+      const data=await gasCall('apiF1ListRepository',folderId||'');
       B4.repoData=data;
       B4.repoFolderId=data.folder.id;
       B4.repoRootId=data.rootFolderId;
@@ -2631,7 +2755,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const name=window.prompt('Tên thư mục mới:');
     if(!name||!name.trim()) return;
     try{
-      await gasCall('apiB4CreateRepositoryFolder',B4.repoFolderId||'',name.trim());
+      await gasCall('apiF1CreateRepositoryFolder',B4.repoFolderId||'',name.trim());
       await loadRepositoryB4(B4.repoFolderId||'');
       showToast('Đã tạo thư mục','Thư mục mới đã được tạo trên Google Drive.');
     }catch(err){
@@ -2644,7 +2768,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try{
       showToast('Đang tải lên',file.name);
       const encoded=await readFileAsBase64(file);
-      await gasCall('apiB4UploadRepositoryFile',B4.repoFolderId||'',encoded);
+      await gasCall('apiF1UploadRepositoryFile',B4.repoFolderId||'',encoded);
       await loadRepositoryB4(B4.repoFolderId||'');
       showToast('Tải lên thành công',`${file.name} đã được lưu vào Google Drive.`);
     }catch(err){
@@ -2654,13 +2778,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelector('.repo-new-folder')?.addEventListener('click',createRepoFolderB4);
   document.querySelector('.repo-upload')?.addEventListener('click',()=>document.getElementById('repoUploadInput')?.click());
-  document.getElementById('repoUploadInput')?.addEventListener('change',e=>{
-    const f=e.target.files?.[0];
-    uploadRepoFileB4(f);
-    e.target.value='';
+  document.getElementById('repoUploadInput')?.addEventListener('change',async e=>{
+    const files=[...(e.target.files||[])];
+    if(!files.length) return;
+    try{
+      for(const file of files){
+        showToast('Đang tải lên',file.name);
+        await uploadRepoFileB4(file);
+      }
+      await loadRepositoryB4(B4.repoFolderId||'');
+      showToast('Tải lên thành công',`${files.length} tệp đã được lưu vào Google Drive.`);
+    }catch(err){
+      showToast('Không thể tải tệp',err.message||String(err));
+    }finally{
+      e.target.value='';
+    }
   });
 
   document.addEventListener('click',e=>{
+    if(e.target.closest('.f1-repo-action')) return;
     const folder=e.target.closest('.repo-item-open');
     if(folder?.dataset.folderId){
       loadRepositoryB4(folder.dataset.folderId);
@@ -2692,7 +2828,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     repoSearchTimer=setTimeout(async()=>{
       try{
-        const results=await gasCall('apiB4SearchRepository',q);
+        const results=await gasCall('apiF1SearchRepository',q);
         const fileGrid=document.getElementById('repoFileGrid');
         const folderGrid=document.getElementById('repoFolderGrid');
         if(folderGrid) folderGrid.innerHTML='';
@@ -2720,7 +2856,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadReportB4(){
     try{
-      const data=await gasCall('apiB4GetReportData');
+      const data=await gasCall('apiF1GetReport');
       B4.report=data;
       renderReportB4();
     }catch(err){
@@ -2842,7 +2978,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const page=item.dataset.page;
       let allowed=true;
       if(page==='admin') allowed=role==='ADMIN';
-      else if(page==='tools') allowed=role==='ADMIN'||role==='OFFICE'||hasPermissionB5('advisory.use');
+      else if(page==='tools') allowed=Boolean(B2.user?.authenticated);
       else if(pagePermission[page]) allowed=hasPermissionB5(pagePermission[page]);
       item.classList.toggle('access-hidden',!allowed);
     });
@@ -2852,10 +2988,11 @@ document.addEventListener('DOMContentLoaded', () => {
       ['#btnNewDocument','documents.create'],
       ['.open-create-modal[data-type="task"]','tasks.create'],
       ['.open-create-modal[data-type="calendar"]','calendar.create'],
+      ['#dashboardAddCalendar','calendar.create'],
       ['.open-create-modal[data-type="meeting"]','meetings.create'],
       ['.repo-upload','repository.upload'],
       ['.repo-new-folder','repository.upload'],
-      ['.report-generate','reports.create']
+      ['#reportExportPdf','reports.create']
     ];
 
     controlRules.forEach(([selector,permission])=>{
@@ -2866,9 +3003,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const quick=document.getElementById('quickCreate');
     if(quick){
-      const canCreate=[
-        'documents.create','tasks.create','calendar.create','meetings.create'
-      ].some(hasPermissionB5);
+      const quickPermissions=[
+        'documents.create',
+        'tasks.create',
+        'meetings.create',
+        'calendar.create',
+        'advisory.use',
+        'repository.upload'
+      ];
+      const buttons=quickMenu?.querySelectorAll('button')||[];
+      buttons.forEach((btn,i)=>{
+        const permission=quickPermissions[i];
+        btn.classList.toggle('access-hidden',permission&&!hasPermissionB5(permission));
+      });
+      const canCreate=quickPermissions.some(hasPermissionB5);
       quick.classList.toggle('access-hidden',!canCreate);
     }
 
@@ -3151,8 +3299,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('adminRolesPanel')?.classList.toggle('hidden-block',tab!=='roles');
     document.getElementById('adminDepartmentsPanel')?.classList.toggle('hidden-block',tab!=='departments');
     document.getElementById('adminActivityPanel')?.classList.toggle('hidden-block',tab!=='activity');
+    document.getElementById('adminSystemPanel')?.classList.toggle('hidden-block',tab!=='system');
 
     if(tab==='activity') loadActivityB6();
+    if(tab==='system') loadSystemDiagnosticsF1();
   }));
 
   document.getElementById('adminAddUser')?.addEventListener('click',()=>openAdminUserModalB5());
@@ -3338,7 +3488,18 @@ document.addEventListener('DOMContentLoaded', () => {
     UPDATE_PROGRESS:'Cập nhật tiến độ',
     UPDATE_AGENDA:'Cập nhật nội dung họp',
     CREATE_FOLDER:'Tạo thư mục',
-    UPLOAD_FILE:'Tải tệp'
+    UPLOAD_FILE:'Tải tệp',
+    CANCEL:'Hủy',
+    RENAME:'Đổi tên',
+    TRASH:'Đưa vào thùng rác',
+    EXPORT_PDF:'Xuất PDF',
+    BACKUP:'Sao lưu',
+    UPDATE_MEMBER:'Cập nhật điểm danh',
+    APPROVE:'Duyệt hoàn thành',
+    RETURN:'Trả lại bổ sung',
+    SUBMIT_APPROVAL:'Trình duyệt',
+    REOPEN:'Mở lại',
+    COMMENT:'Thêm ghi chú'
   }[action] || action || 'Khác');
 
   const entityLabelB6 = entity => ({
@@ -3348,7 +3509,9 @@ document.addEventListener('DOMContentLoaded', () => {
     CALENDAR:'Lịch công tác',
     USER:'Người dùng',
     DEPARTMENT:'Đơn vị',
-    REPOSITORY:'Kho tài liệu'
+    REPOSITORY:'Kho tài liệu',
+    REPORT:'Báo cáo',
+    SYSTEM:'Hệ thống'
   }[entity] || entity || 'Hệ thống');
 
   const detailTextB6 = detail => {
@@ -4045,15 +4208,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   // Reports
-  document.querySelectorAll('.report-period .segment').forEach(btn => btn.addEventListener('click', () => {
-    document.querySelectorAll('.report-period .segment').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    showToast('Đã đổi kỳ báo cáo', `Đang xem dữ liệu theo ${btn.textContent.toLowerCase()}.`);
-  }));
-  document.querySelectorAll('.report-generate').forEach(btn => btn.addEventListener('click', async () => {
-    await loadReportB4();
-    showToast('Đã cập nhật báo cáo', 'Số liệu đã được tổng hợp lại từ dữ liệu thật.');
-  }));
+
   document.getElementById('reportToTasks')?.addEventListener('click', () => {
     document.querySelector('.nav-item[data-page="tasks"]')?.click();
   });
@@ -4067,7 +4222,828 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('repoListView')?.classList.toggle('hidden-block', !list);
     lucide.createIcons();
   }));
-  bindSearch('repoSearch', '#repoFileGrid .file-card');
+
+
+  // =========================
+  // FINAL - Calendar, Meetings, Repository, Reports, Admin, Search
+  // =========================
+
+  calendarAnchor = new Date();
+  F1.miniCalendarAnchor = new Date();
+  F1.reportFilters.anchorDate = dateKeyLocal(new Date());
+
+  const calendarGroupLabelF1 = group => ({
+    GENERAL:'Lịch chung',
+    SECRETARY:'Bí thư',
+    DEPUTY_SECRETARY:'Phó Bí thư',
+    OFFICE:'Văn phòng'
+  }[group] || group || 'Lịch chung');
+
+  const calendarTypeLabelF1 = type => ({
+    WORK:'Công tác',
+    MEETING:'Cuộc họp',
+    DEADLINE:'Hạn công việc',
+    OTHER:'Khác'
+  }[type] || type || 'Công tác');
+
+  function renderMiniCalendarF1(){
+    const title=document.getElementById('miniCalendarTitle');
+    const grid=document.getElementById('miniCalendarGrid');
+    if(!title||!grid) return;
+
+    const anchor=F1.miniCalendarAnchor||new Date();
+    const y=anchor.getFullYear(),m=anchor.getMonth();
+    title.textContent=`Tháng ${m+1}, ${y}`;
+
+    const first=new Date(y,m,1);
+    const offset=(first.getDay()+6)%7;
+    const start=new Date(y,m,1-offset);
+    const selected=dateKeyLocal(calendarAnchor);
+    const today=dateKeyLocal(new Date());
+    const eventDays=new Set((B2.calendarEvents||[]).map(e=>String(e.event_date||'').slice(0,10)));
+
+    grid.innerHTML=Array.from({length:42},(_,i)=>{
+      const d=addDays(start,i);
+      const key=dateKeyLocal(d);
+      const outside=d.getMonth()!==m;
+      return `<button class="mini-cal-day ${outside?'muted-day':''} ${key===selected?'selected-day':''} ${key===today?'today-mini':''}" data-mini-date="${key}">
+        <span>${d.getDate()}</span>${eventDays.has(key)?'<i></i>':''}
+      </button>`;
+    }).join('');
+  }
+
+  function filteredCalendarEventsF1(){
+    const enabled=enabledCalendarGroups();
+    return (B2.calendarEvents||[])
+      .filter(e=>enabled.includes(e.calendar_group||'GENERAL'))
+      .filter(e=>!e.status||e.status==='ACTIVE')
+      .sort((a,b)=>{
+        const aa=String(a.event_date||'')+'T'+String(a.start_time||'00:00');
+        const bb=String(b.event_date||'')+'T'+String(b.start_time||'00:00');
+        return aa.localeCompare(bb);
+      });
+  }
+
+  function renderWeekCalendarF1(){
+    const header=document.getElementById('calendarWeekHeader');
+    const body=document.getElementById('calendarWeekBody');
+    if(!header||!body) return;
+
+    const monday=startOfWeek(calendarAnchor);
+    const sunday=addDays(monday,6);
+    const weekdays=['T2','T3','T4','T5','T6','T7','CN'];
+    const title=document.getElementById('calendarRangeTitle');
+    if(title){
+      title.textContent=monday.getMonth()===sunday.getMonth()
+        ? `${monday.getDate()} – ${sunday.getDate()} tháng ${monday.getMonth()+1}, ${monday.getFullYear()}`
+        : `${monday.getDate()}/${monday.getMonth()+1} – ${sunday.getDate()}/${sunday.getMonth()+1}/${sunday.getFullYear()}`;
+    }
+    const wk=document.getElementById('calendarWeekNumber');
+    if(wk) wk.textContent=`Tuần ${isoWeekNumber(monday)}`;
+
+    const todayKey=dateKeyLocal(new Date());
+    header.innerHTML='<div class="time-head"></div>'+weekdays.map((w,i)=>{
+      const d=addDays(monday,i);
+      return `<div class="${dateKeyLocal(d)===todayKey?'today-col':''}"><span>${w}</span><strong>${d.getDate()}</strong></div>`;
+    }).join('');
+
+    const events=filteredCalendarEventsF1().filter(e=>{
+      const k=String(e.event_date||'').slice(0,10);
+      return k>=dateKeyLocal(monday)&&k<=dateKeyLocal(sunday);
+    });
+
+    const times=Array.from({length:12},(_,i)=>`${String(i+7).padStart(2,'0')}:00`);
+    let html=`<div class="time-column">${times.map(t=>`<span>${t}</span>`).join('')}</div>`;
+
+    for(let i=0;i<7;i++){
+      const day=addDays(monday,i);
+      const key=dateKeyLocal(day);
+      const dayEvents=events.filter(e=>String(e.event_date||'').slice(0,10)===key);
+      let col=`<div class="day-column ${key===todayKey?'today-column-bg':''}">`;
+
+      dayEvents.forEach(e=>{
+        const start=timeToMinutes(e.start_time);
+        const end=e.end_time?timeToMinutes(e.end_time):start+60;
+        const top=Math.max(0,(start-7*60)/60*50);
+        const height=Math.max(36,(Math.max(end,start+30)-start)/60*50);
+        col+=`<button class="cal-event ${eventClassByGroup(e.calendar_group)} b3-event-detail" data-id="${esc(e.event_id)}" style="top:${top}px;height:${height}px">
+          <strong>${esc(e.title)}</strong><span>${esc(e.start_time||'')} ${e.location?'· '+esc(e.location):''}</span>
+        </button>`;
+      });
+      col+='</div>';
+      html+=col;
+    }
+    body.innerHTML=html;
+  }
+
+  function renderMonthCalendarF1(){
+    const box=document.getElementById('calendarMonthView');
+    if(!box) return;
+    const y=calendarAnchor.getFullYear(),m=calendarAnchor.getMonth();
+    const first=new Date(y,m,1);
+    const offset=(first.getDay()+6)%7;
+    const start=new Date(y,m,1-offset);
+    const events=filteredCalendarEventsF1();
+    const today=dateKeyLocal(new Date());
+
+    box.innerHTML=`
+      <div class="f1-month-weekdays">${['T2','T3','T4','T5','T6','T7','CN'].map(x=>`<span>${x}</span>`).join('')}</div>
+      <div class="f1-month-grid">
+      ${Array.from({length:42},(_,i)=>{
+        const d=addDays(start,i),key=dateKeyLocal(d);
+        const dayEvents=events.filter(e=>String(e.event_date||'').slice(0,10)===key).slice(0,3);
+        return `<div class="f1-month-cell ${d.getMonth()!==m?'outside':''} ${key===today?'today':''}" data-date="${key}">
+          <button class="f1-month-day" data-calendar-create-date="${key}">${d.getDate()}</button>
+          <div class="f1-month-events">${dayEvents.map(e=>`<button class="f1-month-event ${eventClassByGroup(e.calendar_group)} b3-event-detail" data-id="${esc(e.event_id)}">${esc(e.start_time||'')} ${esc(e.title)}</button>`).join('')}</div>
+          ${events.filter(e=>String(e.event_date||'').slice(0,10)===key).length>3?`<small>+${events.filter(e=>String(e.event_date||'').slice(0,10)===key).length-3} lịch</small>`:''}
+        </div>`;
+      }).join('')}
+      </div>`;
+    const title=document.getElementById('calendarRangeTitle');
+    if(title) title.textContent=`Tháng ${m+1}, ${y}`;
+    const wk=document.getElementById('calendarWeekNumber');
+    if(wk) wk.textContent=`${events.filter(e=>String(e.event_date||'').slice(0,7)===`${y}-${String(m+1).padStart(2,'0')}`).length} sự kiện`;
+  }
+
+  function renderCalendarListF1(){
+    const box=document.getElementById('calendarListView');
+    if(!box) return;
+    const events=filteredCalendarEventsF1();
+    box.innerHTML=events.length?events.map(e=>`
+      <button class="f1-calendar-list-row b3-event-detail" data-id="${esc(e.event_id)}">
+        <span class="f1-calendar-date"><strong>${formatDateVN(e.event_date)}</strong><small>${esc(e.start_time||'Cả ngày')}${e.end_time?' – '+esc(e.end_time):''}</small></span>
+        <span class="calendar-color ${e.calendar_group==='SECRETARY'?'blue-calendar':e.calendar_group==='DEPUTY_SECRETARY'?'green-calendar':e.calendar_group==='OFFICE'?'purple-calendar':'red-calendar'}"></span>
+        <span class="f1-calendar-list-main"><strong>${esc(e.title)}</strong><small>${esc(e.location||calendarGroupLabelF1(e.calendar_group))}</small></span>
+        <i data-lucide="chevron-right"></i>
+      </button>`).join(''):`<div class="empty-data"><i data-lucide="calendar-x"></i><strong>Chưa có lịch công tác</strong><span>Thêm lịch mới để bắt đầu.</span></div>`;
+    const title=document.getElementById('calendarRangeTitle');
+    if(title) title.textContent='Danh sách lịch công tác';
+    const wk=document.getElementById('calendarWeekNumber');
+    if(wk) wk.textContent=`${events.length} sự kiện`;
+  }
+
+  function renderCalendarB3(){
+    renderMiniCalendarF1();
+    const week=document.getElementById('weekCalendar');
+    const month=document.getElementById('calendarMonthView');
+    const list=document.getElementById('calendarListView');
+    week?.classList.toggle('hidden-block',F1.calendarView!=='week');
+    month?.classList.toggle('hidden-block',F1.calendarView!=='month');
+    list?.classList.toggle('hidden-block',F1.calendarView!=='list');
+
+    if(F1.calendarView==='month') renderMonthCalendarF1();
+    else if(F1.calendarView==='list') renderCalendarListF1();
+    else renderWeekCalendarF1();
+    lucide.createIcons();
+  }
+
+  function openCalendarModalF1(event=null,datePrefill=''){
+    F1.calendarEditingId=event?.event_id||'';
+    document.getElementById('f1CalendarModalTitle').textContent=event?'Cập nhật lịch':'Thêm lịch công tác';
+    document.getElementById('f1CalTitle').value=event?.title||'';
+    document.getElementById('f1CalDate').value=String(event?.event_date||datePrefill||dateKeyLocal(new Date())).slice(0,10);
+    document.getElementById('f1CalGroup').value=event?.calendar_group||'GENERAL';
+    document.getElementById('f1CalStart').value=event?.start_time||'08:00';
+    document.getElementById('f1CalEnd').value=event?.end_time||'09:00';
+    document.getElementById('f1CalType').value=event?.event_type||'WORK';
+    document.getElementById('f1CalLocation').value=event?.location||'';
+    document.getElementById('f1CalDescription').value=event?.description||'';
+    document.getElementById('f1CalendarModal')?.classList.add('show');
+    lucide.createIcons();
+  }
+
+  function closeCalendarModalF1(){
+    document.getElementById('f1CalendarModal')?.classList.remove('show');
+    F1.calendarEditingId='';
+  }
+
+  async function saveCalendarF1(){
+    const payload={
+      title:document.getElementById('f1CalTitle')?.value||'',
+      event_date:document.getElementById('f1CalDate')?.value||'',
+      calendar_group:document.getElementById('f1CalGroup')?.value||'GENERAL',
+      start_time:document.getElementById('f1CalStart')?.value||'',
+      end_time:document.getElementById('f1CalEnd')?.value||'',
+      event_type:document.getElementById('f1CalType')?.value||'WORK',
+      location:document.getElementById('f1CalLocation')?.value||'',
+      description:document.getElementById('f1CalDescription')?.value||''
+    };
+    const btn=document.getElementById('f1CalendarSave');
+    if(btn){btn.disabled=true;btn.innerHTML='<span class="backend-spinner"></span> Đang lưu...'}
+    try{
+      if(F1.calendarEditingId) await gasCall('apiF1UpdateCalendar',F1.calendarEditingId,payload);
+      else await gasCall('apiF1CreateCalendar',payload);
+      closeCalendarModalF1();
+      P1.calendarLoaded=false;
+      await loadCalendarP1(true);
+      markDashboardDirtyP1();
+      showToast('Đã lưu lịch','Lịch công tác đã được cập nhật.');
+    }catch(err){showToast('Không thể lưu lịch',err.message||String(err))}
+    finally{if(btn){btn.disabled=false;btn.innerHTML='<i data-lucide="save"></i> Lưu lịch';lucide.createIcons()}}
+  }
+
+  function openB3Event(id){
+    const e=(B2.calendarEvents||[]).find(x=>x.event_id===id);
+    if(!e) return;
+    const canEdit=hasPermissionB5('calendar.update');
+    drawerEyebrow.textContent='LỊCH CÔNG TÁC';
+    drawerTitle.textContent='Chi tiết lịch';
+    drawerBody.innerHTML=`
+      <div class="detail-summary"><span class="status status-progress">${esc(calendarTypeLabelF1(e.event_type))}</span><h3>${esc(e.title)}</h3><p>${esc(e.description||'Chưa có ghi chú.')}</p></div>
+      <div class="d1-drawer-actions">
+        ${canEdit&&!e.meeting_id?`<button class="btn btn-secondary btn-sm" id="f1EditCalendar"><i data-lucide="pencil"></i> Cập nhật</button><button class="btn btn-light btn-sm" id="f1CancelCalendar"><i data-lucide="calendar-x"></i> Hủy lịch</button>`:''}
+      </div>
+      <div class="detail-grid">
+        <div class="detail-field"><span>Ngày</span><strong>${formatDateVN(e.event_date)}</strong></div>
+        <div class="detail-field"><span>Thời gian</span><strong>${esc(e.start_time||'—')} – ${esc(e.end_time||'—')}</strong></div>
+        <div class="detail-field"><span>Địa điểm</span><strong>${esc(e.location||'—')}</strong></div>
+        <div class="detail-field"><span>Nhóm lịch</span><strong>${esc(calendarGroupLabelF1(e.calendar_group))}</strong></div>
+      </div>
+      ${e.meeting_id?`<div class="detail-section"><button class="btn btn-primary" id="f1OpenMeetingFromCalendar"><i data-lucide="users-round"></i> Mở hồ sơ cuộc họp</button></div>`:''}`;
+    drawer.classList.add('show');drawerOverlay.classList.add('show');lucide.createIcons();
+
+    document.getElementById('f1EditCalendar')?.addEventListener('click',()=>{closeDrawer();openCalendarModalF1(e)});
+    document.getElementById('f1CancelCalendar')?.addEventListener('click',async()=>{
+      if(!confirm('Hủy lịch công tác này?')) return;
+      try{
+        await gasCall('apiF1CancelCalendar',e.event_id);
+        closeDrawer();P1.calendarLoaded=false;await loadCalendarP1(true);markDashboardDirtyP1();
+        showToast('Đã hủy lịch','Lịch được giữ trong dữ liệu nhưng không còn hiển thị.');
+      }catch(err){showToast('Không thể hủy lịch',err.message||String(err))}
+    });
+    document.getElementById('f1OpenMeetingFromCalendar')?.addEventListener('click',()=>{closeDrawer();openB3Meeting(e.meeting_id)});
+  }
+
+  // ----- Meetings -----
+  const meetingStatusTextF1 = s => ({
+    PLANNED:'Dự kiến',IN_PROGRESS:'Đang diễn ra',COMPLETED:'Hoàn thành',CANCELLED:'Đã hủy'
+  }[s]||s||'Dự kiến');
+
+  function renderMeetingsB3(){
+    const box=document.getElementById('meetingCards');
+    if(!box) return;
+    const now=new Date();
+    const all=B2.meetings||[];
+    const upcoming=all.filter(m=>meetingDateTime(m)>=now && !['COMPLETED','CANCELLED'].includes(m.status));
+    const past=all.filter(m=>meetingDateTime(m)<now || m.status==='COMPLETED');
+    const cancelled=all.filter(m=>m.status==='CANCELLED');
+
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v};
+    set('meetingUpcomingCount',upcoming.length);
+    set('meetingPastCount',past.length);
+    set('meetingAllCount',all.length);
+
+    let list=meetingFilter==='past'?past:meetingFilter==='all'?all:upcoming;
+    if(meetingFilter!=='all') list=list.filter(m=>m.status!=='CANCELLED');
+
+    box.innerHTML=list.length?list.map((m,idx)=>{
+      const d=new Date(String(m.meeting_date||'').slice(0,10)+'T00:00:00');
+      const status=meetingStatusLabel(m);
+      return `<article class="meeting-card ${idx===0&&meetingFilter==='upcoming'?'featured':''} b3-meeting-detail" data-id="${esc(m.meeting_id)}">
+        <div class="meeting-date ${idx===0&&meetingFilter==='upcoming'?'red-date':''}"><strong>${isNaN(d)?'—':String(d.getDate()).padStart(2,'0')}</strong><span>${isNaN(d)?'':'THÁNG '+(d.getMonth()+1)}</span></div>
+        <div class="meeting-info">
+          <div class="meeting-title-row"><span class="status ${m.status==='CANCELLED'?'status-danger':status[1]}">${esc(m.status==='CANCELLED'?'Đã hủy':status[0])}</span><span class="meeting-type">${esc(m.meeting_type||'Cuộc họp')}</span></div>
+          <h2>${esc(m.title)}</h2><p>${esc(m.agenda||'Chưa nhập chương trình.')}</p>
+          <div class="meeting-meta"><span><i data-lucide="map-pin"></i> ${esc(m.location||'Chưa xác định')}</span><span><i data-lucide="users"></i> ${Number(m.member_count||0)} người</span><span><i data-lucide="paperclip"></i> ${Number(m.file_count||0)} tài liệu</span><span><i data-lucide="list-checks"></i> ${Number(m.task_count||0)} nhiệm vụ</span></div>
+        </div>
+        <div class="meeting-action"><button class="btn btn-light btn-sm">Mở hồ sơ</button></div>
+      </article>`;
+    }).join(''):`<div class="panel empty-data" style="min-height:260px"><i data-lucide="calendar-x"></i><strong>Chưa có cuộc họp trong nhóm này</strong><span>Tạo cuộc họp để bắt đầu.</span></div>`;
+
+    renderMeetingSideB3(upcoming[0]||all.find(m=>!cancelled.includes(m))||null);
+    lucide.createIcons();
+  }
+
+  function renderMeetingSideB3(m){
+    const side=document.getElementById('meetingSidePanel');
+    if(!side) return;
+    if(!m){
+      side.innerHTML='<div class="empty-data"><i data-lucide="calendar-days"></i><strong>Chưa có cuộc họp</strong><span>Tạo cuộc họp để bắt đầu.</span></div>';
+      return;
+    }
+    const score=[m.agenda,Number(m.member_count)>0,Number(m.file_count)>0].filter(Boolean).length;
+    const pct=Math.round(score/3*100);
+    side.innerHTML=`<div class="panel-head"><div><h2>Cuộc họp gần nhất</h2><p>${formatDateVN(m.meeting_date)} · ${esc(m.start_time||'')}</p></div><span class="meeting-ring">${pct}%</span></div>
+      <div class="checklist">
+        <label class="check-item ${m.agenda?'done':''}"><span>${m.agenda?'<i data-lucide="check"></i>':''}</span><div><strong>Chương trình</strong><small>${m.agenda?'Đã chuẩn bị':'Chưa có'}</small></div></label>
+        <label class="check-item ${Number(m.member_count)>0?'done':''}"><span>${Number(m.member_count)>0?'<i data-lucide="check"></i>':''}</span><div><strong>Thành phần</strong><small>${Number(m.member_count||0)} người</small></div></label>
+        <label class="check-item ${Number(m.file_count)>0?'done':''}"><span>${Number(m.file_count)>0?'<i data-lucide="check"></i>':''}</span><div><strong>Tài liệu</strong><small>${Number(m.file_count||0)} tệp</small></div></label>
+      </div>
+      <button class="full-soft-btn b3-meeting-detail" data-id="${esc(m.meeting_id)}"><i data-lucide="folder-open"></i> Mở hồ sơ cuộc họp</button>`;
+  }
+
+  function meetingMemberPickerF1(selected=[]){
+    const box=document.getElementById('f1MeetingMembers');
+    if(!box) return;
+    const set=new Set((selected||[]).map(x=>x.user_id||x));
+    box.innerHTML=(B2.users||[]).map(u=>`<label class="d2-collaborator-option"><input type="checkbox" value="${esc(u.user_id)}" ${set.has(u.user_id)?'checked':''}><span class="avatar avatar-xs">${esc(initials(u.full_name||u.email))}</span><span><strong>${esc(u.full_name||u.email)}</strong><small>${esc(u.role||'')}</small></span></label>`).join('');
+  }
+
+  function openMeetingModalF1(meeting=null,members=[]){
+    F1.meetingEditingId=meeting?.meeting_id||'';
+    document.getElementById('f1MeetingModalTitle').textContent=meeting?'Cập nhật cuộc họp':'Tạo cuộc họp';
+    document.getElementById('f1MeetingTitle').value=meeting?.title||'';
+    document.getElementById('f1MeetingType').value=meeting?.meeting_type||'';
+    document.getElementById('f1MeetingStatus').value=meeting?.status||'PLANNED';
+    document.getElementById('f1MeetingDate').value=String(meeting?.meeting_date||dateKeyLocal(new Date())).slice(0,10);
+    document.getElementById('f1MeetingChair').value=meeting?.chairperson||'';
+    document.getElementById('f1MeetingStart').value=meeting?.start_time||'08:00';
+    document.getElementById('f1MeetingEnd').value=meeting?.end_time||'09:00';
+    document.getElementById('f1MeetingLocation').value=meeting?.location||'';
+    document.getElementById('f1MeetingAgenda').value=meeting?.agenda||'';
+    meetingMemberPickerF1(members);
+    document.getElementById('f1MeetingModal')?.classList.add('show');
+    lucide.createIcons();
+  }
+
+  function closeMeetingModalF1(){
+    document.getElementById('f1MeetingModal')?.classList.remove('show');
+    F1.meetingEditingId='';
+  }
+
+  async function saveMeetingF1(){
+    const members=[...document.querySelectorAll('#f1MeetingMembers input:checked')].map(x=>({user_id:x.value,attendance_status:'INVITED'}));
+    const payload={
+      title:document.getElementById('f1MeetingTitle')?.value||'',
+      meeting_type:document.getElementById('f1MeetingType')?.value||'',
+      status:document.getElementById('f1MeetingStatus')?.value||'PLANNED',
+      meeting_date:document.getElementById('f1MeetingDate')?.value||'',
+      chairperson:document.getElementById('f1MeetingChair')?.value||'',
+      start_time:document.getElementById('f1MeetingStart')?.value||'',
+      end_time:document.getElementById('f1MeetingEnd')?.value||'',
+      location:document.getElementById('f1MeetingLocation')?.value||'',
+      agenda:document.getElementById('f1MeetingAgenda')?.value||'',
+      members
+    };
+    const btn=document.getElementById('f1MeetingSave');
+    if(btn){btn.disabled=true;btn.innerHTML='<span class="backend-spinner"></span> Đang lưu...'}
+    try{
+      const editing=F1.meetingEditingId;
+      const r=editing
+        ? await gasCall('apiF1UpdateMeeting',editing,payload)
+        : await gasCall('apiF1CreateMeeting',payload);
+      closeMeetingModalF1();
+      P1.meetingsLoaded=false;P1.calendarLoaded=false;markDashboardDirtyP1();
+      await loadMeetingsP1(true);
+      showToast('Đã lưu cuộc họp','Hồ sơ cuộc họp và lịch công tác đã được đồng bộ.');
+      if(editing) await openB3Meeting(r.meeting_id);
+    }catch(err){showToast('Không thể lưu cuộc họp',err.message||String(err))}
+    finally{if(btn){btn.disabled=false;btn.innerHTML='<i data-lucide="save"></i> Lưu cuộc họp';lucide.createIcons()}}
+  }
+
+  async function openB3Meeting(id){
+    drawerEyebrow.textContent='CUỘC HỌP';
+    drawerTitle.textContent='Hồ sơ cuộc họp';
+    drawerBody.innerHTML='<div class="admin-loading"><span class="backend-spinner"></span><span>Đang tải hồ sơ cuộc họp...</span></div>';
+    drawer.classList.add('show');drawerOverlay.classList.add('show');
+    try{
+      const data=await gasCall('apiF1GetMeeting',id);
+      F1.meetingCurrent=data;
+      const m=data.meeting,p=data.permissions||{};
+      const status=meetingStatusLabel(m);
+      drawerBody.innerHTML=`
+        <div class="detail-summary"><span class="status ${m.status==='CANCELLED'?'status-danger':status[1]}">${esc(meetingStatusTextF1(m.status))}</span><h3>${esc(m.title)}</h3><p>${esc(m.agenda||'Chưa có chương trình.')}</p></div>
+        <div class="d1-drawer-actions">
+          ${p.canEdit?`<button class="btn btn-secondary btn-sm" id="f1EditMeeting"><i data-lucide="pencil"></i> Cập nhật</button>`:''}
+          ${m.folder_url?`<a class="btn btn-secondary btn-sm" href="${esc(m.folder_url)}" target="_blank"><i data-lucide="folder-open"></i> Mở Drive</a>`:''}
+          ${p.canCreateTask?`<button class="btn btn-primary btn-sm" id="f1MeetingCreateTask"><i data-lucide="list-plus"></i> Tạo nhiệm vụ</button>`:''}
+        </div>
+        <div class="detail-grid">
+          <div class="detail-field"><span>Ngày họp</span><strong>${formatDateVN(m.meeting_date)}</strong></div>
+          <div class="detail-field"><span>Thời gian</span><strong>${esc(m.start_time||'—')} – ${esc(m.end_time||'—')}</strong></div>
+          <div class="detail-field"><span>Chủ trì</span><strong>${esc(m.chairperson||'—')}</strong></div>
+          <div class="detail-field"><span>Địa điểm</span><strong>${esc(m.location||'—')}</strong></div>
+        </div>
+        <div class="detail-section"><div class="detail-section-head"><h4>Thành phần</h4><span class="status status-new">${data.members.length}</span></div>
+          <div class="f1-member-list">${data.members.length?data.members.map(x=>`<div><span class="avatar avatar-xs">${esc(initials(x.user_name||x.display_name||'?'))}</span><strong>${esc(x.user_name||x.display_name||'Thành viên')}</strong>${p.canEdit?`<select class="f1-attendance-select" data-member-id="${esc(x.id)}"><option value="INVITED" ${x.attendance_status==='INVITED'?'selected':''}>Đã mời</option><option value="PRESENT" ${x.attendance_status==='PRESENT'?'selected':''}>Có mặt</option><option value="ABSENT" ${x.attendance_status==='ABSENT'?'selected':''}>Vắng</option><option value="EXCUSED" ${x.attendance_status==='EXCUSED'?'selected':''}>Có phép</option></select>`:`<small>${esc(({INVITED:'Đã mời',PRESENT:'Có mặt',ABSENT:'Vắng',EXCUSED:'Có phép'})[x.attendance_status]||x.attendance_status||'Đã mời')}</small>`}</div>`).join(''):'<div class="d1-empty-small">Chưa có thành phần.</div>'}</div>
+        </div>
+        <div class="detail-section"><div class="detail-section-head"><h4>Tài liệu cuộc họp</h4>${p.canEdit?`<div class="f1-inline-actions"><button class="text-btn f1-meeting-add-file" data-kind="MATERIAL">Tài liệu</button><button class="text-btn f1-meeting-add-file" data-kind="MINUTES">Biên bản</button><button class="text-btn f1-meeting-add-file" data-kind="CONCLUSION">Kết luận</button></div>`:''}</div>
+          <div class="d1-file-list">${data.files.length?data.files.map(x=>`<div class="d1-file-row"><span class="d1-file-icon"><i data-lucide="file-text"></i></span><div><strong>${esc(x.file_name)}</strong><small>${esc(x.file_kind)} · ${humanSize(x.size)} · ${formatDateTimeVN(x.created_at)}</small></div><a class="icon-btn" href="${esc(x.url)}" target="_blank"><i data-lucide="external-link"></i></a></div>`).join(''):'<div class="d1-empty-small">Chưa có tài liệu.</div>'}</div>
+        </div>
+        <div class="detail-section"><div class="detail-section-head"><h4>Biên bản & kết luận</h4></div>
+          ${p.canEdit?`<label class="form-field"><span>Biên bản / ghi chép</span><textarea id="f1MeetingMinutesText" rows="5">${esc(m.minutes_text||'')}</textarea></label><label class="form-field"><span>Kết luận cuộc họp</span><textarea id="f1MeetingConclusionText" rows="5">${esc(m.conclusion_text||'')}</textarea></label><div class="drawer-action-row"><button class="btn btn-secondary" id="f1SaveMeetingNotes"><i data-lucide="save"></i> Lưu nội dung</button><button class="btn btn-primary" id="f1CompleteMeeting"><i data-lucide="circle-check-big"></i> Hoàn thành họp</button></div>`:`<div class="d2-result-note"><strong>Kết luận</strong><p>${esc(m.conclusion_text||'Chưa có kết luận.')}</p></div>`}
+        </div>
+        <div class="detail-section"><div class="detail-section-head"><h4>Nhiệm vụ sau họp</h4><span class="status status-new">${data.tasks.length}</span></div>
+          <div class="meeting-task-list">${data.tasks.length?data.tasks.map(t=>`<div class="meeting-task-mini b2-task-detail" data-id="${esc(t.task_id)}"><div><strong>${esc(t.title)}</strong><small>${esc(t.owner_name||'Chưa giao')} · ${formatDateTimeVN(t.due_date)}</small></div><span class="status ${statusMeta(t.status)[1]}">${statusMeta(t.status)[0]}</span></div>`).join(''):'<div class="d1-empty-small">Chưa có nhiệm vụ sau họp.</div>'}</div>
+        </div>`;
+      lucide.createIcons();
+
+      document.getElementById('f1EditMeeting')?.addEventListener('click',()=>{closeDrawer();openMeetingModalF1(m,data.members)});
+      document.getElementById('f1MeetingCreateTask')?.addEventListener('click',()=>{
+        window.B3MeetingTaskSource=m.meeting_id;
+        closeDrawer();openTaskModalD2();
+        setTimeout(()=>{
+          const title=document.getElementById('d2TaskTitle');
+          const desc=document.getElementById('d2TaskDescription');
+          if(title&&!title.value) title.value=(m.conclusion_text||`Thực hiện kết luận: ${m.title}`).slice(0,180);
+          if(desc&&!desc.value) desc.value=m.conclusion_text||m.agenda||'';
+        },30);
+      });
+      document.querySelectorAll('.f1-attendance-select').forEach(sel=>sel.addEventListener('change',async()=>{
+        const previous=data.members.find(x=>x.id===sel.dataset.memberId)?.attendance_status||'INVITED';
+        sel.disabled=true;
+        try{
+          await gasCall('apiF1UpdateMeetingMemberStatus',m.meeting_id,sel.dataset.memberId,sel.value,'');
+          showToast('Đã cập nhật điểm danh','Trạng thái tham dự đã được lưu.');
+        }catch(err){
+          sel.value=previous;
+          showToast('Không thể cập nhật',err.message||String(err));
+        }finally{sel.disabled=false}
+      }));
+
+      document.querySelectorAll('.f1-meeting-add-file').forEach(btn=>btn.addEventListener('click',()=>{
+        const input=document.getElementById('f1MeetingFileInput');
+        input.dataset.meetingId=m.meeting_id;input.dataset.kind=btn.dataset.kind;input.click();
+      }));
+      document.getElementById('f1SaveMeetingNotes')?.addEventListener('click',async()=>{
+        try{
+          await gasCall('apiF1SaveMeetingNotes',m.meeting_id,{
+            minutes_text:document.getElementById('f1MeetingMinutesText')?.value||'',
+            conclusion_text:document.getElementById('f1MeetingConclusionText')?.value||''
+          });
+          P1.meetingsLoaded=false;await loadMeetingsP1(true);await openB3Meeting(m.meeting_id);
+          showToast('Đã lưu','Biên bản và kết luận đã được cập nhật.');
+        }catch(err){showToast('Không thể lưu',err.message||String(err))}
+      });
+      document.getElementById('f1CompleteMeeting')?.addEventListener('click',async()=>{
+        try{
+          await gasCall('apiF1SaveMeetingNotes',m.meeting_id,{
+            minutes_text:document.getElementById('f1MeetingMinutesText')?.value||'',
+            conclusion_text:document.getElementById('f1MeetingConclusionText')?.value||'',
+            status:'COMPLETED'
+          });
+          P1.meetingsLoaded=false;P1.calendarLoaded=false;markDashboardDirtyP1();
+          await loadMeetingsP1(true);await openB3Meeting(m.meeting_id);
+          showToast('Đã hoàn thành','Cuộc họp đã được đánh dấu hoàn thành.');
+        }catch(err){showToast('Không thể hoàn thành',err.message||String(err))}
+      });
+    }catch(err){
+      drawerBody.innerHTML=`<div class="empty-data"><i data-lucide="circle-alert"></i><strong>Không tải được cuộc họp</strong><span>${esc(err.message||String(err))}</span></div>`;lucide.createIcons();
+    }
+  }
+
+  // ----- Repository -----
+  const repoTypeMatchF1 = (item,filter) => {
+    if(filter==='ALL'||item.type==='folder') return true;
+    const m=String(item.mimeType||'').toLowerCase();
+    if(filter==='PDF') return m.includes('pdf');
+    if(filter==='DOC') return m.includes('word')||m.includes('document');
+    if(filter==='SHEET') return m.includes('sheet')||m.includes('excel')||m.includes('spreadsheet');
+    if(filter==='IMAGE') return m.includes('image');
+    return !m.includes('pdf')&&!m.includes('word')&&!m.includes('document')&&!m.includes('sheet')&&!m.includes('excel')&&!m.includes('spreadsheet')&&!m.includes('image');
+  };
+
+  async function loadRepositoryB4(folderId=''){
+    const folderGrid=document.getElementById('repoFolderGrid');
+    const fileGrid=document.getElementById('repoFileGrid');
+    if(!folderGrid||!fileGrid) return;
+    folderGrid.innerHTML='<div class="repo-loading" style="grid-column:1/-1"><span class="backend-spinner"></span><span>Đang đọc Google Drive...</span></div>';
+    fileGrid.innerHTML='';
+    try{
+      const data=await gasCall('apiF1ListRepository',folderId||'');
+      B4.repoData=data;B4.repoFolderId=data.folder.id;B4.repoRootId=data.rootFolderId;
+      F1.repositoryMode='folder';
+      renderRepositoryB4();
+    }catch(err){folderGrid.innerHTML=`<div class="repo-empty"><i data-lucide="circle-alert"></i><strong>Không đọc được kho</strong><span>${esc(err.message||String(err))}</span></div>`;lucide.createIcons()}
+  }
+
+  function repositoryDisplayItemsF1(){
+    if(!B4.repoData) return {folders:[],files:[]};
+    const filter=document.getElementById('repoTypeFilter')?.value||'ALL';
+    const sort=document.getElementById('repoSort')?.value||'NEWEST';
+    let folders=[...(B4.repoData.folders||[])];
+    let files=(B4.repoData.files||[]).filter(x=>repoTypeMatchF1(x,filter));
+    if(sort==='NAME'){
+      folders.sort((a,b)=>a.name.localeCompare(b.name,'vi'));
+      files.sort((a,b)=>a.name.localeCompare(b.name,'vi'));
+    }else{
+      files.sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+    }
+    return {folders,files};
+  }
+
+  function repoActionsF1(item){
+    const canUpload=hasPermissionB5('repository.upload');
+    return `<div class="f1-repo-actions">
+      <button class="icon-btn f1-repo-action f1-repo-favorite" data-type="${item.type}" data-id="${esc(item.id)}" data-favorite="${item.favorite?'1':'0'}" title="Đánh dấu"><i data-lucide="star"${item.favorite?' fill="currentColor"':''}></i></button>
+      ${canUpload?`<button class="icon-btn f1-repo-action f1-repo-rename" data-type="${item.type}" data-id="${esc(item.id)}" data-name="${esc(item.name)}" title="Đổi tên"><i data-lucide="pencil"></i></button><button class="icon-btn f1-repo-action f1-repo-trash" data-type="${item.type}" data-id="${esc(item.id)}" data-name="${esc(item.name)}" title="Đưa vào thùng rác"><i data-lucide="trash-2"></i></button>`:''}
+    </div>`;
+  }
+
+  function renderRepositoryB4(){
+    const data=B4.repoData;if(!data)return;
+    const folderGrid=document.getElementById('repoFolderGrid'),fileGrid=document.getElementById('repoFileGrid'),breadcrumb=document.getElementById('repoBreadcrumb');
+    const display=repositoryDisplayItemsF1();
+
+    if(breadcrumb){
+      breadcrumb.innerHTML=`<button class="repo-breadcrumb-home"><i data-lucide="home"></i></button><i data-lucide="chevron-right"></i>${data.parentId?`<button class="repo-breadcrumb-parent" data-id="${esc(data.parentId)}"><i data-lucide="corner-up-left"></i> Thư mục trước</button><i data-lucide="chevron-right"></i>`:''}<strong>${esc(data.folder?.name||'Kho tài liệu')}</strong>`;
+    }
+    if(folderGrid){
+      folderGrid.innerHTML=display.folders.length?display.folders.map(x=>`<article class="folder-card repo-item-open" data-folder-id="${esc(x.id)}"><div class="folder-icon amber-folder"><i data-lucide="folder"></i></div><div><strong>${esc(x.name)}</strong><span>Thư mục Google Drive</span></div>${repoActionsF1(x)}</article>`).join(''):'<div class="repo-empty"><i data-lucide="folder-open"></i><strong>Không có thư mục con</strong></div>';
+    }
+    if(fileGrid){
+      fileGrid.innerHTML=display.files.length?display.files.map(x=>{const k=fileKind(x.mimeType);return `<article class="file-card repo-file-open" data-url="${esc(x.url)}"><div class="file-preview ${k[1]}"><i data-lucide="${k[2]}"></i><span>${k[0]}</span></div><div class="file-card-info"><strong>${esc(x.name)}</strong><span>${humanSize(x.size)} · ${formatDateVN(x.updatedAt)}</span></div>${repoActionsF1(x)}</article>`}).join(''):'<div class="repo-empty"><i data-lucide="files"></i><strong>Chưa có tài liệu</strong><span>Tải tệp lên để bắt đầu.</span></div>';
+    }
+    const side=document.getElementById('repoSideFolderList');
+    if(side){
+      side.innerHTML='<div class="repo-side-title">THƯ MỤC GỐC</div>'+((data.folder?.id===data.rootFolderId?data.folders:[])||[]).map(x=>`<button class="repo-side-folder" data-id="${esc(x.id)}"><span><i data-lucide="folder"></i> ${esc(x.name)}</span></button>`).join('');
+    }
+    const count=document.getElementById('repoItemCount');if(count)count.textContent=`${display.folders.length+display.files.length} mục`;
+    const folderCount=document.getElementById('repoFolderCount');if(folderCount)folderCount.textContent=`${display.folders.length} thư mục`;
+    const fileCount=document.getElementById('repoFileCount');if(fileCount)fileCount.textContent=`${display.files.length} tài liệu`;
+    renderRepoListB4();lucide.createIcons();
+  }
+
+  function renderRepoListB4(){
+    const list=document.getElementById('repoListView');if(!list||!B4.repoData)return;
+    const display=repositoryDisplayItemsF1();
+    const rows=[...display.folders.map(x=>`<tr class="repo-item-open" data-folder-id="${esc(x.id)}"><td class="repo-name-cell"><i data-lucide="folder"></i><strong>${esc(x.name)}</strong></td><td>Thư mục</td><td>—</td><td>Drive</td><td>—</td><td>${repoActionsF1(x)}</td></tr>`),...display.files.map(x=>{const k=fileKind(x.mimeType);return `<tr class="repo-file-open" data-url="${esc(x.url)}"><td class="repo-name-cell"><i data-lucide="${k[2]}"></i><strong>${esc(x.name)}</strong></td><td>${k[0]}</td><td>${humanSize(x.size)}</td><td>Drive</td><td>${formatDateVN(x.updatedAt)}</td><td>${repoActionsF1(x)}</td></tr>`})].join('');
+    list.innerHTML=`<table class="data-table repo-table"><thead><tr><th>Tên</th><th>Loại</th><th>Dung lượng</th><th>Nguồn</th><th>Cập nhật</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6"><div class="empty-data"><strong>Không có dữ liệu</strong></div></td></tr>'}</tbody></table>`;
+  }
+
+  async function createRepoFolderB4(){
+    const name=prompt('Tên thư mục mới:');if(!name?.trim())return;
+    try{await gasCall('apiF1CreateRepositoryFolder',B4.repoFolderId||'',name.trim());await loadRepositoryB4(B4.repoFolderId||'');showToast('Đã tạo thư mục','Thư mục đã được tạo.')}catch(err){showToast('Không thể tạo thư mục',err.message||String(err))}
+  }
+
+  async function uploadRepoFileB4(file){
+    if(!file)return;
+    if(file.size>20*1024*1024){showToast('Tệp quá lớn',file.name+' vượt quá 20 MB.');return}
+    try{
+      const encoded=await readFileAsBase64(file);encoded.size=file.size;
+      await gasCall('apiF1UploadRepositoryFile',B4.repoFolderId||'',encoded);
+    }catch(err){throw err}
+  }
+
+  async function loadRepoFlatF1(mode){
+    try{
+      const items=mode==='recent'?await gasCall('apiF1RecentRepository'):await gasCall('apiF1FavoriteRepositoryItems');
+      F1.repositoryMode=mode;
+      B4.repoData={
+        folder:{id:B4.repoRootId||'',name:mode==='recent'?'Gần đây':'Đã đánh dấu'},
+        rootFolderId:B4.repoRootId||'',
+        parentId:'',
+        folders:items.filter(x=>x.type==='folder'),
+        files:items.filter(x=>x.type==='file')
+      };
+      renderRepositoryB4();
+    }catch(err){showToast('Không tải được kho',err.message||String(err))}
+  }
+
+  // ----- Reports -----
+  function reportFiltersF1(){
+    return {
+      period:F1.reportFilters.period,
+      anchorDate:document.getElementById('reportAnchorDate')?.value||F1.reportFilters.anchorDate||dateKeyLocal(new Date()),
+      dateFrom:document.getElementById('reportDateFrom')?.value||'',
+      dateTo:document.getElementById('reportDateTo')?.value||'',
+      departmentId:document.getElementById('reportDepartmentFilter')?.value||'ALL'
+    };
+  }
+
+  async function loadReportB4(){
+    try{
+      F1.reportFilters={...F1.reportFilters,...reportFiltersF1()};
+      B4.report=await gasCall('apiF1GetReport',F1.reportFilters);
+      F1.reportLoaded=true;renderReportB4();
+    }catch(err){showToast('Không tải được báo cáo',err.message||String(err))}
+  }
+
+  function renderReportB4(){
+    const r=B4.report;if(!r)return;const s=r.stats||{};
+    const total=Math.max(1,Number(s.totalTasks||0)),pct=n=>Math.round(Number(n||0)/total*100);
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v};
+    set('reportTotalTasks',s.totalTasks||0);set('reportCompletedTasks',s.completed||0);set('reportInProgressTasks',s.inProgress||0);set('reportOverdueTasks',s.overdue||0);
+    set('reportTotalHint',`${s.totalDocuments||0} văn bản trong kỳ`);set('reportCompletedHint',`${pct(s.completed)}% tổng nhiệm vụ`);set('reportProgressHint',`${pct(s.inProgress)}% tổng nhiệm vụ`);set('reportOverdueHint',s.overdue?`${s.overdue} nhiệm vụ cần chú ý`:'Không có nhiệm vụ quá hạn');
+
+    const groups=document.getElementById('reportBarGroups');
+    if(groups){const max=Math.max(1,...(r.months||[]).flatMap(m=>[m.completed,m.processing,m.overdue]));groups.innerHTML=(r.months||[]).map((m,i)=>{const h=v=>Math.max(4,Math.round(Number(v||0)/max*145));return `<div class="bar-group ${i===r.months.length-1?'current':''}"><div><i class="bar-done" style="height:${h(m.completed)}px"></i><i class="bar-doing" style="height:${h(m.processing)}px"></i><i class="bar-overdue" style="height:${h(m.overdue)}px"></i></div><span>${esc(m.label)}</span></div>`}).join('')}
+
+    const completedPct=pct(s.completed),progressPct=pct(s.inProgress),overduePct=pct(s.overdue);
+    const donut=document.getElementById('reportDonut');if(donut)donut.style.background=`conic-gradient(#16A34A 0 ${completedPct}%,#2563EB ${completedPct}% ${completedPct+progressPct}%,#DC2626 ${completedPct+progressPct}% 100%)`;
+    set('reportDonutTotal',s.totalTasks||0);
+    const breakdown=document.getElementById('reportBreakdown');if(breakdown)breakdown.innerHTML=`<div><span><i class="legend-dot done"></i> Hoàn thành</span><strong>${s.completed||0} <small>${completedPct}%</small></strong></div><div><span><i class="legend-dot doing"></i> Đang thực hiện</span><strong>${s.inProgress||0} <small>${progressPct}%</small></strong></div><div><span><i class="legend-dot overdue"></i> Quá hạn</span><strong>${s.overdue||0} <small>${overduePct}%</small></strong></div>`;
+
+    const attention=document.getElementById('reportAttentionList');if(attention)attention.innerHTML=(r.attention||[]).length?r.attention.map(t=>{const st=statusMeta(t.effective_status||t.status);return `<div class="b2-task-detail" data-id="${esc(t.task_id)}"><span class="attention-status ${t.effective_status==='OVERDUE'?'overdue-att':'due-att'}"><i data-lucide="${t.effective_status==='OVERDUE'?'circle-alert':'clock-3'}"></i></span><div><strong>${esc(t.title)}</strong><small>${esc(t.owner_name||'Chưa giao')} · ${formatDateTimeVN(t.due_date)}</small></div><span class="status ${st[1]}">${st[0]}</span></div>`}).join(''):'<div class="empty-data"><i data-lucide="circle-check-big"></i><strong>Không có nhiệm vụ cần chú ý</strong></div>';
+
+    const deps=document.getElementById('reportDepartmentFilter');
+    if(deps&&deps.options.length<=1){
+      deps.innerHTML='<option value="ALL">Tất cả đơn vị</option>'+(r.departments||[]).map(d=>`<option value="${esc(d.id)}">${esc(d.name)}</option>`).join('');
+      deps.value=F1.reportFilters.departmentId||'ALL';
+    }
+    const updated=document.getElementById('reportUpdated');if(updated)updated.innerHTML=`<i data-lucide="refresh-cw"></i> ${formatDateTimeVN(r.generatedAt)}`;
+    lucide.createIcons();
+  }
+
+  async function exportReportPdfF1(){
+    const btn=document.getElementById('reportExportPdf');
+    if(btn){btn.disabled=true;btn.innerHTML='<span class="backend-spinner"></span> Đang xuất...'}
+    try{
+      const r=await gasCall('apiF1ExportReportPdf',reportFiltersF1());
+      showToast('Đã tạo PDF',r.name||'Báo cáo đã được lưu.');
+      if(r.url) window.open(r.url,'_blank','noopener');
+    }catch(err){showToast('Không thể xuất PDF',err.message||String(err))}
+    finally{if(btn){btn.disabled=false;btn.innerHTML='<i data-lucide="file-down"></i> Xuất PDF';lucide.createIcons()}}
+  }
+
+  // ----- System diagnostics -----
+  async function loadSystemDiagnosticsF1(){
+    const box=document.getElementById('systemDiagnostics');if(!box)return;
+    box.innerHTML='<div class="admin-loading"><span class="backend-spinner"></span><span>Đang kiểm tra hệ thống...</span></div>';
+    try{
+      F1.diagnostics=await gasCall('apiF1Diagnostics');
+      const d=F1.diagnostics;
+      box.innerHTML=`<div class="system-health-grid">
+        <article><span class="status ${d.database.ok?'status-success':'status-danger'}">${d.database.ok?'Hoạt động':'Lỗi'}</span><strong>Cơ sở dữ liệu</strong><small>${esc(d.database.name||'')}</small></article>
+        <article><span class="status ${d.drive.ok?'status-success':'status-danger'}">${d.drive.ok?'Hoạt động':'Lỗi'}</span><strong>Google Drive</strong><small>${esc(d.drive.name||'')}</small></article>
+        <article><span class="status ${d.reminderInstalled?'status-success':'status-warning'}">${d.reminderInstalled?'Đã cài':'Chưa cài'}</span><strong>Nhắc việc tự động</strong><small>Trigger mỗi giờ</small></article>
+        <article><span class="status status-new">${esc(d.version)}</span><strong>Phiên bản</strong><small>${formatDateTimeVN(d.checkedAt)}</small></article>
+      </div><div class="system-count-grid">${Object.entries(d.sheetCounts||{}).map(([k,v])=>`<div><span>${esc(k)}</span><strong>${v}</strong></div>`).join('')}</div>`;
+      lucide.createIcons();
+    }catch(err){box.innerHTML=`<div class="empty-data"><i data-lucide="shield-alert"></i><strong>Không kiểm tra được hệ thống</strong><span>${esc(err.message||String(err))}</span></div>`;lucide.createIcons()}
+  }
+
+  // ----- Global search -----
+  let globalSearchTimerF1=null;
+  async function runGlobalSearchF1(){
+    const q=globalSearch?.value.trim()||'';
+    const box=document.getElementById('globalSearchResults');
+    if(!box)return;
+    if(q.length<2){box.classList.add('hidden-block');box.innerHTML='';return}
+    box.classList.remove('hidden-block');
+    box.innerHTML='<div class="global-search-loading"><span class="backend-spinner"></span> Đang tìm...</div>';
+    try{
+      const r=await gasCall('apiF1GlobalSearch',q);
+      box.innerHTML=(r.items||[]).length?(r.items||[]).map(x=>`<button class="global-search-result" data-type="${esc(x.type)}" data-id="${esc(x.id)}"><span class="global-search-result-icon"><i data-lucide="${x.type==='DOCUMENT'?'file-text':x.type==='TASK'?'list-checks':'users-round'}"></i></span><span><strong>${esc(x.title)}</strong><small>${esc(x.subtitle||'')} · ${formatDateVN(x.date)}</small></span><i data-lucide="arrow-up-right"></i></button>`).join(''):'<div class="global-search-empty">Không tìm thấy kết quả.</div>';
+      lucide.createIcons();
+    }catch(err){box.innerHTML=`<div class="global-search-empty">${esc(err.message||String(err))}</div>`}
+  }
+
+  // ----- Event wiring for final modules -----
+  document.querySelectorAll('.f1-calendar-close').forEach(x=>x.addEventListener('click',closeCalendarModalF1));
+  document.getElementById('f1CalendarModal')?.addEventListener('click',e=>{if(e.target.id==='f1CalendarModal')closeCalendarModalF1()});
+  document.getElementById('f1CalendarSave')?.addEventListener('click',saveCalendarF1);
+  document.getElementById('calendarRefreshBtn')?.addEventListener('click',()=>{P1.calendarLoaded=false;loadCalendarP1(true)});
+  document.getElementById('miniCalendarPrev')?.addEventListener('click',()=>{F1.miniCalendarAnchor=new Date(F1.miniCalendarAnchor.getFullYear(),F1.miniCalendarAnchor.getMonth()-1,1);renderMiniCalendarF1()});
+  document.getElementById('miniCalendarNext')?.addEventListener('click',()=>{F1.miniCalendarAnchor=new Date(F1.miniCalendarAnchor.getFullYear(),F1.miniCalendarAnchor.getMonth()+1,1);renderMiniCalendarF1()});
+  document.getElementById('miniCalendarGrid')?.addEventListener('click',e=>{const b=e.target.closest('[data-mini-date]');if(!b)return;calendarAnchor=new Date(b.dataset.miniDate+'T12:00:00');F1.miniCalendarAnchor=new Date(calendarAnchor);renderCalendarB3()});
+  document.querySelectorAll('[data-calendar-view]').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('[data-calendar-view]').forEach(x=>x.classList.remove('active'));btn.classList.add('active');F1.calendarView=btn.dataset.calendarView;renderCalendarB3()}));
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-calendar-create-date]');if(b&&hasPermissionB5('calendar.create'))openCalendarModalF1(null,b.dataset.calendarCreateDate)});
+
+  document.querySelectorAll('.f1-meeting-close').forEach(x=>x.addEventListener('click',closeMeetingModalF1));
+  document.getElementById('f1MeetingModal')?.addEventListener('click',e=>{if(e.target.id==='f1MeetingModal')closeMeetingModalF1()});
+  document.getElementById('f1MeetingSave')?.addEventListener('click',saveMeetingF1);
+  document.getElementById('meetingRefreshBtn')?.addEventListener('click',()=>{P1.meetingsLoaded=false;loadMeetingsP1(true)});
+  let meetingSearchTimerF1=null;
+  document.getElementById('meetingSearch')?.addEventListener('input',e=>{clearTimeout(meetingSearchTimerF1);meetingSearchTimerF1=setTimeout(()=>{F1.meetingQuery=e.target.value.trim();P1.meetingsLoaded=false;loadMeetingsP1(true)},300)});
+  document.getElementById('f1MeetingFileInput')?.addEventListener('change',async e=>{
+    const files=[...(e.target.files||[])],meetingId=e.target.dataset.meetingId,kind=e.target.dataset.kind||'MATERIAL';
+    try{
+      for(const file of files){
+        if(file.size>20*1024*1024)throw new Error(file.name+' vượt quá 20 MB.');
+        const encoded=await readFileAsBase64(file);encoded.size=file.size;
+        await gasCall('apiF1AddMeetingFile',meetingId,encoded,kind);
+      }
+      e.target.value='';P1.meetingsLoaded=false;await loadMeetingsP1(true);await openB3Meeting(meetingId);
+      showToast('Đã tải tài liệu',`${files.length} tệp đã được lưu.`);
+    }catch(err){e.target.value='';showToast('Không thể tải tài liệu',err.message||String(err))}
+  });
+
+  document.getElementById('repoRootBtn')?.addEventListener('click',()=>loadRepositoryB4(B4.repoRootId||''));
+  document.getElementById('repoRecentBtn')?.addEventListener('click',()=>loadRepoFlatF1('recent'));
+  document.getElementById('repoFavoriteBtn')?.addEventListener('click',()=>loadRepoFlatF1('favorite'));
+  document.getElementById('repoTypeFilter')?.addEventListener('change',renderRepositoryB4);
+  document.getElementById('repoSort')?.addEventListener('change',renderRepositoryB4);
+  document.addEventListener('click',async e=>{
+    const side=e.target.closest('.repo-side-folder');if(side){loadRepositoryB4(side.dataset.id);return}
+    const fav=e.target.closest('.f1-repo-favorite');if(fav){e.preventDefault();e.stopPropagation();try{await gasCall('apiF1FavoriteRepositoryItem',fav.dataset.type,fav.dataset.id,fav.dataset.favorite!=='1');if(F1.repositoryMode==='favorite')await loadRepoFlatF1('favorite');else await loadRepositoryB4(B4.repoFolderId||'')}catch(err){showToast('Không thể đánh dấu',err.message||String(err))}return}
+    const rename=e.target.closest('.f1-repo-rename');if(rename){e.preventDefault();e.stopPropagation();const name=prompt('Tên mới:',rename.dataset.name||'');if(!name?.trim())return;try{await gasCall('apiF1RenameRepositoryItem',rename.dataset.type,rename.dataset.id,name.trim());await loadRepositoryB4(B4.repoFolderId||'');showToast('Đã đổi tên',name.trim())}catch(err){showToast('Không thể đổi tên',err.message||String(err))}return}
+    const trash=e.target.closest('.f1-repo-trash');if(trash){e.preventDefault();e.stopPropagation();if(!confirm(`Đưa "${trash.dataset.name}" vào thùng rác Google Drive?`))return;try{await gasCall('apiF1TrashRepositoryItem',trash.dataset.type,trash.dataset.id);await loadRepositoryB4(B4.repoFolderId||'');showToast('Đã chuyển vào thùng rác','Có thể khôi phục trong Google Drive.')}catch(err){showToast('Không thể xóa',err.message||String(err))}}
+  });
+
+  document.querySelectorAll('[data-report-period]').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-report-period]').forEach(x=>x.classList.remove('active'));
+    btn.classList.add('active');
+    F1.reportFilters.period=btn.dataset.reportPeriod;
+    document.getElementById('reportCustomRange')?.classList.toggle('hidden-block',F1.reportFilters.period!=='CUSTOM');
+    if(F1.reportFilters.period==='CUSTOM'){
+      const now=new Date();
+      const from=document.getElementById('reportDateFrom');
+      const to=document.getElementById('reportDateTo');
+      if(from&&!from.value)from.value=dateKeyLocal(new Date(now.getFullYear(),now.getMonth(),1));
+      if(to&&!to.value)to.value=dateKeyLocal(now);
+    }
+    loadReportB4();
+  }));
+  document.getElementById('reportAnchorDate')?.addEventListener('change',loadReportB4);
+  document.getElementById('reportDateFrom')?.addEventListener('change',()=>{if(F1.reportFilters.period==='CUSTOM')loadReportB4()});
+  document.getElementById('reportDateTo')?.addEventListener('change',()=>{if(F1.reportFilters.period==='CUSTOM')loadReportB4()});
+  document.getElementById('reportDepartmentFilter')?.addEventListener('change',loadReportB4);
+  document.getElementById('reportRefreshBtn')?.addEventListener('click',loadReportB4);
+  document.getElementById('reportExportPdf')?.addEventListener('click',exportReportPdfF1);
+  document.querySelectorAll('[data-report-template]').forEach(btn=>btn.addEventListener('click',()=>{F1.reportFilters.period=btn.dataset.reportTemplate;document.querySelectorAll('[data-report-period]').forEach(x=>x.classList.toggle('active',x.dataset.reportPeriod===F1.reportFilters.period));loadReportB4()}));
+  const anchorInput=document.getElementById('reportAnchorDate');if(anchorInput&&!anchorInput.value)anchorInput.value=dateKeyLocal(new Date());
+
+  document.getElementById('systemInstallReminder')?.addEventListener('click',async()=>{try{const r=await gasCall('apiF1InstallReminderTrigger');showToast('Đã cài nhắc việc',r.message||'Trigger đã được cài.');await loadSystemDiagnosticsF1()}catch(err){showToast('Không thể cài trigger',err.message||String(err))}});
+  document.getElementById('systemCreateBackup')?.addEventListener('click',async()=>{try{const r=await gasCall('apiF1CreateBackup');showToast('Đã sao lưu',r.name||'Bản sao dữ liệu đã được tạo.');if(r.url)window.open(r.url,'_blank','noopener')}catch(err){showToast('Không thể sao lưu',err.message||String(err))}});
+
+  globalSearch?.addEventListener('input',()=>{clearTimeout(globalSearchTimerF1);globalSearchTimerF1=setTimeout(runGlobalSearchF1,320)});
+  document.getElementById('globalSearchResults')?.addEventListener('click',async e=>{
+    const row=e.target.closest('.global-search-result');if(!row)return;
+    document.getElementById('globalSearchResults')?.classList.add('hidden-block');
+    const type=row.dataset.type,id=row.dataset.id;
+    if(type==='DOCUMENT'){document.querySelector('.nav-item[data-page="documents"]')?.click();setTimeout(()=>openDocumentD1(id),80)}
+    else if(type==='TASK'){document.querySelector('.nav-item[data-page="tasks"]')?.click();setTimeout(()=>openTaskD2(id),80)}
+    else if(type==='MEETING'){document.querySelector('.nav-item[data-page="meetings"]')?.click();setTimeout(()=>openB3Meeting(id),100)}
+  });
+
+
+  function simpleCompareF1(a,b){
+    const left=String(a||'').split(/\r?\n/);
+    const right=String(b||'').split(/\r?\n/);
+    const max=Math.max(left.length,right.length);
+    const rows=[];
+    let changed=0;
+    for(let i=0;i<max;i++){
+      const x=left[i]??'',y=right[i]??'';
+      if(x===y) continue;
+      changed++;
+      rows.push(`<div class="f1-diff-row"><span>Dòng ${i+1}</span><del>${esc(x||'∅')}</del><ins>${esc(y||'∅')}</ins></div>`);
+    }
+    return {changed,html:rows.join('')};
+  }
+
+  function proofreadBasicF1(text){
+    const issues=[];
+    if(/ {2,}/.test(text)) issues.push('Có khoảng trắng liên tiếp.');
+    if(/\s+[,.!?;:]/.test(text)) issues.push('Có khoảng trắng thừa trước dấu câu.');
+    if(/[,.!?;:][^\s\n”"')\]]/.test(text)) issues.push('Có vị trí thiếu khoảng trắng sau dấu câu.');
+    if(/\n{3,}/.test(text)) issues.push('Có quá nhiều dòng trống liên tiếp.');
+    if(!/[.!?…]\s*$/.test(text.trim())&&text.trim()) issues.push('Nội dung chưa kết thúc bằng dấu câu.');
+    const placeholders=(text.match(/\[CẦN BỔ SUNG:[^\]]+\]/gi)||[]).length;
+    if(placeholders) issues.push(`Còn ${placeholders} vị trí [CẦN BỔ SUNG].`);
+    return issues;
+  }
+
+  function moveToolToAdvisoryF1(promptText){
+    closeToolModal();
+    document.querySelector('.nav-item[data-page="advisory"]')?.click();
+    setTimeout(()=>{
+      const ta=document.getElementById('advisoryPrompt');
+      if(ta){ta.value=promptText;ta.focus()}
+    },100);
+  }
+
+  function runToolF1(type){
+    if(type==='compare'){
+      const a=document.getElementById('toolCompareA')?.value||'',b=document.getElementById('toolCompareB')?.value||'';
+      const result=document.getElementById('toolResult');
+      if(!a&&!b){showToast('Chưa có nội dung','Dán hai phiên bản để so sánh.');return}
+      const diff=simpleCompareF1(a,b);
+      if(result)result.innerHTML=diff.changed?`<strong>Phát hiện ${diff.changed} dòng khác nhau</strong>${diff.html}`:'<strong>Hai nội dung giống nhau.</strong>';
+      return;
+    }
+    if(type==='proofread'){
+      const text=document.getElementById('toolProofread')?.value||'';
+      if(!text.trim()){showToast('Chưa có nội dung','Dán văn bản cần kiểm tra.');return}
+      const issues=proofreadBasicF1(text);
+      const result=document.getElementById('toolResult');
+      if(result)result.innerHTML=issues.length?`<strong>Phát hiện ${issues.length} điểm cần rà soát</strong><ul>${issues.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<strong>Không phát hiện lỗi định dạng cơ bản.</strong><p>Nếu cần rà soát sâu về nội dung và logic, dùng Trợ lý tham mưu.</p>';
+      return;
+    }
+    if(type==='voice'){
+      const text=document.getElementById('toolVoiceText')?.value||'';
+      if(!text.trim()){showToast('Chưa có nội dung','Dán nội dung cần đọc.');return}
+      if(!('speechSynthesis' in window)){showToast('Không hỗ trợ','Trình duyệt này không hỗ trợ đọc văn bản.');return}
+      speechSynthesis.cancel();
+      const utter=new SpeechSynthesisUtterance(text);
+      utter.lang='vi-VN';utter.rate=1;
+      speechSynthesis.speak(utter);
+      showToast('Đang đọc văn bản','Có thể đóng cửa sổ, trình duyệt vẫn tiếp tục đọc.');
+      return;
+    }
+    if(type==='report'){
+      if(!hasPermissionB5('reports.view')){
+        showToast('Không có quyền','Tài khoản này chưa được cấp quyền xem Báo cáo.');
+        return;
+      }
+      closeToolModal();document.querySelector('.nav-item[data-page="reports"]')?.click();return;
+    }
+
+    if(['ocr','summary','draft','speech'].includes(type) && !hasPermissionB5('advisory.use')){
+      showToast('Không có quyền','Công cụ này cần quyền sử dụng Trợ lý tham mưu.');
+      return;
+    }
+
+    const prompt=document.getElementById('toolPrompt')?.value?.trim()||'';
+    const defaults={
+      ocr:'Hãy trích xuất nguyên văn nội dung từ ảnh hoặc PDF scan tôi đính kèm, giữ bố cục xuống dòng cơ bản và không tự bổ sung nội dung.',
+      summary:'Hãy tóm tắt nội dung sau thành các ý chính phục vụ công việc: ',
+      draft:'Hãy soạn dự thảo văn bản hành chính theo yêu cầu sau: ',
+      speech:'Hãy xây dựng dàn ý và bản nháp bài phát biểu từ nội dung sau: '
+    };
+    moveToolToAdvisoryF1((defaults[type]||'Hỗ trợ nội dung sau: ')+prompt);
+  }
 
   // Tool modal
   const toolModal = document.getElementById('toolModal');
@@ -4081,17 +5057,18 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const toolBodies = {
-    compare: `<div class="tool-workspace"><label class="tool-drop"><i data-lucide="file-up"></i><strong>Văn bản gốc</strong><span>Chọn DOCX, PDF hoặc TXT</span></label><label class="tool-drop"><i data-lucide="file-up"></i><strong>Văn bản cần so sánh</strong><span>Chọn phiên bản mới</span></label><div class="tool-options"><label class="tool-option"><input type="checkbox" checked><div><strong>Đánh dấu nội dung thay đổi</strong><span>Làm nổi bật phần thêm, xóa và sửa</span></div></label><label class="tool-option"><input type="checkbox" checked><div><strong>Tạo bảng tổng hợp</strong><span>Liệt kê các khác biệt chính</span></div></label></div></div>`,
-    ocr: `<div class="tool-single-form"><label class="tool-drop"><i data-lucide="scan-text"></i><strong>Chọn ảnh hoặc PDF scan</strong><span>Hỗ trợ PNG, JPG, PDF</span></label><label class="tool-option"><input type="checkbox" checked><div><strong>Giữ xuống dòng cơ bản</strong><span>Phù hợp với văn bản hành chính</span></div></label></div>`,
-    summary: `<div class="tool-single-form"><label class="tool-drop"><i data-lucide="file-up"></i><strong>Chọn tài liệu cần tóm tắt</strong><span>PDF, DOCX hoặc TXT</span></label><textarea placeholder="Yêu cầu thêm, ví dụ: Tóm tắt thành 5 ý để báo cáo lãnh đạo..."></textarea></div>`,
-    proofread: `<div class="tool-single-form"><textarea placeholder="Dán nội dung văn bản cần kiểm tra vào đây..."></textarea><div class="tool-options"><label class="tool-option"><input type="checkbox" checked><div><strong>Chính tả & câu chữ</strong><span>Rà lỗi thường gặp</span></div></label><label class="tool-option"><input type="checkbox" checked><div><strong>Thông tin còn thiếu</strong><span>Nhắc các trường cần kiểm tra</span></div></label></div></div>`,
-    draft: `<div class="tool-single-form"><textarea placeholder="Mô tả văn bản cần soạn, ví dụ: Soạn dự thảo thông báo kết luận cuộc họp..."></textarea><label class="tool-option"><input type="checkbox" checked><div><strong>Sử dụng mẫu văn bản của đơn vị</strong><span>Sang bước B sẽ đọc mẫu từ Google Drive</span></div></label></div>`,
-    speech: `<div class="tool-single-form"><textarea placeholder="Nhập chủ đề, bối cảnh, đối tượng nghe và những ý chính cần nhấn mạnh..."></textarea></div>`,
-    report: `<div class="tool-single-form"><textarea placeholder="Mô tả loại báo cáo cần tổng hợp..."></textarea><label class="tool-option"><input type="checkbox" checked><div><strong>Lấy dữ liệu nhiệm vụ</strong><span>Tổng hợp tiến độ từ hệ thống</span></div></label></div>`,
-    voice: `<div class="tool-single-form"><textarea placeholder="Dán nội dung cần đọc hoặc chọn tài liệu..."></textarea><label class="tool-option"><input type="checkbox" checked><div><strong>Giọng đọc tiếng Việt</strong><span>Bản A4 chỉ mô phỏng giao diện</span></div></label></div>`
+    compare: `<div class="f1-compare-grid"><label class="form-field"><span>Văn bản gốc</span><textarea id="toolCompareA" rows="12" placeholder="Dán nội dung bản gốc..."></textarea></label><label class="form-field"><span>Văn bản mới</span><textarea id="toolCompareB" rows="12" placeholder="Dán nội dung bản mới..."></textarea></label></div><div id="toolResult" class="f1-tool-result"></div>`,
+    ocr: `<div class="tool-single-form"><p class="f1-tool-help">OCR ảnh/PDF được xử lý qua Trợ lý tham mưu. Mở Trợ lý, đính kèm ảnh/PDF và hệ thống sẽ trích xuất nội dung.</p><textarea id="toolPrompt" rows="5" placeholder="Yêu cầu OCR bổ sung (không bắt buộc)..."></textarea></div>`,
+    summary: `<div class="tool-single-form"><textarea id="toolPrompt" rows="8" placeholder="Nhập yêu cầu tóm tắt hoặc nội dung cần tóm tắt..."></textarea></div>`,
+    proofread: `<div class="tool-single-form"><textarea id="toolProofread" rows="12" placeholder="Dán nội dung văn bản cần kiểm tra..."></textarea><div id="toolResult" class="f1-tool-result"></div></div>`,
+    draft: `<div class="tool-single-form"><textarea id="toolPrompt" rows="10" placeholder="Mô tả văn bản cần soạn..."></textarea></div>`,
+    speech: `<div class="tool-single-form"><textarea id="toolPrompt" rows="10" placeholder="Nhập chủ đề, bối cảnh và các ý chính..."></textarea></div>`,
+    report: `<div class="tool-single-form"><p class="f1-tool-help">Mở Báo cáo điều hành để tổng hợp dữ liệu thật và xuất PDF.</p></div>`,
+    voice: `<div class="tool-single-form"><textarea id="toolVoiceText" rows="12" placeholder="Dán nội dung cần đọc..."></textarea><div id="toolResult" class="f1-tool-result">Dùng giọng tiếng Việt của trình duyệt.</div></div>`
   };
 
   const openToolModal = type => {
+    F1.activeTool=type;
     toolModalTitle.textContent = toolTitles[type] || 'Công cụ';
     toolModalBody.innerHTML = toolBodies[type] || '';
     toolModal.classList.add('show');
@@ -4103,14 +5080,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.close-tool-modal').forEach(btn => btn.addEventListener('click', closeToolModal));
   toolModal?.addEventListener('click', e => { if (e.target === toolModal) closeToolModal(); });
   runToolAction?.addEventListener('click', () => {
-    closeToolModal();
-    showToast('Đã chạy thử công cụ', 'Bản A4 đang mô phỏng giao diện. Chức năng thật sẽ được nối sau.');
+    runToolF1(F1.activeTool);
   });
 
 
   globalSearch?.addEventListener('keydown', e => {
     if (e.key === 'Enter' && globalSearch.value.trim()) {
-      showToast('Tìm kiếm toàn hệ thống', `Đã nhận từ khóa: "${globalSearch.value.trim()}".`);
+      e.preventDefault();
+      runGlobalSearchF1();
     }
   });
 

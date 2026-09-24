@@ -65,7 +65,7 @@ const B5AdminService = (() => {
     const deptMap = {};
     departments.forEach(d => deptMap[d.department_id] = d.department_name);
 
-    const users = RepositoryService.getAll('USERS')
+    const users = AuthService.listUsersCached()
       .sort((a,b) => String(a.full_name || a.email).localeCompare(String(b.full_name || b.email), 'vi'))
       .map(u => ({
         ...u,
@@ -100,7 +100,7 @@ const B5AdminService = (() => {
     if (!validEmail_(email)) throw new Error('Email không hợp lệ.');
     if (!fullName) throw new Error('Họ và tên không được để trống.');
 
-    const users = RepositoryService.getAll('USERS');
+    const users = AuthService.listUsersCached();
     if (users.some(u => clean_(u.email).toLowerCase() === email)) {
       throw new Error('Email này đã tồn tại trong hệ thống.');
     }
@@ -170,7 +170,7 @@ const B5AdminService = (() => {
 
     // Bảo vệ hệ thống khỏi mất ADMIN cuối cùng.
     if (current.role === 'ADMIN' && (role !== 'ADMIN' || status !== 'ACTIVE')) {
-      const activeAdmins = RepositoryService.getAll('USERS')
+      const activeAdmins = AuthService.listUsersCached()
         .filter(u => u.role === 'ADMIN' && u.status === 'ACTIVE');
 
       if (activeAdmins.length <= 1) {
@@ -254,7 +254,7 @@ const B5AdminService = (() => {
     if (!name) throw new Error('Tên đơn vị không được để trống.');
 
     if (status === 'INACTIVE') {
-      const activeUsers = RepositoryService.getAll('USERS')
+      const activeUsers = AuthService.listUsersCached()
         .filter(u => u.department_id === departmentId && u.status === 'ACTIVE');
       if (activeUsers.length) {
         throw new Error('Không thể ngừng sử dụng đơn vị đang có người dùng hoạt động.');

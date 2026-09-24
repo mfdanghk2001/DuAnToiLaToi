@@ -50,14 +50,15 @@ const B6NotificationService = (() => {
         !(n.is_read === true || String(n.is_read).toUpperCase() === 'TRUE')
       );
 
-    rows.forEach(n => {
-      RepositoryService.updateById(
-        'NOTIFICATIONS','notification_id',n.notification_id,{
-          is_read: true,
-          read_at: new Date()
-        }
-      );
-    });
+    const readAt = new Date();
+    RepositoryService.batchUpdateByIds(
+      'NOTIFICATIONS',
+      'notification_id',
+      rows.map(n => ({
+        id:n.notification_id,
+        patch:{is_read:true,read_at:readAt}
+      }))
+    );
 
     return {updated: rows.length};
   }
@@ -107,8 +108,7 @@ const B6NotificationService = (() => {
     const now = new Date();
     const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-    const users = RepositoryService.getAll('USERS')
-      .filter(u => u.status === 'ACTIVE');
+    const users = AuthService.listActiveUsersCached();
     const activeUserIds = new Set(users.map(u => u.user_id));
 
     const notifications = RepositoryService.getAll('NOTIFICATIONS');
@@ -192,22 +192,31 @@ const B6NotificationService = (() => {
       }
     });
 
-    // 3) Cuộc họp trong 24 giờ -> người tạo cuộc họp
+    // 3) Cuộc họp trong 24 giờ -> người tạo + thành viên nội bộ
     const meetings = RepositoryService.getAll('MEETINGS')
-      .filter(m => m.status !== 'COMPLETED');
+      .filter(m => !['COMPLETED','CANCELLED'].includes(m.status));
+
+    const meetingMembers = RepositoryService.getAll('MEETING_MEMBERS');
 
     meetings.forEach(m => {
-      const creator = m.created_by;
-      if (!creator || !activeUserIds.has(creator) || !m.meeting_date) return;
+      if (!m.meeting_date) return;
 
       const datePart = String(m.meeting_date).slice(0,10);
       const timePart = m.start_time || '00:00';
       const dt = new Date(`${datePart}T${timePart}`);
       if (isNaN(dt) || dt < now || dt > next24h) return;
 
-      if (!exists_(notifications, creator, 'MEETING_UPCOMING', 'MEETING', m.meeting_id)) {
+      const recipients = new Set();
+      if (m.created_by && activeUserIds.has(m.created_by)) recipients.add(m.created_by);
+      meetingMembers
+        .filter(x => x.meeting_id === m.meeting_id && x.user_id && activeUserIds.has(x.user_id))
+        .forEach(x => recipients.add(x.user_id));
+
+      recipients.forEach(userId => {
+        if (exists_(notifications, userId, 'MEETING_UPCOMING', 'MEETING', m.meeting_id)) return;
+
         const n = create_({
-          user_id: creator,
+          user_id: userId,
           type: 'MEETING_UPCOMING',
           title: 'Cuộc họp sắp diễn ra',
           message: `${m.title || 'Cuộc họp'} · ${dueText_(dt)}`,
@@ -215,7 +224,7 @@ const B6NotificationService = (() => {
           reference_id: m.meeting_id
         });
         if (n) { notifications.push(n); created++; }
-      }
+      });
     });
 
     return {
@@ -241,7 +250,7 @@ const B6ActivityService = (() => {
       throw new Error('Chỉ ADMIN được xem nhật ký hoạt động.');
     }
 
-    const users = RepositoryService.getAll('USERS');
+    const users = AuthService.listUsersCached();
     const userMap = {};
     users.forEach(u => userMap[u.user_id] = u.full_name || u.email);
 
