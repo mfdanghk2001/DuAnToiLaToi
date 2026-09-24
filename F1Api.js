@@ -34,6 +34,15 @@ function apiF1SaveMeetingNotes(meetingId, payload) {
   return F1CompleteService.saveMeetingNotes(meetingId, payload || {});
 }
 
+function apiF1UpdateMeetingMemberStatus(meetingId, memberId, status, note) {
+  return F1CompleteService.updateMeetingMemberStatus(
+    meetingId,
+    memberId,
+    status || 'INVITED',
+    note
+  );
+}
+
 function apiF1AddMeetingFile(meetingId, file, kind) {
   return F1CompleteService.addMeetingFile(meetingId, file || {}, kind || 'MATERIAL');
 }
