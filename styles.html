@@ -3786,4 +3786,152 @@ button.nav-item{
   line-height:1.45
 }
 
+
+/* =========================
+   TUY PHONG LOGIN FLAG
+   ========================= */
+.access-card{
+  width:min(820px,94vw);
+  min-height:690px;
+}
+.access-flag-stage{
+  position:relative;
+  width:min(480px,78vw);
+  aspect-ratio:720/404;
+  margin:18px auto 10px;
+  display:grid;
+  place-items:center;
+}
+.access-flag-glow{
+  position:absolute;
+  inset:8% 4%;
+  border-radius:28px;
+  background:radial-gradient(circle,rgba(204,25,30,.26),rgba(204,25,30,0) 72%);
+  filter:blur(20px);
+  animation:partyFlagGlow 4.8s ease-in-out infinite;
+}
+.access-flag-frame{
+  position:relative;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  border-radius:22px;
+  background:#8B0008;
+  box-shadow:
+    0 22px 55px rgba(105,10,16,.24),
+    0 0 0 1px rgba(255,255,255,.7);
+  transform:translateZ(0);
+}
+.access-party-flag{
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:cover;
+  transform:scale(1.025);
+  animation:partyFlagMotion 8s ease-in-out infinite alternate;
+}
+.access-flag-shine{
+  position:absolute;
+  inset:-30% auto -30% -35%;
+  width:35%;
+  transform:rotate(15deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.20),transparent);
+  filter:blur(6px);
+  animation:partyFlagShine 5.2s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes partyFlagMotion{
+  0%{transform:scale(1.025) translate3d(-.8%,0,0)}
+  50%{transform:scale(1.055) translate3d(.7%,-.4%,0)}
+  100%{transform:scale(1.035) translate3d(-.2%,.5%,0)}
+}
+@keyframes partyFlagGlow{
+  0%,100%{opacity:.58;transform:scale(.96)}
+  50%{opacity:1;transform:scale(1.04)}
+}
+@keyframes partyFlagShine{
+  0%,35%{left:-40%;opacity:0}
+  48%{opacity:.65}
+  70%,100%{left:120%;opacity:0}
+}
+
+/* =========================
+   READABILITY PASS
+   Tăng cỡ chữ nhỏ khoảng 2px, ưu tiên 11 -> 13.
+   ========================= */
+body{font-size:13px}
+.brand-title{font-size:13px}
+.brand-subtitle{font-size:14px;line-height:1.18}
+.nav-section-label{font-size:12px}
+.nav-item{font-size:15px}
+.nav-badge{font-size:12px}
+.sidebar-user-info strong{font-size:13px}
+.sidebar-user-info span{font-size:12px}
+.profile-text strong{font-size:13px}
+.profile-text span{font-size:12px}
+.global-search input{font-size:14px}
+.shortcut{font-size:12px}
+.eyebrow{font-size:13px}
+.hero-sub{font-size:14px}
+.btn{font-size:14px}
+.btn-sm{font-size:13px}
+.stat-label{font-size:13px}
+.stat-foot{font-size:12px}
+.stat-mini-link{font-size:12px}
+.panel-head h2{font-size:17px}
+.panel-head p{font-size:13px}
+.segment{font-size:12px}
+.task-title-row h3{font-size:14px}
+.task-meta{font-size:12px}
+.status{font-size:11px}
+.text-btn{font-size:13px}
+.form-field>span,
+.detail-field>span,
+.detail-section-head,
+table th,
+table td{font-size:13px}
+input,select,textarea{font-size:13px}
+.access-mini-brand{font-size:12px}
+.access-security-pill{font-size:11px}
+.access-kicker{font-size:11px}
+.access-copy h1{font-size:31px}
+.access-copy>p:last-child{font-size:13px}
+.access-step strong{font-size:12px}
+.access-step small{font-size:11px}
+.access-login-field>span{font-size:12px}
+.access-login-field input{font-size:13px}
+.access-login-submit{font-size:13px}
+.access-login-error{font-size:12px}
+.access-identity strong{font-size:13px}
+.access-identity small{font-size:11px}
+.access-verified{font-size:11px}
+.access-state-card strong{font-size:13px}
+.access-state-card p{font-size:12px}
+.access-state-card small{font-size:11px}
+.access-footnote{font-size:10.5px}
+.admin-role-intro h2{font-size:13px}
+.admin-role-intro p{font-size:12px}
+.admin-role-legend span{font-size:11px}
+.permission-matrix-head strong{font-size:13px}
+.permission-matrix-head span{font-size:11px}
+.permission-matrix thead th{font-size:11px}
+.permission-matrix .permission-group-row td{font-size:11px}
+.permission-name strong{font-size:12px}
+.permission-name small{font-size:10.5px}
+.permission-role-head strong{font-size:12px}
+.permission-role-head small{font-size:10.5px}
+.admin-role-count{font-size:11px}
+.profile-menu-head strong{font-size:13px}
+.profile-menu-head span{font-size:11px}
+.profile-menu-head small{font-size:10px}
+.profile-menu-item strong{font-size:12px}
+.profile-menu-item small{font-size:10.5px}
+.p2-sync-indicator{font-size:11px}
+
+@media(max-width:720px){
+  .access-card{min-height:auto}
+  .access-flag-stage{width:min(430px,88vw)}
+  .brand-subtitle{font-size:13px}
+}
+
 </style>
