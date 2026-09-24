@@ -620,10 +620,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setText('dashDueSoonHint','Trong 48 giờ tới');
     setText('dashOverdueHint',d.stats.overdue?'Cần ưu tiên xử lý':'Không có việc quá hạn');
 
-    const taskTotal=Math.max(0,Number(d.tasks.total||0));
     const done=Number(d.tasks.completed||0);
     const doing=Math.max(0,Number(d.tasks.inProgress||0)+Number(d.tasks.waitingApproval||0)+Number(d.tasks.newCount||0));
     const overdueCount=Number(d.tasks.overdue||0);
+    const taskTotal=done+doing+overdueCount;
     const pct=taskTotal?Math.round(done/taskTotal*100):0;
     const donut=document.getElementById('dashboardProgressDonut');
     if(donut) donut.style.setProperty('--value',pct);
@@ -4737,6 +4737,8 @@ document.addEventListener('DOMContentLoaded', () => {
       side.innerHTML='<div class="repo-side-title">THƯ MỤC GỐC</div>'+((data.folder?.id===data.rootFolderId?data.folders:[])||[]).map(x=>`<button class="repo-side-folder" data-id="${esc(x.id)}"><span><i data-lucide="folder"></i> ${esc(x.name)}</span></button>`).join('');
     }
     const count=document.getElementById('repoItemCount');if(count)count.textContent=`${display.folders.length+display.files.length} mục`;
+    const folderCount=document.getElementById('repoFolderCount');if(folderCount)folderCount.textContent=`${display.folders.length} thư mục`;
+    const fileCount=document.getElementById('repoFileCount');if(fileCount)fileCount.textContent=`${display.files.length} tài liệu`;
     renderRepoListB4();lucide.createIcons();
   }
 
@@ -4907,7 +4909,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const trash=e.target.closest('.f1-repo-trash');if(trash){e.preventDefault();e.stopPropagation();if(!confirm(`Đưa "${trash.dataset.name}" vào thùng rác Google Drive?`))return;try{await gasCall('apiF1TrashRepositoryItem',trash.dataset.type,trash.dataset.id);await loadRepositoryB4(B4.repoFolderId||'');showToast('Đã chuyển vào thùng rác','Có thể khôi phục trong Google Drive.')}catch(err){showToast('Không thể xóa',err.message||String(err))}}
   });
 
-  document.querySelectorAll('[data-report-period]').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('[data-report-period]').forEach(x=>x.classList.remove('active'));btn.classList.add('active');F1.reportFilters.period=btn.dataset.reportPeriod;document.getElementById('reportCustomRange')?.classList.toggle('hidden-block',F1.reportFilters.period!=='CUSTOM');loadReportB4()}));
+  document.querySelectorAll('[data-report-period]').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-report-period]').forEach(x=>x.classList.remove('active'));
+    btn.classList.add('active');
+    F1.reportFilters.period=btn.dataset.reportPeriod;
+    document.getElementById('reportCustomRange')?.classList.toggle('hidden-block',F1.reportFilters.period!=='CUSTOM');
+    if(F1.reportFilters.period==='CUSTOM'){
+      const now=new Date();
+      const from=document.getElementById('reportDateFrom');
+      const to=document.getElementById('reportDateTo');
+      if(from&&!from.value)from.value=dateKeyLocal(new Date(now.getFullYear(),now.getMonth(),1));
+      if(to&&!to.value)to.value=dateKeyLocal(now);
+    }
+    loadReportB4();
+  }));
   document.getElementById('reportAnchorDate')?.addEventListener('change',loadReportB4);
   document.getElementById('reportDateFrom')?.addEventListener('change',()=>{if(F1.reportFilters.period==='CUSTOM')loadReportB4()});
   document.getElementById('reportDateTo')?.addEventListener('change',()=>{if(F1.reportFilters.period==='CUSTOM')loadReportB4()});
