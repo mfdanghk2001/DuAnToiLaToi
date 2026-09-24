@@ -14,8 +14,126 @@
 
   <?!= include('styles'); ?>
 </head>
-<body>
-  <div class="app-shell">
+<body class="access-pending">
+  <!-- LOGIN / ACCESS GATEWAY -->
+  <div class="access-gateway" id="accessGateway" role="status" aria-live="polite">
+    <div class="access-ambient" aria-hidden="true">
+      <span class="access-orb access-orb-one"></span>
+      <span class="access-orb access-orb-two"></span>
+      <span class="access-grid-glow"></span>
+    </div>
+
+    <section class="access-card">
+      <div class="access-topline">
+        <div class="access-mini-brand">
+          <span class="access-mini-star">★</span>
+          <span>VĂN PHÒNG ĐẢNG ỦY SỐ</span>
+        </div>
+        <span class="access-security-pill"><i data-lucide="shield-check"></i> Truy cập bảo mật</span>
+      </div>
+
+      <div class="access-emblem-stage" aria-hidden="true">
+        <span class="access-impact-flash"></span>
+        <span class="access-impact-ring ring-one"></span>
+        <span class="access-impact-ring ring-two"></span>
+
+        <svg class="access-emblem-svg" viewBox="0 0 220 220" role="img" aria-label="Biểu trưng cách điệu">
+          <defs>
+            <radialGradient id="accessRedGlow" cx="50%" cy="42%" r="62%">
+              <stop offset="0%" stop-color="#D62828"/>
+              <stop offset="72%" stop-color="#A51016"/>
+              <stop offset="100%" stop-color="#760A0E"/>
+            </radialGradient>
+            <linearGradient id="accessGold" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FFF2A8"/>
+              <stop offset="44%" stop-color="#FFD447"/>
+              <stop offset="100%" stop-color="#E6A617"/>
+            </linearGradient>
+            <filter id="accessGoldGlow" x="-70%" y="-70%" width="240%" height="240%">
+              <feGaussianBlur stdDeviation="4.5" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <circle class="access-emblem-disc" cx="110" cy="110" r="78" fill="url(#accessRedGlow)"/>
+          <circle class="access-emblem-ring" cx="110" cy="110" r="82" fill="none" stroke="url(#accessGold)" stroke-width="3"/>
+
+          <g class="access-final-star" fill="url(#accessGold)">
+            <path d="M110 42l4.8 9.8 10.8 1.6-7.8 7.6 1.8 10.8-9.6-5.1-9.6 5.1 1.8-10.8-7.8-7.6 10.8-1.6z"/>
+          </g>
+
+          <g class="access-sickle" fill="url(#accessGold)" filter="url(#accessGoldGlow)">
+            <path d="M147 79c-1 24-10 46-27 60-16 13-36 18-55 13-21-5-38-21-45-41-8-23-2-48 14-66 8-9 17-15 27-19-12 14-18 30-16 47 2 18 12 34 27 42 14 8 32 9 47 2 16-8 26-22 28-38z"/>
+            <path d="M116 126c8 3 15 8 20 14l-9 9c-5-6-11-10-18-13z"/>
+          </g>
+
+          <g class="access-hammer" fill="url(#accessGold)" filter="url(#accessGoldGlow)">
+            <rect x="101" y="62" width="15" height="92" rx="7.5" transform="rotate(39 108.5 108)"/>
+            <rect x="75" y="55" width="67" height="19" rx="8" transform="rotate(39 108.5 64.5)"/>
+            <path d="M77 50l17 14-10 13-18-14z"/>
+          </g>
+
+          <g class="access-emblem-rays" stroke="url(#accessGold)" stroke-width="2" stroke-linecap="round">
+            <path d="M110 15v10M110 195v10M15 110h10M195 110h10M43 43l7 7M170 170l7 7M177 43l-7 7M50 170l-7 7"/>
+          </g>
+        </svg>
+      </div>
+
+      <div class="access-copy">
+        <p class="access-kicker">CỔNG TRUY CẬP NỘI BỘ</p>
+        <h1 id="accessTitle">Đăng nhập hệ thống</h1>
+        <p id="accessMessage">Đang xác minh tài khoản Google đã đăng nhập và kiểm tra quyền truy cập…</p>
+      </div>
+
+      <div class="access-steps" id="accessSteps">
+        <div class="access-step active" data-access-step="identity">
+          <span><i data-lucide="user-round-check"></i></span>
+          <div><strong>Tài khoản</strong><small>Xác minh Google</small></div>
+        </div>
+        <div class="access-step" data-access-step="permission">
+          <span><i data-lucide="shield-check"></i></span>
+          <div><strong>Phân quyền</strong><small>Kiểm tra vai trò</small></div>
+        </div>
+        <div class="access-step" data-access-step="workspace">
+          <span><i data-lucide="database"></i></span>
+          <div><strong>Dữ liệu</strong><small>Khởi tạo không gian</small></div>
+        </div>
+      </div>
+
+      <div class="access-identity hidden-block" id="accessIdentity">
+        <span class="access-user-avatar" id="accessUserAvatar">—</span>
+        <div>
+          <strong id="accessUserName">Tài khoản</strong>
+          <small id="accessUserMeta">Đang xác minh…</small>
+        </div>
+        <span class="access-verified"><i data-lucide="badge-check"></i> Đã xác minh</span>
+      </div>
+
+      <div class="access-state-card hidden-block" id="accessStateCard">
+        <span class="access-state-icon" id="accessStateIcon"><i data-lucide="shield-alert"></i></span>
+        <div>
+          <strong id="accessStateTitle">Không có quyền truy cập</strong>
+          <p id="accessStateMessage">Tài khoản hiện tại chưa được cấp quyền trong hệ thống.</p>
+          <small id="accessStateEmail"></small>
+        </div>
+      </div>
+
+      <div class="access-actions hidden-block" id="accessActions">
+        <button class="btn btn-secondary" id="accessRetryBtn"><i data-lucide="refresh-cw"></i> Thử lại</button>
+        <button class="btn btn-primary" id="accessSwitchAccountBtn"><i data-lucide="log-in"></i> Chọn tài khoản Google khác</button>
+      </div>
+
+      <div class="access-loading-line" id="accessLoadingLine">
+        <span></span>
+      </div>
+
+      <p class="access-footnote">
+        Hệ thống sử dụng tài khoản Google đã đăng nhập để xác định người dùng và quyền truy cập.
+      </p>
+    </section>
+  </div>
+
+  <div class="app-shell" id="appShell" aria-hidden="true">
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
       <div class="brand">
@@ -1085,7 +1203,31 @@
             </div>
 
             <div class="admin-tab-panel hidden-block" id="adminRolesPanel">
+              <div class="admin-role-intro">
+                <div>
+                  <span class="admin-role-intro-icon"><i data-lucide="shield-check"></i></span>
+                  <div>
+                    <h2>Ma trận phân quyền</h2>
+                    <p>Quan sát nhanh chức năng mà từng vai trò được phép sử dụng. Vai trò được gán cho người dùng tại tab <strong>Người dùng</strong>.</p>
+                  </div>
+                </div>
+                <div class="admin-role-legend">
+                  <span><i data-lucide="circle-check-big"></i> Có quyền</span>
+                  <span><i data-lucide="minus"></i> Không có quyền</span>
+                </div>
+              </div>
               <div class="admin-role-grid" id="adminRoleGrid"></div>
+              <div class="permission-matrix-shell">
+                <div class="permission-matrix-head">
+                  <div>
+                    <strong>Chi tiết quyền theo chức năng</strong>
+                    <span>Cập nhật tự động theo cấu hình quyền hiện tại của hệ thống.</span>
+                  </div>
+                </div>
+                <div class="permission-matrix-scroll">
+                  <table class="permission-matrix" id="adminPermissionMatrix"></table>
+                </div>
+              </div>
             </div>
 
             <div class="admin-tab-panel hidden-block" id="adminDepartmentsPanel">
