@@ -589,6 +589,10 @@ document.addEventListener('DOMContentLoaded', () => {
           D2.loadedKey=defaultD2Key_();
         }
 
+        if(data.todayCalendar?.items){
+          loadDashboardAgendaF1(data.todayCalendar.items);
+        }
+
         P2.prefetched=true;
         return data;
       })
@@ -961,13 +965,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function loadDashboardAgendaF1(){
+  async function loadDashboardAgendaF1(prefetchedRows=null){
     const box=document.getElementById('dashboardAgendaList');
     if(!box) return;
     const today=dateKeyLocal(new Date());
     try{
-      const data=await gasCall('apiF1ListCalendar',{from:today,to:today});
-      const rows=(data?.items||[]).filter(x=>!x.status||x.status==='ACTIVE');
+      let rows;
+      if(Array.isArray(prefetchedRows)){
+        rows=prefetchedRows.filter(x=>!x.status||x.status==='ACTIVE');
+      }else{
+        const data=await gasCall('apiF1ListCalendar',{from:today,to:today});
+        rows=(data?.items||[]).filter(x=>!x.status||x.status==='ACTIVE');
+      }
       const dateLabel=document.getElementById('dashboardAgendaDate');
       if(dateLabel) dateLabel.textContent=new Intl.DateTimeFormat('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit'}).format(new Date());
       box.innerHTML=rows.length?rows.map((e,i)=>`
@@ -2911,8 +2920,11 @@ document.addEventListener('DOMContentLoaded', () => {
       hideBackendBanner();
 
       setTimeout(()=>loadNotificationsB6(),600);
-      setTimeout(()=>loadDashboardAgendaF1(),900);
       startP2Prefetch_();
+      setTimeout(()=>{
+        const box=document.getElementById('dashboardAgendaList');
+        if(box?.querySelector('.backend-spinner')) loadDashboardAgendaF1();
+      },3500);
       finishAccessGateway_(data.user);
     } catch(err) {
       showAccessError_(err.message||String(err));
