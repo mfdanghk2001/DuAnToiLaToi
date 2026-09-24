@@ -3788,71 +3788,22 @@ button.nav-item{
 
 
 /* =========================
-   TUY PHONG LOGIN FLAG
+   TUY PHONG LOGIN - CLEAN
    ========================= */
 .access-card{
-  width:min(820px,94vw);
-  min-height:690px;
+  width:min(760px,94vw);
+  min-height:auto;
+  padding-top:28px;
+  padding-bottom:28px;
 }
-.access-flag-stage{
-  position:relative;
-  width:min(480px,78vw);
-  aspect-ratio:720/404;
-  margin:18px auto 10px;
-  display:grid;
-  place-items:center;
+.access-copy{
+  margin-top:34px;
 }
-.access-flag-glow{
-  position:absolute;
-  inset:8% 4%;
-  border-radius:28px;
-  background:radial-gradient(circle,rgba(204,25,30,.26),rgba(204,25,30,0) 72%);
-  filter:blur(20px);
-  animation:partyFlagGlow 4.8s ease-in-out infinite;
+.access-steps{
+  margin-top:24px;
 }
-.access-flag-frame{
-  position:relative;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-  border-radius:22px;
-  background:#8B0008;
-  box-shadow:
-    0 22px 55px rgba(105,10,16,.24),
-    0 0 0 1px rgba(255,255,255,.7);
-  transform:translateZ(0);
-}
-.access-party-flag{
-  width:100%;
-  height:100%;
-  display:block;
-  object-fit:cover;
-  transform:scale(1.025);
-  animation:partyFlagMotion 8s ease-in-out infinite alternate;
-}
-.access-flag-shine{
-  position:absolute;
-  inset:-30% auto -30% -35%;
-  width:35%;
-  transform:rotate(15deg);
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,.20),transparent);
-  filter:blur(6px);
-  animation:partyFlagShine 5.2s ease-in-out infinite;
-  pointer-events:none;
-}
-@keyframes partyFlagMotion{
-  0%{transform:scale(1.025) translate3d(-.8%,0,0)}
-  50%{transform:scale(1.055) translate3d(.7%,-.4%,0)}
-  100%{transform:scale(1.035) translate3d(-.2%,.5%,0)}
-}
-@keyframes partyFlagGlow{
-  0%,100%{opacity:.58;transform:scale(.96)}
-  50%{opacity:1;transform:scale(1.04)}
-}
-@keyframes partyFlagShine{
-  0%,35%{left:-40%;opacity:0}
-  48%{opacity:.65}
-  70%,100%{left:120%;opacity:0}
+.access-login-form{
+  margin-top:20px;
 }
 
 /* =========================
@@ -3930,7 +3881,6 @@ input,select,textarea{font-size:13px}
 
 @media(max-width:720px){
   .access-card{min-height:auto}
-  .access-flag-stage{width:min(430px,88vw)}
   .brand-subtitle{font-size:13px}
 }
 
