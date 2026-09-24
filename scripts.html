@@ -92,6 +92,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (item.dataset.page === 'documents') {
         loadDocumentsD1();
       }
+      if (item.dataset.page === 'tasks') {
+        loadTasksD2();
+      }
       if (item.dataset.page === 'repository') {
         loadRepositoryB4(B4.repoFolderId || '');
       }
@@ -161,7 +164,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   };
-  bindSearch('taskSearch', '.task-full-row');
 
   // Drawer
   const drawerTemplates = {
@@ -307,6 +309,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentCreateType = null;
   const createTitles = {document:'Tiếp nhận văn bản',task:'Giao nhiệm vụ',meeting:'Tạo cuộc họp',calendar:'Thêm lịch công tác'};
   const openModal = type => {
+    if (type === 'task' && typeof openTaskModalD2 === 'function') {
+      openTaskModalD2();
+      return;
+    }
     currentCreateType = type;
     createModalTitle.textContent = createTitles[type] || 'Tạo mới';
     if (createForm && modalForms[type]) createForm.innerHTML = modalForms[type];
@@ -417,6 +423,25 @@ document.addEventListener('DOMContentLoaded', () => {
     current:null,
     editingId:'',
     selectedFiles:[]
+  };
+
+  const D2 = {
+    filters:{
+      q:'',
+      status:'ALL',
+      owner:'ALL',
+      priority:'ALL',
+      sourceType:'ALL',
+      due:'ALL',
+      page:1,
+      pageSize:10
+    },
+    list:null,
+    current:null,
+    editingId:'',
+    selectedFiles:[],
+    pendingSource:{type:'',id:''},
+    view:'list'
   };
 
   const gasCall = (fn, ...args) => new Promise((resolve, reject) => {
@@ -547,27 +572,6 @@ document.addEventListener('DOMContentLoaded', () => {
       [['taskNewCount',d.tasks.newCount],['taskProgressCount',d.tasks.inProgress],['taskWaitingCount',d.tasks.waitingApproval],['taskOverdueCount',d.tasks.overdue]]
         .forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.textContent=String(v).padStart(2,'0')});
     }
-    const box=document.getElementById('taskFullList');
-    if (!box) return;
-    if (!B2.tasks.length) {
-      box.innerHTML=`<div class="empty-data"><i data-lucide="list-checks"></i><strong>Chưa có nhiệm vụ</strong><span>Bấm “Giao nhiệm vụ” để tạo công việc đầu tiên.</span></div>`;
-      lucide.createIcons(); return;
-    }
-    box.innerHTML=B2.tasks.map(t=>{
-      const st=statusMeta(t.effective_status||t.status);
-      const priority=t.priority==='URGENT'?'high':t.priority==='HIGH'?'medium':'normal';
-      const owner=t.owner_name||userName(t.owner_user_id)||'Chưa giao';
-      const progress=Number(t.progress||0);
-      return `<article class="task-full-row b2-task-detail" data-id="${esc(t.task_id)}">
-        <button class="task-check"><i data-lucide="circle"></i></button><div class="priority-bar ${priority}"></div>
-        <div class="task-full-main"><div class="task-full-title"><strong>${esc(t.title)}</strong><span class="status ${st[1]}">${st[0]}</span></div>
-        <p>${esc(t.description||'Chưa có mô tả.')}</p><div class="task-full-meta">
-        <span><i data-lucide="user"></i> ${esc(owner)}</span><span><i data-lucide="alarm-clock"></i> ${formatDateTimeVN(t.due_date)}</span>
-        <span class="tag">${esc(t.priority||'NORMAL')}</span></div></div>
-        <div class="progress-cell"><div class="tiny-progress"><span style="width:${progress}%"></span></div><small>${progress}%</small></div>
-        <button class="icon-btn"><i data-lucide="more-horizontal"></i></button></article>`;
-    }).join('');
-    lucide.createIcons();
   };
 
   const renderAllB2 = () => {
@@ -626,7 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const owner=B2.users.find(u=>(u.full_name||u.email)===ownerName);
         const priorityMap={'Bình thường':'NORMAL','Cao':'HIGH','Khẩn':'URGENT'};
 
-        await gasCall('apiCreateTask',{
+        await gasCall('apiD2CreateTask',{
           title,
           owner_user_id:owner?.user_id||B2.user?.userId||'',
           collaborator_ids:'',
@@ -1033,6 +1037,698 @@ document.addEventListener('DOMContentLoaded', () => {
     if(mt){e.stopPropagation();openB3Meeting(mt.dataset.id);}
   });
 
+
+
+
+  // =========================
+  // D2 - Complete task module
+  // =========================
+  const taskStatusLabelD2 = status => ({
+    NEW:'Chưa xử lý',
+    IN_PROGRESS:'Đang thực hiện',
+    WAITING_APPROVAL:'Chờ duyệt',
+    COMPLETED:'Hoàn thành',
+    CANCELLED:'Đã hủy',
+    OVERDUE:'Quá hạn'
+  }[status] || status || 'Chưa xử lý');
+
+  const taskPriorityLabelD2 = priority => ({
+    NORMAL:'Bình thường',
+    HIGH:'Cao',
+    URGENT:'Khẩn'
+  }[priority] || priority || 'Bình thường');
+
+  const taskSourceLabelD2 = type => ({
+    DOCUMENT:'Văn bản',
+    MEETING:'Cuộc họp',
+    DRAFT:'Bản nháp'
+  }[type] || 'Tạo trực tiếp');
+
+  const taskActionLabelD2 = action => ({
+    CREATE:'Tạo nhiệm vụ',
+    EDIT:'Cập nhật thông tin',
+    UPDATE_PROGRESS:'Cập nhật tiến độ',
+    SUBMIT_APPROVAL:'Trình duyệt hoàn thành',
+    APPROVE:'Duyệt hoàn thành',
+    RETURN:'Trả lại bổ sung',
+    CANCEL:'Hủy nhiệm vụ',
+    REOPEN:'Mở lại nhiệm vụ',
+    COMMENT:'Ghi chú / trao đổi',
+    ADD_FILE:'Thêm tài liệu'
+  }[action] || action || 'Cập nhật');
+
+  function taskUsersD2(){
+    return D2.list?.options?.users || B2.users || [];
+  }
+
+  function pendingTaskSourceD2(){
+    if(window.D1DocumentTaskSource) return {type:'DOCUMENT',id:window.D1DocumentTaskSource};
+    if(window.B3MeetingTaskSource) return {type:'MEETING',id:window.B3MeetingTaskSource};
+    if(window.C2DraftTaskSource) return {type:'DRAFT',id:window.C2DraftTaskSource};
+    return {type:'',id:''};
+  }
+
+  function clearPendingTaskSourceD2(){
+    window.D1DocumentTaskSource='';
+    window.B3MeetingTaskSource='';
+    window.C2DraftTaskSource='';
+    D2.pendingSource={type:'',id:''};
+  }
+
+  function sourcePreviewD2(source){
+    if(!source?.type || !source.id) return '';
+    let title='';
+    if(source.type==='DOCUMENT'){
+      const d=(B2.documents||[]).find(x=>x.document_id===source.id) || D1.current?.document;
+      title=d ? [d.document_no,d.title].filter(Boolean).join(' · ') : source.id;
+    }else if(source.type==='MEETING'){
+      const m=(B2.meetings||[]).find(x=>x.meeting_id===source.id);
+      title=m?.title || source.id;
+    }else if(source.type==='DRAFT'){
+      const out=Object.values(C2.outputs||{}).find(x=>x.draftId===source.id);
+      title=out ? draftTitleC2(out) : source.id;
+    }
+    return `<div class="d2-source-card"><i data-lucide="link-2"></i><div><strong>${esc(taskSourceLabelD2(source.type))}</strong><span>${esc(title)}</span></div></div>`;
+  }
+
+  function sourcePrefillD2(source){
+    if(source.type==='DOCUMENT'){
+      const d=(B2.documents||[]).find(x=>x.document_id===source.id) || D1.current?.document;
+      if(d) return {
+        title:`Xử lý văn bản ${d.document_no||''}: ${d.title||''}`.slice(0,180),
+        description:[d.summary,d.notes].filter(Boolean).join('\n\n'),
+        priority:d.priority||'NORMAL',
+        due_date:d.due_date||'',
+        owner_user_id:d.assignee_user_id||''
+      };
+    }
+    if(source.type==='MEETING'){
+      const m=(B2.meetings||[]).find(x=>x.meeting_id===source.id);
+      if(m) return {
+        title:`Thực hiện kết luận: ${m.title||''}`.slice(0,180),
+        description:m.agenda||'',
+        priority:'NORMAL',
+        due_date:'',
+        owner_user_id:''
+      };
+    }
+    if(source.type==='DRAFT'){
+      const out=Object.values(C2.outputs||{}).find(x=>x.draftId===source.id);
+      if(out) return {
+        title:`Thực hiện kết luận: ${draftTitleC2(out)}`.slice(0,180),
+        description:out.text||'',
+        priority:'NORMAL',
+        due_date:'',
+        owner_user_id:''
+      };
+    }
+    return {};
+  }
+
+  function formatTaskDueD2(value){
+    if(!value) return 'Chưa đặt hạn';
+    const d=new Date(value);
+    if(isNaN(d)) return formatDateTimeVN(value);
+    const now=new Date();
+    if(d<now) return 'Quá hạn · '+formatDateTimeVN(value);
+    return formatDateTimeVN(value);
+  }
+
+  function renderTaskPaginationD2(p){
+    const box=document.getElementById('taskPagination');
+    if(!box) return;
+    const pages=[];
+    const start=Math.max(1,p.page-2);
+    const end=Math.min(p.pages,p.page+2);
+    for(let i=start;i<=end;i++) pages.push(i);
+    box.innerHTML=`
+      <button ${p.page<=1?'disabled':''} data-page="${p.page-1}"><i data-lucide="chevron-left"></i></button>
+      ${pages.map(n=>`<button class="${n===p.page?'active':''}" data-page="${n}">${n}</button>`).join('')}
+      <button ${p.page>=p.pages?'disabled':''} data-page="${p.page+1}"><i data-lucide="chevron-right"></i></button>`;
+  }
+
+  function renderTaskFiltersD2(){
+    const owner=document.getElementById('taskOwnerFilter');
+    if(owner){
+      const current=D2.filters.owner;
+      owner.innerHTML='<option value="ALL">Tất cả người phụ trách</option>'+
+        taskUsersD2().map(u=>`<option value="${esc(u.user_id)}">${esc(u.full_name||u.email)}</option>`).join('');
+      if([...owner.options].some(o=>o.value===current)) owner.value=current;
+    }
+  }
+
+  function renderTaskListD2(){
+    const box=document.getElementById('taskFullList');
+    if(!box||!D2.list) return;
+
+    const rows=D2.list.items||[];
+    box.innerHTML=rows.length?rows.map(t=>{
+      const effective=t.effective_status||t.status;
+      const st=statusMeta(effective);
+      const priority=t.priority==='URGENT'?'high':t.priority==='HIGH'?'medium':'normal';
+      const overdue=effective==='OVERDUE';
+      const collab=(t.collaborator_names||[]).slice(0,2);
+      return `<article class="task-full-row d2-task-row ${overdue?'d2-task-overdue':''}" data-id="${esc(t.task_id)}">
+        <button class="task-check d2-task-open" data-id="${esc(t.task_id)}"><i data-lucide="${t.status==='COMPLETED'?'circle-check-big':'circle'}"></i></button>
+        <div class="priority-bar ${priority}"></div>
+        <div class="task-full-main">
+          <div class="task-full-title">
+            <strong>${esc(t.title)}</strong>
+            <span class="status ${st[1]}">${st[0]}</span>
+          </div>
+          <p>${esc(t.description||'Chưa có mô tả.')}</p>
+          <div class="task-full-meta">
+            <span><i data-lucide="user"></i> ${esc(t.owner_name||'Chưa giao')}</span>
+            ${collab.length?`<span><i data-lucide="users"></i> ${esc(collab.join(', '))}${(t.collaborator_names||[]).length>2?' +'+((t.collaborator_names||[]).length-2):''}</span>`:''}
+            <span class="${overdue?'urgent':''}"><i data-lucide="alarm-clock"></i> ${esc(formatTaskDueD2(t.due_date))}</span>
+            ${t.source_type?`<span class="tag">${esc(taskSourceLabelD2(t.source_type))}</span>`:''}
+            ${t.file_count?`<span><i data-lucide="paperclip"></i> ${t.file_count}</span>`:''}
+          </div>
+        </div>
+        <div class="progress-cell">
+          <div class="tiny-progress ${overdue?'danger-progress':''}"><span style="width:${Number(t.progress||0)}%"></span></div>
+          <small>${Number(t.progress||0)}%</small>
+        </div>
+        <button class="icon-btn d2-task-open" data-id="${esc(t.task_id)}"><i data-lucide="chevron-right"></i></button>
+      </article>`;
+    }).join(''):`<div class="empty-data"><i data-lucide="list-checks"></i><strong>Không có nhiệm vụ phù hợp</strong><span>Thay đổi bộ lọc hoặc giao nhiệm vụ mới.</span></div>`;
+
+    const p=D2.list.pagination;
+    const text=document.getElementById('taskResultText');
+    if(text) text.textContent=p.total?`Hiển thị ${p.from}–${p.to} trong ${p.total} nhiệm vụ`:'Hiển thị 0 nhiệm vụ';
+    renderTaskPaginationD2(p);
+  }
+
+  function renderTaskKanbanD2(){
+    const board=document.getElementById('taskKanbanBoard');
+    if(!board||!D2.list) return;
+
+    const all=D2.list.kanban||[];
+    const columns=[
+      {key:'NEW',label:'Chưa xử lý',icon:'circle-dashed'},
+      {key:'IN_PROGRESS',label:'Đang thực hiện',icon:'loader-circle'},
+      {key:'WAITING_APPROVAL',label:'Chờ duyệt',icon:'badge-check'},
+      {key:'OVERDUE',label:'Quá hạn',icon:'circle-alert',danger:true},
+      {key:'COMPLETED',label:'Hoàn thành',icon:'circle-check-big'}
+    ];
+
+    board.innerHTML=columns.map(col=>{
+      const items=all.filter(t=>col.key==='OVERDUE'
+        ? t.effective_status==='OVERDUE'
+        : (t.status===col.key && t.effective_status!=='OVERDUE'));
+      return `<div class="kanban-column ${col.danger?'danger-column':''}">
+        <div class="kanban-head"><span><i data-lucide="${col.icon}"></i> ${col.label}</span><strong>${items.length}</strong></div>
+        <div class="d2-kanban-stack">
+          ${items.length?items.map(t=>`<button class="kanban-card d2-task-open" data-id="${esc(t.task_id)}">
+            <span class="kanban-priority ${t.priority==='URGENT'?'red-bg':t.priority==='HIGH'?'amber-bg':'blue-bg'}"></span>
+            <h3>${esc(t.title)}</h3>
+            <p class="${t.effective_status==='OVERDUE'?'danger-text':''}">${esc(formatTaskDueD2(t.due_date))}</p>
+            <div><span class="avatar avatar-xs">${esc(initials(t.owner_name||'—'))}</span><span class="tag">${Number(t.progress||0)}%</span></div>
+          </button>`).join(''):'<div class="d2-kanban-empty">Không có nhiệm vụ</div>'}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderTasksD2(){
+    if(!D2.list) return;
+    const s=D2.list.stats||{};
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=String(v||0).padStart(2,'0')};
+    set('taskNewCount',s.newCount);
+    set('taskProgressCount',s.inProgress);
+    set('taskWaitingCount',s.waitingApproval);
+    set('taskOverdueCount',s.overdue);
+    renderTaskFiltersD2();
+    renderTaskListD2();
+    renderTaskKanbanD2();
+    lucide.createIcons();
+  }
+
+  async function loadTasksD2(resetPage=false){
+    const box=document.getElementById('taskFullList');
+    if(!box) return;
+    if(resetPage) D2.filters.page=1;
+    box.innerHTML='<div class="admin-loading"><span class="backend-spinner"></span><span>Đang tải nhiệm vụ...</span></div>';
+    try{
+      D2.list=await gasCall('apiD2ListTasks',D2.filters);
+      D2.filters.page=D2.list.pagination.page;
+      renderTasksD2();
+    }catch(err){
+      box.innerHTML=`<div class="empty-data"><i data-lucide="circle-alert"></i><strong>Không tải được nhiệm vụ</strong><span>${esc(err.message||String(err))}</span></div>`;
+      lucide.createIcons();
+    }
+  }
+
+  function renderSelectedTaskFilesD2(){
+    const box=document.getElementById('d2SelectedTaskFiles');
+    if(!box) return;
+    box.innerHTML=D2.selectedFiles.map((f,i)=>`
+      <span class="d1-selected-file">
+        <i data-lucide="file"></i><strong>${esc(f.name)}</strong><small>${humanSize(f.size)}</small>
+        <button type="button" class="icon-btn d2-remove-task-file" data-index="${i}"><i data-lucide="x"></i></button>
+      </span>`).join('');
+    lucide.createIcons();
+  }
+
+  function validateTaskFilesD2(files){
+    const arr=[...files];
+    if(arr.length>5) throw new Error('Mỗi lần chỉ chọn tối đa 5 tệp.');
+    const tooLarge=arr.find(f=>f.size>20*1024*1024);
+    if(tooLarge) throw new Error(`${tooLarge.name} vượt quá 20 MB.`);
+    return arr;
+  }
+
+  async function uploadTaskFilesD2(taskId,files){
+    for(let i=0;i<files.length;i++){
+      const f=files[i];
+      showToast('Đang tải tài liệu',`${i+1}/${files.length} · ${f.name}`);
+      const encoded=await readFileAsBase64(f);
+      encoded.size=f.size;
+      await gasCall('apiD2AddTaskFile',taskId,encoded);
+    }
+  }
+
+  function renderCollaboratorsD2(selected=[],ownerId=''){
+    const box=document.getElementById('d2TaskCollaborators');
+    if(!box) return;
+    const selectedSet=new Set(selected||[]);
+    box.innerHTML=taskUsersD2()
+      .filter(u=>u.user_id!==ownerId)
+      .map(u=>`<label class="d2-collaborator-option">
+        <input type="checkbox" value="${esc(u.user_id)}" ${selectedSet.has(u.user_id)?'checked':''}>
+        <span class="avatar avatar-xs">${esc(initials(u.full_name||u.email))}</span>
+        <span><strong>${esc(u.full_name||u.email)}</strong><small>${esc(u.role||'')}</small></span>
+      </label>`).join('') || '<div class="d2-empty-small">Không có người dùng khác.</div>';
+  }
+
+  function openTaskModalD2(task=null){
+    D2.editingId=task?.task_id||'';
+    D2.selectedFiles=[];
+    D2.pendingSource=task
+      ? {type:task.source_type||'',id:task.source_id||''}
+      : pendingTaskSourceD2();
+
+    const prefill=task || sourcePrefillD2(D2.pendingSource);
+    const modal=document.getElementById('d2TaskModal');
+    if(!modal) return;
+
+    document.getElementById('d2TaskModalTitle').textContent=task?'Cập nhật nhiệm vụ':'Giao nhiệm vụ';
+    document.getElementById('d2TaskTitle').value=prefill.title||'';
+    document.getElementById('d2TaskPriority').value=prefill.priority||'NORMAL';
+    document.getElementById('d2TaskStartDate').value=formatInputDateD1(prefill.start_date||new Date());
+    document.getElementById('d2TaskDueDate').value=formatInputDateTimeD1(prefill.due_date);
+    document.getElementById('d2TaskDescription').value=prefill.description||'';
+
+    const owner=document.getElementById('d2TaskOwner');
+    owner.innerHTML=taskUsersD2().map(u=>`<option value="${esc(u.user_id)}">${esc(u.full_name||u.email)}</option>`).join('');
+    owner.value=prefill.owner_user_id||B2.user?.userId||taskUsersD2()[0]?.user_id||'';
+
+    renderCollaboratorsD2(task?.collaborator_ids||[],owner.value);
+    document.getElementById('d2TaskSourcePreview').innerHTML=sourcePreviewD2(D2.pendingSource);
+    document.getElementById('d2TaskFiles').value='';
+    renderSelectedTaskFilesD2();
+
+    modal.classList.add('show');
+    lucide.createIcons();
+  }
+
+  function closeTaskModalD2(){
+    document.getElementById('d2TaskModal')?.classList.remove('show');
+    D2.editingId='';
+    D2.selectedFiles=[];
+    if(!D2.current) clearPendingTaskSourceD2();
+  }
+
+  async function saveTaskD2(){
+    const title=document.getElementById('d2TaskTitle')?.value.trim()||'';
+    if(!title){showToast('Thiếu thông tin','Bạn chưa nhập tên nhiệm vụ.');return;}
+
+    const collaborators=[...document.querySelectorAll('#d2TaskCollaborators input:checked')].map(x=>x.value);
+    const payload={
+      title,
+      owner_user_id:document.getElementById('d2TaskOwner')?.value||'',
+      collaborator_ids:collaborators,
+      priority:document.getElementById('d2TaskPriority')?.value||'NORMAL',
+      start_date:document.getElementById('d2TaskStartDate')?.value||'',
+      due_date:document.getElementById('d2TaskDueDate')?.value||'',
+      description:document.getElementById('d2TaskDescription')?.value||'',
+      source_type:D2.pendingSource.type||'',
+      source_id:D2.pendingSource.id||''
+    };
+
+    const btn=document.getElementById('d2SaveTask');
+    btn.disabled=true;
+    btn.innerHTML='<span class="backend-spinner"></span> Đang lưu...';
+
+    try{
+      const result=D2.editingId
+        ? await gasCall('apiD2UpdateTask',D2.editingId,payload)
+        : await gasCall('apiD2CreateTask',payload);
+      const taskId=result.task.task_id;
+
+      if(D2.selectedFiles.length) await uploadTaskFilesD2(taskId,D2.selectedFiles);
+
+      document.getElementById('d2TaskModal')?.classList.remove('show');
+      clearPendingTaskSourceD2();
+      await refreshB2();
+      await loadTasksD2();
+
+      showToast('Đã lưu nhiệm vụ',D2.selectedFiles.length
+        ? `Đã lưu nhiệm vụ và ${D2.selectedFiles.length} tài liệu.`
+        : 'Thông tin nhiệm vụ đã được cập nhật.');
+
+      if(D2.editingId) await openTaskD2(taskId);
+      D2.editingId='';
+      D2.selectedFiles=[];
+    }catch(err){
+      showToast('Không thể lưu nhiệm vụ',err.message||String(err));
+    }finally{
+      btn.disabled=false;
+      btn.innerHTML='<i data-lucide="save"></i> Lưu nhiệm vụ';
+      lucide.createIcons();
+    }
+  }
+
+  function taskHistoryDescriptionD2(h){
+    if(h.action==='COMMENT') return h.note||'Ghi chú';
+    if(h.action==='ADD_FILE') return h.note||'Thêm tài liệu';
+    const bits=[];
+    if(h.from_status!==h.to_status && h.to_status) bits.push(`${taskStatusLabelD2(h.from_status)} → ${taskStatusLabelD2(h.to_status)}`);
+    if(String(h.from_progress)!==String(h.to_progress) && h.to_progress!=='') bits.push(`${h.from_progress||0}% → ${h.to_progress}%`);
+    if(h.note) bits.push(h.note);
+    return bits.join(' · ')||'Cập nhật nhiệm vụ.';
+  }
+
+  async function openTaskD2(taskId){
+    drawerEyebrow.textContent='NHIỆM VỤ';
+    drawerTitle.textContent='Chi tiết nhiệm vụ';
+    drawerBody.innerHTML='<div class="admin-loading"><span class="backend-spinner"></span><span>Đang tải nhiệm vụ...</span></div>';
+    drawer.classList.add('show');
+    drawerOverlay.classList.add('show');
+
+    try{
+      D2.current=await gasCall('apiD2GetTask',taskId);
+      renderTaskDrawerD2();
+    }catch(err){
+      drawerBody.innerHTML=`<div class="empty-data"><i data-lucide="circle-alert"></i><strong>Không tải được nhiệm vụ</strong><span>${esc(err.message||String(err))}</span></div>`;
+      lucide.createIcons();
+    }
+  }
+
+  function renderTaskDrawerD2(){
+    const data=D2.current;
+    if(!data) return;
+    const t=data.task;
+    const p=data.permissions||{};
+    const effective=t.effective_status||t.status;
+    const st=statusMeta(effective);
+    const collab=t.collaborator_names||[];
+
+    drawerBody.innerHTML=`
+      <div class="detail-summary">
+        <span class="status ${st[1]}">${st[0]}</span>
+        <span class="document-priority ${esc(t.priority)}">${esc(taskPriorityLabelD2(t.priority))}</span>
+        <h3>${esc(t.title)}</h3>
+        <p>${esc(t.description||'Chưa có mô tả.')}</p>
+      </div>
+
+      <div class="d1-drawer-actions">
+        ${p.canEdit?`<button class="btn btn-secondary btn-sm" id="d2EditTask"><i data-lucide="pencil"></i> Cập nhật</button>`:''}
+        ${p.canContribute&&!['COMPLETED','CANCELLED'].includes(t.status)?`<button class="btn btn-secondary btn-sm" id="d2SubmitApproval"><i data-lucide="send"></i> Trình duyệt</button>`:''}
+        ${p.canApprove&&t.status==='WAITING_APPROVAL'?`<button class="btn btn-primary btn-sm" id="d2ApproveTask"><i data-lucide="badge-check"></i> Duyệt hoàn thành</button><button class="btn btn-secondary btn-sm" id="d2ReturnTask"><i data-lucide="undo-2"></i> Trả lại</button>`:''}
+        ${p.canCancel&&!['COMPLETED','CANCELLED'].includes(t.status)?`<button class="btn btn-light btn-sm" id="d2CancelTask"><i data-lucide="ban"></i> Hủy</button>`:''}
+        ${p.canEdit&&['COMPLETED','CANCELLED'].includes(t.status)?`<button class="btn btn-secondary btn-sm" id="d2ReopenTask"><i data-lucide="rotate-ccw"></i> Mở lại</button>`:''}
+      </div>
+
+      <div class="detail-grid">
+        <div class="detail-field"><span>Người giao</span><strong>${esc(t.assigner_name||'—')}</strong></div>
+        <div class="detail-field"><span>Người chủ trì</span><strong>${esc(t.owner_name||'—')}</strong></div>
+        <div class="detail-field"><span>Ngày bắt đầu</span><strong>${formatDateVN(t.start_date)}</strong></div>
+        <div class="detail-field"><span>Hạn hoàn thành</span><strong class="${effective==='OVERDUE'?'danger-text':''}">${esc(formatTaskDueD2(t.due_date))}</strong></div>
+        <div class="detail-field"><span>Nguồn công việc</span><strong>${esc(taskSourceLabelD2(t.source_type))}</strong></div>
+        <div class="detail-field"><span>Phối hợp</span><strong>${esc(collab.length?collab.join(', '):'—')}</strong></div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Tiến độ thực hiện</h4><span class="status status-progress">${Number(t.progress||0)}%</span></div>
+        <div class="drawer-progress"><div><i style="width:${Number(t.progress||0)}%"></i></div><strong>${Number(t.progress||0)}%</strong></div>
+        ${p.canContribute&&!['COMPLETED','CANCELLED'].includes(t.status)?`
+        <div class="d2-progress-editor">
+          <input id="d2ProgressRange" type="range" min="0" max="100" step="5" value="${Number(t.progress||0)}">
+          <strong id="d2ProgressValue">${Number(t.progress||0)}%</strong>
+          <textarea id="d2ProgressNote" rows="2" placeholder="Ghi chú kết quả hoặc vướng mắc...">${esc(t.result_note||'')}</textarea>
+          <button class="btn btn-primary btn-sm" id="d2SaveProgress"><i data-lucide="save"></i> Lưu tiến độ</button>
+        </div>`:t.result_note?`<div class="d2-result-note"><strong>Kết quả</strong><p>${esc(t.result_note)}</p></div>`:''}
+      </div>
+
+      ${t.source_type?`
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Hồ sơ nguồn</h4></div>
+        <button class="d2-source-open" id="d2OpenTaskSource"><i data-lucide="link-2"></i><div><strong>${esc(taskSourceLabelD2(t.source_type))}</strong><span>${esc(t.source_title||t.source_id)}</span></div><i data-lucide="chevron-right"></i></button>
+      </div>`:''}
+
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Tài liệu đính kèm</h4>${p.canContribute?`<button class="text-btn" id="d2AddTaskFile"><i data-lucide="paperclip"></i> Thêm file</button>`:''}</div>
+        <div class="d1-file-list">
+          ${(data.files||[]).length?(data.files||[]).map(f=>`
+            <div class="d1-file-row">
+              <span class="d1-file-icon"><i data-lucide="file-text"></i></span>
+              <div><strong>${esc(f.file_name)}</strong><small>${humanSize(f.size)} · ${esc(f.uploader_name||'')} · ${formatDateTimeVN(f.created_at)}</small></div>
+              <a class="icon-btn" href="${esc(f.url)}" target="_blank"><i data-lucide="external-link"></i></a>
+            </div>`).join(''):'<div class="d1-empty-small"><i data-lucide="files"></i><span>Chưa có tài liệu đính kèm.</span></div>'}
+        </div>
+      </div>
+
+      ${(p.canContribute||p.canApprove)?`
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Trao đổi / ghi chú</h4></div>
+        <div class="d1-note-box">
+          <textarea id="d2TaskComment" placeholder="Ghi nhận trao đổi, vướng mắc hoặc chỉ đạo..."></textarea>
+          <button class="btn btn-secondary btn-sm" id="d2AddComment"><i data-lucide="message-square-plus"></i> Thêm</button>
+        </div>
+      </div>`:''}
+
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Lịch sử thực hiện</h4></div>
+        <div class="d1-history-list">
+          ${(data.history||[]).length?(data.history||[]).map((h,i)=>`
+            <div class="d1-history-item">
+              <div class="d1-history-time">${formatDateTimeVN(h.created_at)}</div>
+              <div class="d1-history-track"><span class="d1-history-dot"></span>${i<(data.history.length-1)?'<span class="d1-history-line"></span>':''}</div>
+              <div class="d1-history-content"><strong>${esc(taskActionLabelD2(h.action))} · ${esc(h.actor_name||'Hệ thống')}</strong><p>${esc(taskHistoryDescriptionD2(h))}</p></div>
+            </div>`).join(''):'<div class="d1-empty-small"><span>Chưa có lịch sử.</span></div>'}
+        </div>
+      </div>`;
+
+    bindTaskDrawerD2();
+    lucide.createIcons();
+  }
+
+  function bindTaskDrawerD2(){
+    const data=D2.current;
+    if(!data) return;
+    const t=data.task;
+
+    const range=document.getElementById('d2ProgressRange');
+    range?.addEventListener('input',()=>{
+      const el=document.getElementById('d2ProgressValue');
+      if(el) el.textContent=range.value+'%';
+    });
+
+    document.getElementById('d2EditTask')?.addEventListener('click',()=>{
+      closeDrawer();
+      openTaskModalD2(t);
+    });
+
+    document.getElementById('d2SaveProgress')?.addEventListener('click',async()=>{
+      try{
+        const value=Number(document.getElementById('d2ProgressRange')?.value||0);
+        await gasCall('apiD2UpdateTaskProgress',t.task_id,{
+          progress:value,
+          status:value>0?'IN_PROGRESS':'NEW',
+          result_note:document.getElementById('d2ProgressNote')?.value||'',
+          note:'Cập nhật tiến độ từ hồ sơ nhiệm vụ'
+        });
+        await refreshB2(); await loadTasksD2(); await openTaskD2(t.task_id);
+        showToast('Đã cập nhật','Tiến độ nhiệm vụ đã được lưu.');
+      }catch(err){showToast('Không thể cập nhật',err.message||String(err))}
+    });
+
+    document.getElementById('d2SubmitApproval')?.addEventListener('click',async()=>{
+      const note=prompt('Ghi chú khi trình duyệt (có thể để trống):')||'';
+      try{
+        await gasCall('apiD2SubmitTaskForApproval',t.task_id,note);
+        await refreshB2(); await loadTasksD2(); await openTaskD2(t.task_id);
+        showToast('Đã trình duyệt','Nhiệm vụ đã chuyển sang Chờ duyệt.');
+      }catch(err){showToast('Không thể trình duyệt',err.message||String(err))}
+    });
+
+    document.getElementById('d2ApproveTask')?.addEventListener('click',async()=>{
+      const note=prompt('Ghi chú duyệt hoàn thành (có thể để trống):')||'';
+      try{
+        await gasCall('apiD2ApproveTask',t.task_id,'APPROVE',note);
+        await refreshB2(); await loadTasksD2(); await openTaskD2(t.task_id);
+        showToast('Đã duyệt','Nhiệm vụ đã hoàn thành.');
+      }catch(err){showToast('Không thể duyệt',err.message||String(err))}
+    });
+
+    document.getElementById('d2ReturnTask')?.addEventListener('click',async()=>{
+      const note=prompt('Nội dung yêu cầu bổ sung:');
+      if(note===null) return;
+      try{
+        await gasCall('apiD2ApproveTask',t.task_id,'RETURN',note);
+        await refreshB2(); await loadTasksD2(); await openTaskD2(t.task_id);
+        showToast('Đã trả lại','Nhiệm vụ được chuyển về Đang thực hiện.');
+      }catch(err){showToast('Không thể trả lại',err.message||String(err))}
+    });
+
+    document.getElementById('d2CancelTask')?.addEventListener('click',async()=>{
+      if(!confirm('Hủy nhiệm vụ này? Dữ liệu và lịch sử vẫn được giữ lại.')) return;
+      const note=prompt('Lý do hủy (có thể để trống):')||'';
+      try{
+        await gasCall('apiD2CancelTask',t.task_id,note);
+        await refreshB2(); await loadTasksD2(); await openTaskD2(t.task_id);
+        showToast('Đã hủy','Nhiệm vụ được đánh dấu Đã hủy.');
+      }catch(err){showToast('Không thể hủy',err.message||String(err))}
+    });
+
+    document.getElementById('d2ReopenTask')?.addEventListener('click',async()=>{
+      try{
+        await gasCall('apiD2ReopenTask',t.task_id,'Mở lại từ hồ sơ nhiệm vụ');
+        await refreshB2(); await loadTasksD2(); await openTaskD2(t.task_id);
+        showToast('Đã mở lại','Nhiệm vụ chuyển về Đang thực hiện.');
+      }catch(err){showToast('Không thể mở lại',err.message||String(err))}
+    });
+
+    document.getElementById('d2AddComment')?.addEventListener('click',async()=>{
+      const note=document.getElementById('d2TaskComment')?.value.trim()||'';
+      if(!note){showToast('Chưa có nội dung','Nhập ghi chú trước khi thêm.');return;}
+      try{
+        await gasCall('apiD2AddTaskComment',t.task_id,note);
+        await openTaskD2(t.task_id);
+        showToast('Đã thêm ghi chú','Trao đổi đã được lưu vào lịch sử.');
+      }catch(err){showToast('Không thể thêm',err.message||String(err))}
+    });
+
+    document.getElementById('d2AddTaskFile')?.addEventListener('click',()=>{
+      const input=document.getElementById('d2AddTaskFileInput');
+      input.dataset.taskId=t.task_id;
+      input.click();
+    });
+
+    document.getElementById('d2OpenTaskSource')?.addEventListener('click',()=>{
+      const source=t.source_type;
+      const id=t.source_id;
+      closeDrawer();
+      if(source==='DOCUMENT') openDocumentD1(id);
+      else if(source==='MEETING') openB3Meeting(id);
+      else if(source==='DRAFT') openHistoryDraftC2(id);
+    });
+  }
+
+  document.getElementById('taskCreateBtn')?.addEventListener('click',()=>openTaskModalD2());
+  document.getElementById('taskRefreshBtn')?.addEventListener('click',()=>loadTasksD2());
+  document.querySelectorAll('.d2-task-modal-close').forEach(btn=>btn.addEventListener('click',closeTaskModalD2));
+  document.getElementById('d2TaskModal')?.addEventListener('click',e=>{
+    if(e.target.id==='d2TaskModal') closeTaskModalD2();
+  });
+  document.getElementById('d2SaveTask')?.addEventListener('click',saveTaskD2);
+
+  document.getElementById('d2TaskOwner')?.addEventListener('change',e=>{
+    const checked=[...document.querySelectorAll('#d2TaskCollaborators input:checked')].map(x=>x.value);
+    renderCollaboratorsD2(checked,e.target.value);
+  });
+
+  document.getElementById('d2TaskFiles')?.addEventListener('change',e=>{
+    try{
+      D2.selectedFiles=validateTaskFilesD2(e.target.files||[]);
+      renderSelectedTaskFilesD2();
+    }catch(err){
+      e.target.value='';D2.selectedFiles=[];renderSelectedTaskFilesD2();
+      showToast('Tệp không hợp lệ',err.message||String(err));
+    }
+  });
+
+  document.getElementById('d2AddTaskFileInput')?.addEventListener('change',async e=>{
+    const taskId=e.target.dataset.taskId;
+    try{
+      const files=validateTaskFilesD2(e.target.files||[]);
+      await uploadTaskFilesD2(taskId,files);
+      e.target.value='';
+      await openTaskD2(taskId);
+      await loadTasksD2();
+      showToast('Đã thêm tài liệu',`${files.length} tệp đã được tải lên.`);
+    }catch(err){
+      e.target.value='';
+      showToast('Không thể tải tài liệu',err.message||String(err));
+    }
+  });
+
+  document.addEventListener('click',e=>{
+    const remove=e.target.closest('.d2-remove-task-file');
+    if(remove){
+      D2.selectedFiles.splice(Number(remove.dataset.index),1);
+      renderSelectedTaskFilesD2();
+      return;
+    }
+    const open=e.target.closest('.d2-task-open');
+    if(open){e.stopPropagation();openTaskD2(open.dataset.id);}
+  });
+
+  let d2SearchTimer=null;
+  document.getElementById('taskSearch')?.addEventListener('input',e=>{
+    clearTimeout(d2SearchTimer);
+    d2SearchTimer=setTimeout(()=>{
+      D2.filters.q=e.target.value.trim();
+      D2.filters.page=1;
+      loadTasksD2();
+    },300);
+  });
+
+  [
+    ['taskOwnerFilter','owner'],
+    ['taskPriorityFilter','priority'],
+    ['taskStatusFilter','status'],
+    ['taskSourceFilter','sourceType']
+  ].forEach(([id,key])=>{
+    document.getElementById(id)?.addEventListener('change',e=>{
+      D2.filters[key]=e.target.value;
+      D2.filters.page=1;
+      loadTasksD2();
+    });
+  });
+
+  document.getElementById('taskResetFilters')?.addEventListener('click',()=>{
+    D2.filters={q:'',status:'ALL',owner:'ALL',priority:'ALL',sourceType:'ALL',due:'ALL',page:1,pageSize:10};
+    const q=document.getElementById('taskSearch');if(q)q.value='';
+    ['taskOwnerFilter','taskPriorityFilter','taskStatusFilter','taskSourceFilter'].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.value='ALL';
+    });
+    loadTasksD2();
+  });
+
+  document.querySelectorAll('.d2-stat-filter').forEach(btn=>btn.addEventListener('click',()=>{
+    const status=btn.dataset.taskStatus;
+    D2.filters.status=status;
+    D2.filters.page=1;
+    const el=document.getElementById('taskStatusFilter');
+    if(el) el.value=status;
+    loadTasksD2();
+  }));
+
+  document.getElementById('taskPagination')?.addEventListener('click',e=>{
+    const btn=e.target.closest('button[data-page]');
+    if(!btn||btn.disabled) return;
+    D2.filters.page=Number(btn.dataset.page);
+    loadTasksD2();
+  });
+
+  document.querySelectorAll('[data-task-view]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      D2.view=btn.dataset.taskView;
+      renderTaskKanbanD2();
+    });
+  });
 
 
   // =========================
@@ -1676,20 +2372,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const openB2Task = id => {
-    const t=B2.tasks.find(x=>x.task_id===id); if(!t)return;
-    const st=statusMeta(t.effective_status||t.status), progress=Number(t.progress||0);
-    drawerEyebrow.textContent='NHIỆM VỤ';drawerTitle.textContent='Chi tiết nhiệm vụ';
-    drawerBody.innerHTML=`<div class="detail-summary"><span class="status ${st[1]}">${st[0]}</span>
-      <h3>${esc(t.title)}</h3><p>${esc(t.description||'Chưa có mô tả.')}</p></div>
-      <div class="detail-grid"><div class="detail-field"><span>Mã nhiệm vụ</span><strong>${esc(t.task_id)}</strong></div>
-      <div class="detail-field"><span>Mức độ</span><strong>${esc(t.priority||'NORMAL')}</strong></div>
-      <div class="detail-field"><span>Người giao</span><strong>${esc(t.assigner_name||userName(t.assigner_user_id)||'—')}</strong></div>
-      <div class="detail-field"><span>Người chủ trì</span><strong>${esc(t.owner_name||userName(t.owner_user_id)||'—')}</strong></div>
-      <div class="detail-field"><span>Ngày giao</span><strong>${formatDateVN(t.start_date)}</strong></div>
-      <div class="detail-field"><span>Hạn hoàn thành</span><strong>${formatDateTimeVN(t.due_date)}</strong></div></div>
-      <div class="detail-section"><div class="detail-section-head"><h4>Tiến độ</h4><span class="status status-progress">${progress}%</span></div>
-      <div class="drawer-progress"><div><i style="width:${progress}%"></i></div><strong>${progress}%</strong></div></div>`;
-    drawer.classList.add('show');drawerOverlay.classList.add('show');lucide.createIcons();
+    openTaskD2(id);
   };
 
   document.addEventListener('click', e=>{
@@ -1724,6 +2407,7 @@ document.addEventListener('DOMContentLoaded', () => {
       loadNotificationsB6();
       loadAiConfigC1();
       loadDocumentsD1();
+      loadTasksD2();
     } catch(err) { showBackendError(err.message||String(err)); }
   };
 
@@ -2091,6 +2775,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('documentCreateBtn')?.classList.toggle('access-hidden',!hasPermissionB5('documents.create'));
     document.getElementById('documentImportBtn')?.classList.toggle('access-hidden',!hasPermissionB5('documents.create'));
+    document.getElementById('taskCreateBtn')?.classList.toggle('access-hidden',!hasPermissionB5('tasks.create'));
 
     const displayRole=roleLabelsB5[role]||role;
     document.querySelectorAll('.profile-text span,.sidebar-user-info span')
