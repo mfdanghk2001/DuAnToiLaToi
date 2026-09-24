@@ -818,10 +818,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if(title) title.textContent='Đã thoát khỏi hệ thống';
     if(msg) msg.textContent='Vui lòng chọn tài khoản Google để đăng nhập lại.';
 
-    // Không dùng accounts.google.com/Logout?continue=<Apps Script URL>.
-    // Google có thể trả HTTP 400 vì continue URL không được chấp nhận.
-    // AccountChooser là luồng ổn định hơn cho Web App Apps Script và vẫn
-    // cho phép chuyển sang tài khoản khác ngay lập tức.
+    // Tránh endpoint logout kèm URL quay lại vì Google có thể trả HTTP 400.
+    // AccountChooser ổn định hơn cho Web App Apps Script và vẫn cho phép
+    // chuyển sang tài khoản khác ngay lập tức.
     setTimeout(()=>{
       window.location.replace(accountChooserUrl_());
     },180);
