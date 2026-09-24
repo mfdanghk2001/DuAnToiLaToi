@@ -701,7 +701,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if(ttl){
       P3.inflight.set(key,request);
-      request.finally(()=>P3.inflight.delete(key));
+      request.then(
+        ()=>P3.inflight.delete(key),
+        ()=>P3.inflight.delete(key)
+      );
     }
     return request;
   };
