@@ -1,6 +1,8 @@
 const AuthService = (() => {
   const USERS_CACHE_KEY = 'VPDU_AUTH_USERS_V1';
   const USERS_CACHE_SECONDS = 60;
+  let runtimeUsers = null;
+  let runtimeCurrentUser = null;
 
   const ROLE_PERMISSIONS = {
     ADMIN: ['*'],
@@ -31,19 +33,22 @@ const AuthService = (() => {
   }
 
   function listUsersCached() {
+    if (runtimeUsers) return runtimeUsers;
     const cache = CacheService.getScriptCache();
     const hit = cache.get(USERS_CACHE_KEY);
     if (hit) {
       try {
-        return JSON.parse(hit);
+        runtimeUsers = JSON.parse(hit);
+        return runtimeUsers;
       } catch (e) {}
     }
 
     const users = RepositoryService.getAll('USERS');
+    runtimeUsers = users;
     try {
       cache.put(USERS_CACHE_KEY, JSON.stringify(users), USERS_CACHE_SECONDS);
     } catch (e) {}
-    return users;
+    return runtimeUsers;
   }
 
   function listActiveUsersCached() {
@@ -51,42 +56,49 @@ const AuthService = (() => {
   }
 
   function clearCache() {
+    runtimeUsers = null;
+    runtimeCurrentUser = null;
     try {
       CacheService.getScriptCache().remove(USERS_CACHE_KEY);
     } catch (e) {}
   }
 
   function getCurrentUser() {
+    if (runtimeCurrentUser) return runtimeCurrentUser;
+
     const system = SystemConfig.getSystemInfo();
     if (!system.initialized) {
-      return {authenticated:false, email:getSessionEmail_(), role:'', permissions:[]};
+      runtimeCurrentUser = {authenticated:false, email:getSessionEmail_(), role:'', permissions:[]};
+      return runtimeCurrentUser;
     }
 
     const email = getSessionEmail_();
     if (!email) {
-      return {
+      runtimeCurrentUser = {
         authenticated:false,
         email:'',
         role:'',
         permissions:[],
         message:'Không xác định được email người truy cập. Hãy đăng nhập bằng tài khoản Google đã được cấp quyền và mở lại ứng dụng.'
       };
+      return runtimeCurrentUser;
     }
 
     const users = listUsersCached();
     const user = users.find(u => String(u.email).toLowerCase() === email && u.status === 'ACTIVE');
 
     if (!user) {
-      return {
+      runtimeCurrentUser = {
         authenticated:false,
         email,
         role:'',
         permissions:[],
         message:'Tài khoản chưa được cấp quyền trong hệ thống.'
       };
+      return runtimeCurrentUser;
     }
 
-    return {
+    runtimeCurrentUser = {
       authenticated:true,
       userId:user.user_id,
       email:user.email,
@@ -95,6 +107,7 @@ const AuthService = (() => {
       role:user.role,
       permissions:ROLE_PERMISSIONS[user.role] || []
     };
+    return runtimeCurrentUser;
   }
 
   function hasPermission(permission) {
