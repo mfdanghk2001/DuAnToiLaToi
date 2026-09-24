@@ -3471,7 +3471,18 @@ document.addEventListener('DOMContentLoaded', () => {
     UPDATE_PROGRESS:'Cập nhật tiến độ',
     UPDATE_AGENDA:'Cập nhật nội dung họp',
     CREATE_FOLDER:'Tạo thư mục',
-    UPLOAD_FILE:'Tải tệp'
+    UPLOAD_FILE:'Tải tệp',
+    CANCEL:'Hủy',
+    RENAME:'Đổi tên',
+    TRASH:'Đưa vào thùng rác',
+    EXPORT_PDF:'Xuất PDF',
+    BACKUP:'Sao lưu',
+    UPDATE_MEMBER:'Cập nhật điểm danh',
+    APPROVE:'Duyệt hoàn thành',
+    RETURN:'Trả lại bổ sung',
+    SUBMIT_APPROVAL:'Trình duyệt',
+    REOPEN:'Mở lại',
+    COMMENT:'Thêm ghi chú'
   }[action] || action || 'Khác');
 
   const entityLabelB6 = entity => ({
@@ -3481,7 +3492,9 @@ document.addEventListener('DOMContentLoaded', () => {
     CALENDAR:'Lịch công tác',
     USER:'Người dùng',
     DEPARTMENT:'Đơn vị',
-    REPOSITORY:'Kho tài liệu'
+    REPOSITORY:'Kho tài liệu',
+    REPORT:'Báo cáo',
+    SYSTEM:'Hệ thống'
   }[entity] || entity || 'Hệ thống');
 
   const detailTextB6 = detail => {
