@@ -15,6 +15,8 @@ const F1CompleteService = (() => {
 
   const VALID_MEETING_STATUS = ['PLANNED','IN_PROGRESS','COMPLETED','CANCELLED'];
   const VALID_CALENDAR_STATUS = ['ACTIVE','CANCELLED'];
+  const PREP_CACHE_PREFIX = 'VPDU_F1_PREP_';
+  const REPO_FAVORITE_CACHE_KEY = 'VPDU_F1_REPO_FAVORITES';
 
   function clean_(v) {
     return String(v == null ? '' : v).trim();
@@ -85,6 +87,17 @@ const F1CompleteService = (() => {
     });
   }
 
+  function prepareOnce_(key, fn) {
+    const cache = CacheService.getScriptCache();
+    const cacheKey = PREP_CACHE_PREFIX + key;
+    try {
+      if (cache.get(cacheKey)) return;
+    } catch (e) {}
+
+    fn();
+    try { cache.put(cacheKey,'1',21600); } catch (e) {}
+  }
+
   function activeUsers_() {
     return AuthService.listActiveUsersCached();
   }
@@ -126,7 +139,9 @@ const F1CompleteService = (() => {
   // CALENDAR
   // =========================
   function prepareCalendar_() {
-    ensureColumns_('CALENDAR',['status','updated_by']);
+    prepareOnce_('CALENDAR_V1',() => {
+      ensureColumns_('CALENDAR',['status','updated_by']);
+    });
   }
 
   function calendarList(filters) {
@@ -265,8 +280,10 @@ const F1CompleteService = (() => {
   // MEETINGS
   // =========================
   function prepareMeetings_() {
-    ensureColumns_('MEETINGS',['minutes_text','conclusion_text','updated_by']);
-    ensureSheet_(MEETING_FILES_SHEET,MEETING_FILES_HEADERS);
+    prepareOnce_('MEETINGS_V1',() => {
+      ensureColumns_('MEETINGS',['minutes_text','conclusion_text','updated_by']);
+      ensureSheet_(MEETING_FILES_SHEET,MEETING_FILES_HEADERS);
+    });
   }
 
   function normalizeMeetingStatus_(v) {
@@ -634,7 +651,9 @@ const F1CompleteService = (() => {
   // REPOSITORY
   // =========================
   function prepareRepo_() {
-    ensureSheet_(REPO_META_SHEET,REPO_META_HEADERS);
+    prepareOnce_('REPOSITORY_V1',() => {
+      ensureSheet_(REPO_META_SHEET,REPO_META_HEADERS);
+    });
   }
 
   function rootId_() {
@@ -674,11 +693,23 @@ const F1CompleteService = (() => {
 
   function favoriteMap_() {
     prepareRepo_();
+    const cache = CacheService.getScriptCache();
+    try {
+      const hit = cache.get(REPO_FAVORITE_CACHE_KEY);
+      if (hit) return JSON.parse(hit);
+    } catch (e) {}
+
     const map = {};
     RepositoryService.getAll(REPO_META_SHEET).forEach(x => {
       map[x.item_id] = String(x.is_favorite).toUpperCase() === 'TRUE' || x.is_favorite === true;
     });
+
+    try { cache.put(REPO_FAVORITE_CACHE_KEY,JSON.stringify(map),60); } catch (e) {}
     return map;
+  }
+
+  function clearFavoriteCache_() {
+    try { CacheService.getScriptCache().remove(REPO_FAVORITE_CACHE_KEY); } catch (e) {}
   }
 
   function folderItem_(f,favs) {
@@ -839,6 +870,7 @@ const F1CompleteService = (() => {
         ...patch
       });
     }
+    clearFavoriteCache_();
     return {ok:true,favorite:Boolean(value)};
   }
 
