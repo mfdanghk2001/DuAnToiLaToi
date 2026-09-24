@@ -1875,6 +1875,35 @@ document.addEventListener('DOMContentLoaded', () => {
     if(!D2.current) clearPendingTaskSourceD2();
   }
 
+  function patchSavedTaskD2_(task,isNew){
+    if(!task||!D2.list) return;
+
+    const rows=D2.list.items||[];
+    const idx=rows.findIndex(x=>x.task_id===task.task_id);
+    if(idx>=0){
+      rows[idx]={...rows[idx],...task};
+    }else if(isNew && D2.loadedKey===defaultD2Key_()){
+      rows.unshift(task);
+      if(rows.length>(D2.filters.pageSize||10)) rows.pop();
+
+      const st=D2.list.stats||{};
+      st.total=Number(st.total||0)+1;
+      st.newCount=Number(st.newCount||0)+1;
+      if(D2.list.pagination){
+        D2.list.pagination.total=Number(D2.list.pagination.total||0)+1;
+      }
+    }
+
+    if(Array.isArray(D2.list.kanban)){
+      const k=D2.list.kanban.findIndex(x=>x.task_id===task.task_id);
+      if(k>=0) D2.list.kanban[k]={...D2.list.kanban[k],...task};
+      else if(isNew) D2.list.kanban.unshift(task);
+    }
+
+    D2.loadedAt=Date.now();
+    renderTasksD2();
+  }
+
   async function saveTaskD2(){
     const title=document.getElementById('d2TaskTitle')?.value.trim()||'';
     if(!title){showToast('Thiếu thông tin','Bạn chưa nhập tên nhiệm vụ.');return;}
@@ -1920,8 +1949,13 @@ document.addEventListener('DOMContentLoaded', () => {
         : 'Thông tin nhiệm vụ đã được cập nhật.');
       showSyncP2_('Nhiệm vụ đã đồng bộ','success',1400);
 
-      // Làm mới nền, không bắt người dùng chờ thêm một vòng đọc Sheets.
-      loadTasksD2();
+      patchSavedTaskD2_(result.task,!wasEditing);
+      P1.dashboardDirty=true;
+
+      setTimeout(()=>{
+        D2.loadedAt=0;
+        loadTasksD2();
+      },4500);
       if(wasEditing) setTimeout(()=>openTaskD2(taskId),30);
       D2.editingId='';
       D2.selectedFiles=[];
@@ -2520,6 +2554,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function patchSavedDocumentD1_(saved,isNew){
+    if(!saved||!D1.list) return;
+
+    const rows=D1.list.items||[];
+    const idx=rows.findIndex(x=>x.document_id===saved.document_id);
+    if(idx>=0){
+      rows[idx]={...rows[idx],...saved};
+    }else if(isNew && D1.loadedKey===defaultD1Key_()){
+      rows.unshift(saved);
+      if(rows.length>(D1.filters.pageSize||10)) rows.pop();
+
+      const st=D1.list.stats||{};
+      st.total=Number(st.total||0)+1;
+      if(saved.direction==='INCOMING') st.incoming=Number(st.incoming||0)+1;
+      if(saved.direction==='OUTGOING') st.outgoing=Number(st.outgoing||0)+1;
+      if(saved.direction==='DRAFT') st.draft=Number(st.draft||0)+1;
+      if(['NEW','PROCESSING','WAITING_APPROVAL'].includes(saved.status)) {
+        st.processing=Number(st.processing||0)+1;
+      }
+      if(D1.list.pagination){
+        D1.list.pagination.total=Number(D1.list.pagination.total||0)+1;
+      }
+    }
+
+    D1.loadedAt=Date.now();
+    renderDocumentsD1();
+  }
+
   async function saveDocumentD1(){
     const title=document.getElementById('d1DocTitle')?.value.trim()||'';
     if(!title){showToast('Thiếu thông tin','Bạn chưa nhập trích yếu văn bản.');return;}
@@ -2574,8 +2636,14 @@ document.addEventListener('DOMContentLoaded', () => {
       );
       showSyncP2_('Văn bản đã đồng bộ','success',1400);
 
-      // Refresh nền để thao tác lưu kết thúc ngay sau khi server xác nhận.
-      loadDocumentsD1();
+      patchSavedDocumentD1_(saved,!editingId);
+      P1.dashboardDirty=true;
+
+      // Đối chiếu lại dữ liệu nền sau khi người dùng đã tiếp tục thao tác.
+      setTimeout(()=>{
+        D1.loadedAt=0;
+        loadDocumentsD1();
+      },4500);
       if(editingId) setTimeout(()=>openDocumentD1(saved.document_id),30);
     }catch(err){
       modal?.classList.add('show');
