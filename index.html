@@ -117,6 +117,7 @@
             <input id="globalSearch" type="text" placeholder="Tìm văn bản, nhiệm vụ, cuộc họp...">
             <div class="shortcut">Ctrl K</div>
           </div>
+          <div class="global-search-results hidden-block" id="globalSearchResults"></div>
         </div>
 
         <div class="topbar-right">
@@ -683,7 +684,7 @@
               <p>Theo dõi lịch chung, lịch lãnh đạo, cuộc họp và các mốc công việc quan trọng.</p>
             </div>
             <div class="module-actions">
-              <button class="btn btn-secondary demo-action"><i data-lucide="rotate-cw"></i> Đồng bộ lịch</button>
+              <button class="btn btn-secondary" id="calendarRefreshBtn"><i data-lucide="refresh-cw"></i> Làm mới</button>
               <button class="btn btn-primary open-create-modal" data-type="calendar"><i data-lucide="calendar-plus"></i> Thêm lịch</button>
             </div>
           </section>
@@ -691,15 +692,13 @@
           <section class="calendar-shell">
             <aside class="calendar-side panel">
               <div class="mini-calendar">
-                <div class="mini-cal-head"><button class="icon-btn"><i data-lucide="chevron-left"></i></button><strong>Tháng 9, 2026</strong><button class="icon-btn"><i data-lucide="chevron-right"></i></button></div>
-                <div class="mini-cal-weekdays"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
-                <div class="mini-cal-grid">
-                  <span class="muted-day">31</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span>
-                  <span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span>
-                  <span>14</span><span>15</span><span>16</span><span class="selected-day">17</span><span>18</span><span>19</span><span>20</span>
-                  <span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span>
-                  <span>28</span><span>29</span><span>30</span><span class="muted-day">1</span><span class="muted-day">2</span><span class="muted-day">3</span><span class="muted-day">4</span>
+                <div class="mini-cal-head">
+                  <button class="icon-btn" id="miniCalendarPrev"><i data-lucide="chevron-left"></i></button>
+                  <strong id="miniCalendarTitle">Tháng</strong>
+                  <button class="icon-btn" id="miniCalendarNext"><i data-lucide="chevron-right"></i></button>
                 </div>
+                <div class="mini-cal-weekdays"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
+                <div class="mini-cal-grid" id="miniCalendarGrid"></div>
               </div>
 
               <div class="calendar-filter">
@@ -719,10 +718,10 @@
                   <button class="icon-btn" id="calendarNextWeek"><i data-lucide="chevron-right"></i></button>
                   <div><strong id="calendarRangeTitle">14 – 20 tháng 9, 2026</strong><span id="calendarWeekNumber">Tuần 38</span></div>
                 </div>
-                <div class="segmented">
-                  <button class="segment">Tháng</button>
-                  <button class="segment active">Tuần</button>
-                  <button class="segment">Danh sách</button>
+                <div class="segmented" id="calendarViewSwitch">
+                  <button class="segment" data-calendar-view="month">Tháng</button>
+                  <button class="segment active" data-calendar-view="week">Tuần</button>
+                  <button class="segment" data-calendar-view="list">Danh sách</button>
                 </div>
               </div>
 
@@ -730,6 +729,8 @@
                 <div class="week-header" id="calendarWeekHeader"></div>
                 <div class="week-body" id="calendarWeekBody"></div>
               </div>
+              <div class="calendar-month-view hidden-block" id="calendarMonthView"></div>
+              <div class="calendar-list-view hidden-block" id="calendarListView"></div>
             </section>
           </section>
         </div>
@@ -743,13 +744,16 @@
               <p>Chuẩn bị chương trình, tài liệu, biên bản, kết luận và nhiệm vụ sau họp.</p>
             </div>
             <div class="module-actions">
-              <button class="btn btn-secondary demo-action"><i data-lucide="file-text"></i> Mẫu biên bản</button>
+              <button class="btn btn-secondary" id="meetingRefreshBtn"><i data-lucide="refresh-cw"></i> Làm mới</button>
               <button class="btn btn-primary open-create-modal" data-type="meeting"><i data-lucide="calendar-plus"></i> Tạo cuộc họp</button>
             </div>
           </section>
 
           <section class="meeting-layout">
             <div class="meeting-main">
+              <div class="meeting-search-row">
+                <div class="filter-search"><i data-lucide="search"></i><input id="meetingSearch" type="text" placeholder="Tìm tên cuộc họp, địa điểm, chủ trì..."></div>
+              </div>
               <div class="module-tabs meeting-tabs">
                 <button class="module-tab active" data-meeting-filter="upcoming">Sắp diễn ra <span id="meetingUpcomingCount">0</span></button>
                 <button class="module-tab" data-meeting-filter="past">Đã diễn ra <span id="meetingPastCount">0</span></button>
@@ -908,8 +912,8 @@
               <p>Tổng hợp tình hình văn bản, nhiệm vụ và tiến độ thực hiện theo kỳ báo cáo.</p>
             </div>
             <div class="module-actions">
-              <button class="btn btn-secondary demo-action"><i data-lucide="file-down"></i> Xuất PDF</button>
-              <button class="btn btn-primary report-generate"><i data-lucide="wand-sparkles"></i> Tạo báo cáo</button>
+              <button class="btn btn-secondary" id="reportExportPdf"><i data-lucide="file-down"></i> Xuất PDF</button>
+              <button class="btn btn-primary" id="reportRefreshBtn"><i data-lucide="refresh-cw"></i> Làm mới</button>
             </div>
           </section>
 
@@ -917,22 +921,30 @@
             <div class="report-filter-group">
               <label>Kỳ báo cáo</label>
               <div class="segmented report-period">
-                <button class="segment">Tuần</button>
-                <button class="segment active">Tháng</button>
-                <button class="segment">Quý</button>
-                <button class="segment">Tùy chỉnh</button>
+                <button class="segment" data-report-period="WEEK">Tuần</button>
+                <button class="segment active" data-report-period="MONTH">Tháng</button>
+                <button class="segment" data-report-period="QUARTER">Quý</button>
+                <button class="segment" data-report-period="CUSTOM">Tùy chỉnh</button>
               </div>
             </div>
             <div class="report-filter-group">
-              <label>Thời gian</label>
-              <button class="filter-chip"><i data-lucide="calendar-range"></i> Tháng 09/2026 <i data-lucide="chevron-down"></i></button>
+              <label>Ngày tham chiếu</label>
+              <input class="filter-input" id="reportAnchorDate" type="date">
+            </div>
+            <div class="report-filter-group hidden-block" id="reportCustomRange">
+              <label>Tùy chỉnh</label>
+              <div class="report-date-range">
+                <input class="filter-input" id="reportDateFrom" type="date">
+                <span>→</span>
+                <input class="filter-input" id="reportDateTo" type="date">
+              </div>
             </div>
             <div class="report-filter-group">
               <label>Đơn vị</label>
-              <button class="filter-chip"><i data-lucide="building-2"></i> Tất cả <i data-lucide="chevron-down"></i></button>
+              <select class="filter-select" id="reportDepartmentFilter"><option value="ALL">Tất cả</option></select>
             </div>
             <div class="report-filter-spacer"></div>
-            <span class="report-updated"><i data-lucide="refresh-cw"></i> Cập nhật 14:18</span>
+            <span class="report-updated" id="reportUpdated"><i data-lucide="refresh-cw"></i> Chưa tải</span>
           </section>
 
           <section class="report-stat-grid">
@@ -994,9 +1006,9 @@
             <article class="panel report-template-card">
               <div class="panel-head"><div><h2>Tạo báo cáo nhanh</h2><p>Từ dữ liệu hiện có</p></div></div>
               <div class="report-template-list">
-                <button class="report-template report-generate"><i data-lucide="calendar-days"></i><div><strong>Báo cáo tuần</strong><span>Tổng hợp công việc trong tuần</span></div><i data-lucide="chevron-right"></i></button>
-                <button class="report-template report-generate"><i data-lucide="calendar-range"></i><div><strong>Báo cáo tháng</strong><span>Tình hình thực hiện nhiệm vụ</span></div><i data-lucide="chevron-right"></i></button>
-                <button class="report-template report-generate"><i data-lucide="chart-no-axes-combined"></i><div><strong>Báo cáo quý</strong><span>Đánh giá và số liệu tổng hợp</span></div><i data-lucide="chevron-right"></i></button>
+                <button class="report-template" data-report-template="WEEK"><i data-lucide="calendar-days"></i><div><strong>Báo cáo tuần</strong><span>Tổng hợp công việc trong tuần</span></div><i data-lucide="chevron-right"></i></button>
+                <button class="report-template" data-report-template="MONTH"><i data-lucide="calendar-range"></i><div><strong>Báo cáo tháng</strong><span>Tình hình thực hiện nhiệm vụ</span></div><i data-lucide="chevron-right"></i></button>
+                <button class="report-template" data-report-template="QUARTER"><i data-lucide="chart-no-axes-combined"></i><div><strong>Báo cáo quý</strong><span>Đánh giá và số liệu tổng hợp</span></div><i data-lucide="chevron-right"></i></button>
               </div>
             </article>
           </section>
@@ -1015,30 +1027,23 @@
               <button class="btn btn-primary repo-upload"><i data-lucide="upload"></i> Tải tài liệu lên</button>
             </div>
           </section>
-          <input type="file" id="repoUploadInput" hidden>
+          <input type="file" id="repoUploadInput" multiple hidden>
 
           <section class="repository-shell">
             <aside class="repository-side panel">
               <div class="repo-nav">
-                <button class="repo-nav-item active"><i data-lucide="files"></i><span>Tất cả tài liệu</span><strong>128</strong></button>
-                <button class="repo-nav-item"><i data-lucide="clock-3"></i><span>Gần đây</span></button>
-                <button class="repo-nav-item"><i data-lucide="star"></i><span>Đánh dấu</span></button>
-                <button class="repo-nav-item"><i data-lucide="share-2"></i><span>Được chia sẻ</span></button>
+                <button class="repo-nav-item active" id="repoRootBtn"><i data-lucide="files"></i><span>Tất cả tài liệu</span></button>
+                <button class="repo-nav-item" id="repoRecentBtn"><i data-lucide="clock-3"></i><span>Gần đây</span></button>
+                <button class="repo-nav-item" id="repoFavoriteBtn"><i data-lucide="star"></i><span>Đánh dấu</span></button>
               </div>
               <div class="repo-divider"></div>
-              <div class="repo-folder-list">
-                <div class="repo-side-title">THƯ MỤC</div>
-                <button><span><i data-lucide="folder"></i> Văn bản chỉ đạo</span><small>36</small></button>
-                <button><span><i data-lucide="folder"></i> Báo cáo</span><small>24</small></button>
-                <button><span><i data-lucide="folder"></i> Kế hoạch</span><small>18</small></button>
-                <button><span><i data-lucide="folder"></i> Biên bản họp</span><small>21</small></button>
-                <button><span><i data-lucide="folder"></i> Mẫu văn bản</span><small>16</small></button>
-                <button><span><i data-lucide="folder"></i> Tài liệu tham khảo</span><small>13</small></button>
+              <div class="repo-folder-list" id="repoSideFolderList">
+                <div class="repo-side-title">THƯ MỤC GỐC</div>
+                <div class="repo-side-loading">Mở kho để tải thư mục...</div>
               </div>
               <div class="storage-card">
-                <div class="storage-head"><span><i data-lucide="hard-drive"></i> Dung lượng</span><strong>4.6 GB</strong></div>
-                <div class="storage-bar"><span style="width:46%"></span></div>
-                <small>Đã dùng 4.6 GB / 10 GB</small>
+                <div class="storage-head"><span><i data-lucide="shield-check"></i> Kho hồ sơ</span><strong id="repoItemCount">—</strong></div>
+                <small>Dữ liệu lưu trực tiếp trên Google Drive của hệ thống.</small>
               </div>
             </aside>
 
@@ -1046,8 +1051,18 @@
               <div class="repo-toolbar">
                 <div class="filter-search repo-search"><i data-lucide="search"></i><input id="repoSearch" type="text" placeholder="Tìm trong kho tài liệu..."></div>
                 <div class="toolbar-spacer"></div>
-                <button class="filter-chip"><i data-lucide="list-filter"></i> Loại tài liệu <i data-lucide="chevron-down"></i></button>
-                <button class="filter-chip"><i data-lucide="arrow-down-up"></i> Mới nhất</button>
+                <select class="filter-select" id="repoTypeFilter">
+                  <option value="ALL">Tất cả loại</option>
+                  <option value="PDF">PDF</option>
+                  <option value="DOC">Word / Docs</option>
+                  <option value="SHEET">Excel / Sheets</option>
+                  <option value="IMAGE">Ảnh</option>
+                  <option value="OTHER">Khác</option>
+                </select>
+                <select class="filter-select" id="repoSort">
+                  <option value="NEWEST">Mới nhất</option>
+                  <option value="NAME">Tên A–Z</option>
+                </select>
                 <div class="view-switch">
                   <button class="view-btn active" data-repo-view="grid"><i data-lucide="layout-grid"></i></button>
                   <button class="view-btn" data-repo-view="list"><i data-lucide="list"></i></button>
@@ -1093,7 +1108,7 @@
               <div class="repo-list-view hidden-block" id="repoListView">
                 <table class="data-table repo-table">
                   <thead><tr><th>Tên</th><th>Loại</th><th>Dung lượng</th><th>Người cập nhật</th><th>Cập nhật</th><th></th></tr></thead>
-                  <tbody>
+                  <tbody id="repoListBody">
                     <tr><td class="repo-name-cell"><i data-lucide="folder"></i><strong>Văn bản chỉ đạo</strong></td><td>Thư mục</td><td>—</td><td>Văn phòng</td><td>Hôm nay</td><td><button class="icon-btn"><i data-lucide="more-horizontal"></i></button></td></tr>
                     <tr><td class="repo-name-cell pdf-text"><i data-lucide="file-text"></i><strong>Bao-cao-cong-tac-thang-9.pdf</strong></td><td>PDF</td><td>2.4 MB</td><td>Nguyễn Thị A</td><td>13:40</td><td><button class="icon-btn"><i data-lucide="more-horizontal"></i></button></td></tr>
                     <tr><td class="repo-name-cell word-text"><i data-lucide="file-text"></i><strong>Du-thao-ket-luan-BTV.docx</strong></td><td>DOCX</td><td>820 KB</td><td>Nguyễn Văn A</td><td>11:15</td><td><button class="icon-btn"><i data-lucide="more-horizontal"></i></button></td></tr>
@@ -1229,6 +1244,9 @@
               <button class="admin-tab" data-admin-tab="activity">
                 <i data-lucide="history"></i> Nhật ký hoạt động
               </button>
+              <button class="admin-tab" data-admin-tab="system">
+                <i data-lucide="server-cog"></i> Hệ thống
+              </button>
             </div>
 
             <div class="admin-tab-panel" id="adminUsersPanel">
@@ -1297,6 +1315,15 @@
                   </thead>
                   <tbody id="activityTableBody"></tbody>
                 </table>
+              </div>
+            </div>
+            <div class="admin-tab-panel hidden-block" id="adminSystemPanel">
+              <div class="system-diagnostics" id="systemDiagnostics">
+                <div class="admin-loading"><span class="backend-spinner"></span><span>Mở tab để kiểm tra hệ thống.</span></div>
+              </div>
+              <div class="system-action-row">
+                <button class="btn btn-secondary" id="systemInstallReminder"><i data-lucide="bell-ring"></i> Cài nhắc việc mỗi giờ</button>
+                <button class="btn btn-primary" id="systemCreateBackup"><i data-lucide="database-backup"></i> Sao lưu dữ liệu ngay</button>
               </div>
             </div>
           </section>
@@ -1801,6 +1828,56 @@
     </div>
   </div>
 
+
+  <!-- FINAL CALENDAR MODAL -->
+  <div class="modal-overlay" id="f1CalendarModal">
+    <div class="app-modal f1-modal-card">
+      <div class="modal-head">
+        <div><span class="drawer-eyebrow">LỊCH CÔNG TÁC</span><h2 id="f1CalendarModalTitle">Thêm lịch</h2></div>
+        <button class="icon-btn f1-calendar-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <label class="form-field form-span-2"><span>Tiêu đề <b>*</b></span><input id="f1CalTitle" type="text"></label>
+          <label class="form-field"><span>Ngày <b>*</b></span><input id="f1CalDate" type="date"></label>
+          <label class="form-field"><span>Nhóm lịch</span><select id="f1CalGroup"><option value="GENERAL">Lịch chung</option><option value="SECRETARY">Bí thư</option><option value="DEPUTY_SECRETARY">Phó Bí thư</option><option value="OFFICE">Văn phòng</option></select></label>
+          <label class="form-field"><span>Bắt đầu</span><input id="f1CalStart" type="time"></label>
+          <label class="form-field"><span>Kết thúc</span><input id="f1CalEnd" type="time"></label>
+          <label class="form-field"><span>Loại</span><select id="f1CalType"><option value="WORK">Công tác</option><option value="MEETING">Cuộc họp</option><option value="DEADLINE">Hạn công việc</option><option value="OTHER">Khác</option></select></label>
+          <label class="form-field"><span>Địa điểm</span><input id="f1CalLocation" type="text"></label>
+          <label class="form-field form-span-2"><span>Nội dung</span><textarea id="f1CalDescription" rows="4"></textarea></label>
+        </div>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary f1-calendar-close">Hủy</button><button class="btn btn-primary" id="f1CalendarSave"><i data-lucide="save"></i> Lưu lịch</button></div>
+    </div>
+  </div>
+
+  <!-- FINAL MEETING MODAL -->
+  <div class="modal-overlay" id="f1MeetingModal">
+    <div class="app-modal f1-meeting-modal-card">
+      <div class="modal-head">
+        <div><span class="drawer-eyebrow">HỒ SƠ CUỘC HỌP</span><h2 id="f1MeetingModalTitle">Tạo cuộc họp</h2></div>
+        <button class="icon-btn f1-meeting-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <label class="form-field form-span-2"><span>Tên cuộc họp <b>*</b></span><input id="f1MeetingTitle" type="text"></label>
+          <label class="form-field"><span>Loại cuộc họp</span><input id="f1MeetingType" type="text" placeholder="Giao ban, Ban Thường vụ..."></label>
+          <label class="form-field"><span>Trạng thái</span><select id="f1MeetingStatus"><option value="PLANNED">Dự kiến</option><option value="IN_PROGRESS">Đang diễn ra</option><option value="COMPLETED">Hoàn thành</option><option value="CANCELLED">Đã hủy</option></select></label>
+          <label class="form-field"><span>Ngày họp <b>*</b></span><input id="f1MeetingDate" type="date"></label>
+          <label class="form-field"><span>Chủ trì</span><input id="f1MeetingChair" type="text"></label>
+          <label class="form-field"><span>Bắt đầu</span><input id="f1MeetingStart" type="time"></label>
+          <label class="form-field"><span>Kết thúc</span><input id="f1MeetingEnd" type="time"></label>
+          <label class="form-field form-span-2"><span>Địa điểm</span><input id="f1MeetingLocation" type="text"></label>
+          <label class="form-field form-span-2"><span>Chương trình / nội dung dự kiến</span><textarea id="f1MeetingAgenda" rows="4"></textarea></label>
+          <div class="form-field form-span-2"><span>Thành phần nội bộ</span><div id="f1MeetingMembers" class="d2-collaborator-picker"></div></div>
+        </div>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary f1-meeting-close">Hủy</button><button class="btn btn-primary" id="f1MeetingSave"><i data-lucide="save"></i> Lưu cuộc họp</button></div>
+    </div>
+  </div>
+
+  <input id="f1MeetingFileInput" type="file" multiple hidden>
 
   <!-- TOOL WORKSPACE -->
   <div class="modal-overlay" id="toolModal">
