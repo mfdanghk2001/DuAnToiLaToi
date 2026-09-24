@@ -1,6 +1,11 @@
 function apiPasswordLogin(login, password) {
   try {
-    return PasswordAuthService.login(login, password);
+    const result = PasswordAuthService.login(login, password);
+    if (result && result.ok && result.user) {
+      AuthService.setRuntimeUser(result.user);
+      result.workspace = P1FastService.bootstrap();
+    }
+    return result;
   } catch (e) {
     return {
       ok:false,
