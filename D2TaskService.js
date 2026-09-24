@@ -1,5 +1,8 @@
 const D2TaskService = (() => {
   const FILE_SHEET = 'TASK_FILES';
+  const SUPPORT_READY_KEY = 'VPDU_D2_SUPPORT_READY_V1';
+  let supportReadyRuntime = false;
+
   const FILE_HEADERS = [
     'task_file_id','task_id','drive_file_id','file_name','mime_type',
     'size','uploaded_by','created_at'
@@ -21,19 +24,32 @@ const D2TaskService = (() => {
   }
 
   function ensureSupportSheet_() {
-    const ss = SystemConfig.getDb();
-    if (ss.getSheetByName(FILE_SHEET)) return;
+    if (supportReadyRuntime) return;
 
-    const sh = ss.insertSheet(FILE_SHEET);
-    sh.getRange(1,1,1,FILE_HEADERS.length).setValues([FILE_HEADERS]);
-    sh.setFrozenRows(1);
-    sh.getRange(1,1,1,FILE_HEADERS.length)
-      .setFontWeight('bold')
-      .setBackground('#991B1B')
-      .setFontColor('#FFFFFF')
-      .setHorizontalAlignment('center');
-    sh.setRowHeight(1,34);
-    sh.autoResizeColumns(1,FILE_HEADERS.length);
+    const cache = CacheService.getScriptCache();
+    try {
+      if (cache.get(SUPPORT_READY_KEY)) {
+        supportReadyRuntime = true;
+        return;
+      }
+    } catch (e) {}
+
+    const ss = SystemConfig.getDb();
+    if (!ss.getSheetByName(FILE_SHEET)) {
+      const sh = ss.insertSheet(FILE_SHEET);
+      sh.getRange(1,1,1,FILE_HEADERS.length).setValues([FILE_HEADERS]);
+      sh.setFrozenRows(1);
+      sh.getRange(1,1,1,FILE_HEADERS.length)
+        .setFontWeight('bold')
+        .setBackground('#991B1B')
+        .setFontColor('#FFFFFF')
+        .setHorizontalAlignment('center');
+      sh.setRowHeight(1,34);
+      sh.autoResizeColumns(1,FILE_HEADERS.length);
+    }
+
+    supportReadyRuntime = true;
+    try { cache.put(SUPPORT_READY_KEY,'1',21600); } catch (e) {}
   }
 
   function getTask_(taskId) {
