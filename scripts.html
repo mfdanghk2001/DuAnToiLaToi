@@ -727,6 +727,16 @@ document.addEventListener('DOMContentLoaded', () => {
           D2.loadedKey=defaultD2Key_();
         }
 
+        if(data.calendar?.items){
+          B2.calendarEvents=data.calendar.items;
+          P1.calendarLoaded=true;
+        }
+
+        if(data.meetings?.items){
+          B2.meetings=data.meetings.items;
+          P1.meetingsLoaded=true;
+        }
+
         if(data.todayCalendar?.items){
           loadDashboardAgendaF1(data.todayCalendar.items);
         }
@@ -5101,13 +5111,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn=document.getElementById('f1CalendarSave');
     if(btn){btn.disabled=true;btn.innerHTML='<span class="backend-spinner"></span> Đang lưu...'}
     try{
-      if(F1.calendarEditingId) await gasCall('apiF1UpdateCalendar',F1.calendarEditingId,payload);
-      else await gasCall('apiF1CreateCalendar',payload);
+      const saved=F1.calendarEditingId
+        ? await gasCall('apiF1UpdateCalendar',F1.calendarEditingId,payload)
+        : await gasCall('apiF1CreateCalendar',payload);
       closeCalendarModalF1();
-      P1.calendarLoaded=false;
-      await loadCalendarP1(true);
+
+      if(saved?.event_id){
+        const idx=(B2.calendarEvents||[]).findIndex(x=>x.event_id===saved.event_id);
+        if(idx>=0) B2.calendarEvents[idx]=saved;
+        else B2.calendarEvents=[...(B2.calendarEvents||[]),saved];
+        renderCalendarB3();
+        P1.calendarLoaded=true;
+      }else{
+        P1.calendarLoaded=false;
+      }
+
       markDashboardDirtyP1();
       showToast('Đã lưu lịch','Lịch công tác đã được cập nhật.');
+      setTimeout(()=>loadCalendarP1(true),80);
     }catch(err){showToast('Không thể lưu lịch',err.message||String(err))}
     finally{if(btn){btn.disabled=false;btn.innerHTML='<i data-lucide="save"></i> Lưu lịch';lucide.createIcons()}}
   }
@@ -5254,9 +5275,15 @@ document.addEventListener('DOMContentLoaded', () => {
         : await gasCall('apiF1CreateMeeting',payload);
       closeMeetingModalF1();
       P1.meetingsLoaded=false;P1.calendarLoaded=false;markDashboardDirtyP1();
-      await loadMeetingsP1(true);
       showToast('Đã lưu cuộc họp','Hồ sơ cuộc họp và lịch công tác đã được đồng bộ.');
-      if(editing) await openB3Meeting(r.meeting_id);
+
+      setTimeout(async()=>{
+        await Promise.allSettled([
+          loadMeetingsP1(true),
+          loadCalendarP1(true)
+        ]);
+        if(editing && r?.meeting_id) openB3Meeting(r.meeting_id);
+      },80);
     }catch(err){showToast('Không thể lưu cuộc họp',err.message||String(err))}
     finally{if(btn){btn.disabled=false;btn.innerHTML='<i data-lucide="save"></i> Lưu cuộc họp';lucide.createIcons()}}
   }
@@ -5331,8 +5358,10 @@ document.addEventListener('DOMContentLoaded', () => {
             minutes_text:document.getElementById('f1MeetingMinutesText')?.value||'',
             conclusion_text:document.getElementById('f1MeetingConclusionText')?.value||''
           });
-          P1.meetingsLoaded=false;await loadMeetingsP1(true);await openB3Meeting(m.meeting_id);
+          P1.meetingsLoaded=false;
           showToast('Đã lưu','Biên bản và kết luận đã được cập nhật.');
+          await openB3Meeting(m.meeting_id);
+          setTimeout(()=>loadMeetingsP1(true),80);
         }catch(err){showToast('Không thể lưu',err.message||String(err))}
       });
       document.getElementById('f1CompleteMeeting')?.addEventListener('click',async()=>{
