@@ -1,0 +1,1813 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#991B1B">
+  <title>Văn phòng Đảng ủy số</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+
+  <?!= include('styles'); ?>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">
+          <span class="star">★</span>
+        </div>
+        <div class="brand-text">
+          <div class="brand-title">VĂN PHÒNG</div>
+          <div class="brand-subtitle">ĐẢNG ỦY SỐ</div>
+        </div>
+        <button class="icon-btn sidebar-collapse" id="sidebarCollapse" aria-label="Thu gọn menu">
+          <i data-lucide="panel-left-close"></i>
+        </button>
+      </div>
+
+      <nav class="nav">
+        <div class="nav-section-label">LÀM VIỆC</div>
+
+        <a href="#" class="nav-item active" data-page="dashboard">
+          <span class="nav-icon"><i data-lucide="layout-dashboard"></i></span>
+          <span class="nav-label">Tổng quan</span>
+        </a>
+
+        <a href="#" class="nav-item" data-page="documents">
+          <span class="nav-icon"><i data-lucide="files"></i></span>
+          <span class="nav-label">Văn bản</span>
+          <span class="nav-badge" id="navDocumentCount">0</span>
+        </a>
+
+        <a href="#" class="nav-item" data-page="tasks">
+          <span class="nav-icon"><i data-lucide="list-checks"></i></span>
+          <span class="nav-label">Nhiệm vụ</span>
+          <span class="nav-badge warning" id="navTaskCount">0</span>
+        </a>
+
+        <a href="#" class="nav-item" data-page="calendar">
+          <span class="nav-icon"><i data-lucide="calendar-days"></i></span>
+          <span class="nav-label">Lịch công tác</span>
+        </a>
+
+        <a href="#" class="nav-item" data-page="meetings">
+          <span class="nav-icon"><i data-lucide="users-round"></i></span>
+          <span class="nav-label">Cuộc họp</span>
+        </a>
+
+        <div class="nav-section-label">HỖ TRỢ</div>
+
+        <a href="#" class="nav-item" data-page="advisory">
+          <span class="nav-icon"><i data-lucide="sparkles"></i></span>
+          <span class="nav-label">Tham mưu</span>
+        </a>
+
+        <a href="#" class="nav-item" data-page="reports">
+          <span class="nav-icon"><i data-lucide="chart-no-axes-combined"></i></span>
+          <span class="nav-label">Báo cáo</span>
+        </a>
+
+        <a href="#" class="nav-item" data-page="repository">
+          <span class="nav-icon"><i data-lucide="folder-open"></i></span>
+          <span class="nav-label">Kho tài liệu</span>
+        </a>
+
+        <a href="#" class="nav-item" data-page="tools">
+          <span class="nav-icon"><i data-lucide="wrench"></i></span>
+          <span class="nav-label">Công cụ</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <a href="#" class="nav-item" data-page="admin" id="adminNavItem">
+          <span class="nav-icon"><i data-lucide="settings"></i></span>
+          <span class="nav-label">Quản trị</span>
+        </a>
+        <a href="#" class="nav-item">
+          <span class="nav-icon"><i data-lucide="circle-help"></i></span>
+          <span class="nav-label">Trợ giúp</span>
+        </a>
+        <div class="sidebar-user">
+          <div class="avatar">NA</div>
+          <div class="sidebar-user-info">
+            <strong>Nguyễn Thị A</strong>
+            <span>Văn phòng Đảng ủy</span>
+          </div>
+          <i data-lucide="chevrons-up-down" class="user-chevron"></i>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <div class="main-shell">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-btn mobile-menu" id="mobileMenu" aria-label="Mở menu">
+            <i data-lucide="menu"></i>
+          </button>
+
+          <div class="global-search">
+            <i data-lucide="search"></i>
+            <input id="globalSearch" type="text" placeholder="Tìm văn bản, nhiệm vụ, cuộc họp...">
+            <div class="shortcut">Ctrl K</div>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <button class="quick-create" id="quickCreate">
+            <i data-lucide="plus"></i>
+            <span>Tạo mới</span>
+          </button>
+
+          <button class="icon-btn has-indicator" id="notificationBtn" aria-label="Thông báo">
+            <i data-lucide="bell"></i>
+            <span class="indicator" id="notificationIndicator"></span>
+            <span class="notification-count hidden-block" id="notificationCount">0</span>
+          </button>
+
+          <div class="profile-chip">
+            <div class="avatar avatar-sm">NA</div>
+            <div class="profile-text">
+              <strong>Nguyễn Thị A</strong>
+              <span>Văn phòng</span>
+            </div>
+            <i data-lucide="chevron-down"></i>
+          </div>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <div class="backend-banner" id="backendBanner">
+          <div class="backend-spinner"></div>
+          <div><strong>Đang kết nối dữ liệu…</strong><span>Google Sheets / Google Drive</span></div>
+        </div>
+        <div class="page" id="page-dashboard">
+          <section class="hero">
+            <div>
+              <p class="eyebrow" id="todayLabel">HÔM NAY</p>
+              <h1>Chào buổi chiều, chị Nguyễn Thị A 👋</h1>
+              <p class="hero-sub">
+                Hôm nay có <strong>5 công việc cần xử lý</strong>, trong đó
+                <span class="text-danger">1 việc sắp đến hạn</span>.
+              </p>
+            </div>
+
+            <div class="hero-actions">
+              <button class="btn btn-secondary" id="btnViewCalendar">
+                <i data-lucide="calendar-days"></i>
+                Lịch hôm nay
+              </button>
+              <button class="btn btn-primary" id="btnNewDocument">
+                <i data-lucide="file-plus-2"></i>
+                Tiếp nhận văn bản
+              </button>
+            </div>
+          </section>
+
+          <section class="stat-grid">
+            <article class="stat-card">
+              <div class="stat-icon blue"><i data-lucide="inbox"></i></div>
+              <div class="stat-content">
+                <span class="stat-label">Văn bản mới</span>
+                <strong class="stat-number" id="dashNewDocuments">0</strong>
+                <span class="stat-foot positive">+3 so với hôm qua</span>
+              </div>
+              <div class="stat-mini-link">Xem <i data-lucide="arrow-up-right"></i></div>
+            </article>
+
+            <article class="stat-card">
+              <div class="stat-icon green"><i data-lucide="clipboard-check"></i></div>
+              <div class="stat-content">
+                <span class="stat-label">Việc hôm nay</span>
+                <strong class="stat-number" id="dashTasksToday">0</strong>
+                <span class="stat-foot">2 việc đã hoàn thành</span>
+              </div>
+              <div class="stat-mini-link">Xem <i data-lucide="arrow-up-right"></i></div>
+            </article>
+
+            <article class="stat-card">
+              <div class="stat-icon amber"><i data-lucide="clock-3"></i></div>
+              <div class="stat-content">
+                <span class="stat-label">Sắp đến hạn</span>
+                <strong class="stat-number" id="dashDueSoon">0</strong>
+                <span class="stat-foot warning-text">Trong 48 giờ tới</span>
+              </div>
+              <div class="stat-mini-link">Xem <i data-lucide="arrow-up-right"></i></div>
+            </article>
+
+            <article class="stat-card danger-card">
+              <div class="stat-icon red"><i data-lucide="triangle-alert"></i></div>
+              <div class="stat-content">
+                <span class="stat-label">Quá hạn</span>
+                <strong class="stat-number" id="dashOverdue">0</strong>
+                <span class="stat-foot danger-text">Cần xử lý ngay</span>
+              </div>
+              <div class="stat-mini-link">Xem <i data-lucide="arrow-up-right"></i></div>
+            </article>
+          </section>
+
+          <section class="dashboard-grid">
+            <div class="panel panel-wide">
+              <div class="panel-head">
+                <div>
+                  <h2>Công việc cần xử lý</h2>
+                  <p>Ưu tiên theo thời hạn và mức độ quan trọng</p>
+                </div>
+                <div class="segmented">
+                  <button class="segment active">Hôm nay</button>
+                  <button class="segment">Tuần này</button>
+                </div>
+              </div>
+
+              <div class="task-list" id="dashboardTaskList">
+                <article class="task-row">
+                  <div class="priority-dot high"></div>
+                  <div class="task-main">
+                    <div class="task-title-row">
+                      <h3>Hoàn thiện dự thảo báo cáo công tác tháng 9</h3>
+                      <span class="status status-progress">Đang thực hiện</span>
+                    </div>
+                    <div class="task-meta">
+                      <span><i data-lucide="user"></i> Nguyễn Văn A</span>
+                      <span><i data-lucide="calendar-clock"></i> Hạn hôm nay, 16:30</span>
+                      <span class="tag">Báo cáo</span>
+                    </div>
+                  </div>
+                  <button class="icon-btn row-action"><i data-lucide="chevron-right"></i></button>
+                </article>
+
+                <article class="task-row">
+                  <div class="priority-dot medium"></div>
+                  <div class="task-main">
+                    <div class="task-title-row">
+                      <h3>Chuẩn bị tài liệu họp Ban Thường vụ</h3>
+                      <span class="status status-warning">Sắp đến hạn</span>
+                    </div>
+                    <div class="task-meta">
+                      <span><i data-lucide="user"></i> Văn phòng</span>
+                      <span><i data-lucide="calendar-clock"></i> 18/09/2026 · 08:00</span>
+                      <span class="tag">Cuộc họp</span>
+                    </div>
+                  </div>
+                  <button class="icon-btn row-action"><i data-lucide="chevron-right"></i></button>
+                </article>
+
+                <article class="task-row">
+                  <div class="priority-dot normal"></div>
+                  <div class="task-main">
+                    <div class="task-title-row">
+                      <h3>Tổng hợp báo cáo của các chi bộ trực thuộc</h3>
+                      <span class="status status-new">Chưa xử lý</span>
+                    </div>
+                    <div class="task-meta">
+                      <span><i data-lucide="user"></i> Nguyễn Thị A</span>
+                      <span><i data-lucide="calendar-clock"></i> 20/09/2026</span>
+                      <span class="tag">Tổng hợp</span>
+                    </div>
+                  </div>
+                  <button class="icon-btn row-action"><i data-lucide="chevron-right"></i></button>
+                </article>
+
+                <article class="task-row">
+                  <div class="priority-dot overdue"></div>
+                  <div class="task-main">
+                    <div class="task-title-row">
+                      <h3>Rà soát danh sách nhiệm vụ quý III</h3>
+                      <span class="status status-danger">Quá hạn</span>
+                    </div>
+                    <div class="task-meta">
+                      <span><i data-lucide="user"></i> Trần Văn B</span>
+                      <span><i data-lucide="calendar-clock"></i> Quá hạn 1 ngày</span>
+                      <span class="tag">Theo dõi</span>
+                    </div>
+                  </div>
+                  <button class="icon-btn row-action"><i data-lucide="chevron-right"></i></button>
+                </article>
+              </div>
+
+              <div class="panel-footer">
+                <button class="text-btn">
+                  Xem tất cả công việc
+                  <i data-lucide="arrow-right"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="panel agenda-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Lịch hôm nay</h2>
+                  <p>Thứ Năm, 17/09</p>
+                </div>
+                <button class="icon-btn"><i data-lucide="calendar-plus"></i></button>
+              </div>
+
+              <div class="agenda-list">
+                <div class="agenda-item">
+                  <div class="agenda-time">08:00</div>
+                  <div class="agenda-line"></div>
+                  <div class="agenda-content">
+                    <strong>Họp giao ban Văn phòng</strong>
+                    <span><i data-lucide="map-pin"></i> Phòng họp 01</span>
+                  </div>
+                </div>
+
+                <div class="agenda-item">
+                  <div class="agenda-time">10:30</div>
+                  <div class="agenda-line blue-line"></div>
+                  <div class="agenda-content">
+                    <strong>Làm việc với bộ phận chuyên môn</strong>
+                    <span><i data-lucide="users"></i> 6 người tham dự</span>
+                  </div>
+                </div>
+
+                <div class="agenda-item active-agenda">
+                  <div class="agenda-time">14:00</div>
+                  <div class="agenda-line red-line"></div>
+                  <div class="agenda-content">
+                    <strong>Họp Ban Thường vụ</strong>
+                    <span><i data-lucide="map-pin"></i> Hội trường Đảng ủy</span>
+                  </div>
+                </div>
+
+                <div class="agenda-item">
+                  <div class="agenda-time">16:00</div>
+                  <div class="agenda-line amber-line"></div>
+                  <div class="agenda-content">
+                    <strong>Hạn gửi báo cáo tuần</strong>
+                    <span><i data-lucide="file-text"></i> Báo cáo định kỳ</span>
+                  </div>
+                </div>
+              </div>
+
+              <button class="full-soft-btn">
+                <i data-lucide="calendar-days"></i>
+                Mở lịch công tác
+              </button>
+            </div>
+          </section>
+
+          <section class="lower-grid">
+            <div class="panel documents-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Văn bản mới nhận</h2>
+                  <p>Các văn bản vừa được tiếp nhận vào hệ thống</p>
+                </div>
+                <button class="text-btn">Xem tất cả <i data-lucide="arrow-right"></i></button>
+              </div>
+
+              <div class="document-list" id="dashboardDocumentList">
+                <article class="document-row">
+                  <div class="doc-icon"><i data-lucide="file-text"></i></div>
+                  <div class="doc-main">
+                    <div class="doc-top">
+                      <strong>124-CV/ĐU</strong>
+                      <span class="new-badge">Mới</span>
+                    </div>
+                    <h3>Về việc triển khai nhiệm vụ trọng tâm trong tháng 9 năm 2026</h3>
+                    <div class="doc-meta">Đảng ủy cấp trên · Nhận lúc 13:42</div>
+                  </div>
+                  <button class="btn btn-light btn-sm">Xem</button>
+                </article>
+
+                <article class="document-row">
+                  <div class="doc-icon purple"><i data-lucide="file-text"></i></div>
+                  <div class="doc-main">
+                    <div class="doc-top">
+                      <strong>88-KH/HU</strong>
+                    </div>
+                    <h3>Kế hoạch tổ chức hội nghị sơ kết công tác quý III</h3>
+                    <div class="doc-meta">Cơ quan cấp trên · Nhận lúc 11:18</div>
+                  </div>
+                  <button class="btn btn-light btn-sm">Xem</button>
+                </article>
+
+                <article class="document-row">
+                  <div class="doc-icon green-doc"><i data-lucide="file-check-2"></i></div>
+                  <div class="doc-main">
+                    <div class="doc-top">
+                      <strong>56-TB/ĐU</strong>
+                    </div>
+                    <h3>Thông báo kết luận tại cuộc họp giao ban tuần</h3>
+                    <div class="doc-meta">Văn phòng · Nhận lúc 09:03</div>
+                  </div>
+                  <button class="btn btn-light btn-sm">Xem</button>
+                </article>
+              </div>
+            </div>
+
+            <div class="panel progress-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Tiến độ tháng 9</h2>
+                  <p>Tình hình xử lý nhiệm vụ</p>
+                </div>
+                <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
+              </div>
+
+              <div class="donut-wrap">
+                <div class="donut" style="--value:72;">
+                  <div class="donut-center">
+                    <strong>72%</strong>
+                    <span>Hoàn thành</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="legend">
+                <div><span class="legend-dot done"></span><span>Hoàn thành</span><strong>36</strong></div>
+                <div><span class="legend-dot doing"></span><span>Đang xử lý</span><strong>11</strong></div>
+                <div><span class="legend-dot overdue"></span><span>Quá hạn</span><strong>3</strong></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="quick-tools panel">
+            <div class="panel-head">
+              <div>
+                <h2>Công cụ nhanh</h2>
+                <p>Những tác vụ thường dùng trong công việc hằng ngày</p>
+              </div>
+              <button class="text-btn">Mở tất cả công cụ <i data-lucide="arrow-right"></i></button>
+            </div>
+
+            <div class="tool-grid">
+              <button class="tool-card">
+                <span class="tool-icon red-soft"><i data-lucide="file-pen-line"></i></span>
+                <span>
+                  <strong>Soạn văn bản</strong>
+                  <small>Tạo dự thảo theo mẫu</small>
+                </span>
+              </button>
+
+              <button class="tool-card">
+                <span class="tool-icon blue-soft"><i data-lucide="scan-text"></i></span>
+                <span>
+                  <strong>OCR tài liệu</strong>
+                  <small>Trích xuất chữ từ ảnh/PDF</small>
+                </span>
+              </button>
+
+              <button class="tool-card">
+                <span class="tool-icon purple-soft"><i data-lucide="files"></i></span>
+                <span>
+                  <strong>So sánh văn bản</strong>
+                  <small>Tìm nội dung thay đổi</small>
+                </span>
+              </button>
+
+              <button class="tool-card">
+                <span class="tool-icon amber-soft"><i data-lucide="text-search"></i></span>
+                <span>
+                  <strong>Tóm tắt tài liệu</strong>
+                  <small>Nắm nhanh ý chính</small>
+                </span>
+              </button>
+
+              <button class="tool-card">
+                <span class="tool-icon green-soft"><i data-lucide="chart-spline"></i></span>
+                <span>
+                  <strong>Tạo báo cáo</strong>
+                  <small>Tổng hợp tuần/tháng/quý</small>
+                </span>
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <!-- VĂN BẢN -->
+        <div class="page hidden-page" id="page-documents">
+          <section class="module-header">
+            <div>
+              <p class="eyebrow">QUẢN LÝ NGHIỆP VỤ</p>
+              <h1>Văn bản</h1>
+              <p>Tiếp nhận, phân công, theo dõi xử lý, liên kết nhiệm vụ và lưu trữ hồ sơ văn bản.</p>
+            </div>
+            <div class="module-actions">
+              <button class="btn btn-secondary" id="documentImportBtn">
+                <i data-lucide="upload"></i> Nhập kèm file
+              </button>
+              <button class="btn btn-primary" id="documentCreateBtn">
+                <i data-lucide="file-plus-2"></i> Tiếp nhận văn bản
+              </button>
+            </div>
+          </section>
+
+          <section class="mini-stat-grid">
+            <div class="mini-stat">
+              <span class="mini-stat-icon blue"><i data-lucide="inbox"></i></span>
+              <div><strong id="docIncomingCount">0</strong><span>Văn bản đến</span></div>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-icon purple"><i data-lucide="send"></i></span>
+              <div><strong id="docOutgoingCount">0</strong><span>Văn bản đi</span></div>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-icon amber"><i data-lucide="clock-3"></i></span>
+              <div><strong id="docProcessingCount">0</strong><span>Đang xử lý</span></div>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-stat-icon red"><i data-lucide="triangle-alert"></i></span>
+              <div><strong id="docDueSoonCount">0</strong><span>Sắp đến hạn</span></div>
+            </div>
+          </section>
+
+          <section class="panel module-panel document-complete-panel">
+            <div class="module-tabs" id="documentTabs">
+              <button class="module-tab active" data-doc-direction="ALL">Tất cả <span id="docTabAll">0</span></button>
+              <button class="module-tab" data-doc-direction="INCOMING">Văn bản đến <span id="docTabIncoming">0</span></button>
+              <button class="module-tab" data-doc-direction="OUTGOING">Văn bản đi <span id="docTabOutgoing">0</span></button>
+              <button class="module-tab" data-doc-direction="DRAFT">Dự thảo <span id="docTabDraft">0</span></button>
+              <button class="module-tab" data-doc-direction="ARCHIVED">Lưu trữ <span id="docTabArchived">0</span></button>
+            </div>
+
+            <div class="filter-bar document-filter-bar">
+              <div class="filter-search">
+                <i data-lucide="search"></i>
+                <input id="documentSearch" type="text" placeholder="Tìm số/ký hiệu, trích yếu, cơ quan, người xử lý...">
+              </div>
+
+              <select class="filter-select" id="documentYearFilter">
+                <option value="ALL">Tất cả năm</option>
+              </select>
+              <select class="filter-select" id="documentIssuerFilter">
+                <option value="ALL">Tất cả cơ quan</option>
+              </select>
+              <select class="filter-select" id="documentFieldFilter">
+                <option value="ALL">Tất cả lĩnh vực</option>
+              </select>
+              <select class="filter-select" id="documentStatusFilter">
+                <option value="ALL">Tất cả trạng thái</option>
+                <option value="NEW">Mới tiếp nhận</option>
+                <option value="PROCESSING">Đang xử lý</option>
+                <option value="WAITING_APPROVAL">Chờ duyệt</option>
+                <option value="COMPLETED">Hoàn thành</option>
+                <option value="OVERDUE">Quá hạn</option>
+              </select>
+
+              <button class="filter-chip" id="documentResetFilters">
+                <i data-lucide="rotate-ccw"></i> Đặt lại
+              </button>
+            </div>
+
+            <div class="data-table-wrap">
+              <table class="data-table document-table-complete" id="documentTable">
+                <thead>
+                  <tr>
+                    <th>Số / ký hiệu</th>
+                    <th>Trích yếu</th>
+                    <th>Ngày nhận</th>
+                    <th>Người xử lý</th>
+                    <th>Hạn xử lý</th>
+                    <th>Trạng thái</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="documentTableBody"></tbody>
+              </table>
+            </div>
+
+            <div class="table-footer document-pagination">
+              <span id="documentResultText">Hiển thị 0 văn bản</span>
+              <div class="pagination" id="documentPagination"></div>
+            </div>
+          </section>
+        </div>
+
+        <!-- NHIỆM VỤ -->
+        <div class="page hidden-page" id="page-tasks">
+          <section class="module-header">
+            <div>
+              <p class="eyebrow">THEO DÕI CÔNG VIỆC</p>
+              <h1>Nhiệm vụ</h1>
+              <p>Giao việc, theo dõi tiến độ, cảnh báo thời hạn và tổng hợp kết quả thực hiện.</p>
+            </div>
+            <div class="module-actions">
+              <button class="btn btn-secondary demo-action"><i data-lucide="download"></i> Xuất báo cáo</button>
+              <button class="btn btn-primary open-create-modal" data-type="task"><i data-lucide="list-plus"></i> Giao nhiệm vụ</button>
+            </div>
+          </section>
+
+          <section class="mini-stat-grid">
+            <div class="mini-stat"><span class="mini-stat-icon slate"><i data-lucide="circle-dashed"></i></span><div><strong id="taskNewCount">0</strong><span>Chưa xử lý</span></div></div>
+            <div class="mini-stat"><span class="mini-stat-icon blue"><i data-lucide="loader-circle"></i></span><div><strong id="taskProgressCount">0</strong><span>Đang thực hiện</span></div></div>
+            <div class="mini-stat"><span class="mini-stat-icon purple"><i data-lucide="badge-check"></i></span><div><strong id="taskWaitingCount">0</strong><span>Chờ duyệt</span></div></div>
+            <div class="mini-stat"><span class="mini-stat-icon red"><i data-lucide="circle-alert"></i></span><div><strong id="taskOverdueCount">0</strong><span>Quá hạn</span></div></div>
+          </section>
+
+          <section class="panel module-panel">
+            <div class="task-toolbar">
+              <div class="filter-search task-search">
+                <i data-lucide="search"></i>
+                <input type="text" id="taskSearch" placeholder="Tìm nhiệm vụ...">
+              </div>
+              <div class="toolbar-spacer"></div>
+              <button class="filter-chip"><i data-lucide="user-round"></i> Người phụ trách <i data-lucide="chevron-down"></i></button>
+              <button class="filter-chip"><i data-lucide="flag"></i> Mức độ <i data-lucide="chevron-down"></i></button>
+              <div class="view-switch">
+                <button class="view-btn active" data-task-view="list" title="Danh sách"><i data-lucide="list"></i></button>
+                <button class="view-btn" data-task-view="kanban" title="Kanban"><i data-lucide="columns-3"></i></button>
+              </div>
+            </div>
+
+            <div id="taskListView">
+              <div class="task-full-list" id="taskFullList">
+                <article class="task-full-row task-detail-trigger">
+                  <button class="task-check"><i data-lucide="circle"></i></button>
+                  <div class="priority-bar high"></div>
+                  <div class="task-full-main">
+                    <div class="task-full-title">
+                      <strong>Hoàn thiện dự thảo báo cáo công tác tháng 9</strong>
+                      <span class="status status-progress">Đang thực hiện</span>
+                    </div>
+                    <p>Tổng hợp số liệu, hoàn thiện nội dung và trình lãnh đạo xem xét trước 16:30.</p>
+                    <div class="task-full-meta">
+                      <span><i data-lucide="user"></i> Nguyễn Văn A</span>
+                      <span class="urgent"><i data-lucide="alarm-clock"></i> Hôm nay · 16:30</span>
+                      <span><i data-lucide="paperclip"></i> 3 tài liệu</span>
+                      <span class="tag">Báo cáo</span>
+                    </div>
+                  </div>
+                  <div class="progress-cell"><div class="tiny-progress"><span style="width:72%"></span></div><small>72%</small></div>
+                  <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
+                </article>
+
+                <article class="task-full-row task-detail-trigger">
+                  <button class="task-check"><i data-lucide="circle"></i></button>
+                  <div class="priority-bar medium"></div>
+                  <div class="task-full-main">
+                    <div class="task-full-title">
+                      <strong>Chuẩn bị tài liệu họp Ban Thường vụ</strong>
+                      <span class="status status-warning">Sắp đến hạn</span>
+                    </div>
+                    <p>Rà soát chương trình, thành phần, hồ sơ và tài liệu phục vụ cuộc họp.</p>
+                    <div class="task-full-meta">
+                      <span><i data-lucide="user"></i> Văn phòng</span>
+                      <span><i data-lucide="alarm-clock"></i> 18/09/2026 · 08:00</span>
+                      <span><i data-lucide="paperclip"></i> 5 tài liệu</span>
+                      <span class="tag">Cuộc họp</span>
+                    </div>
+                  </div>
+                  <div class="progress-cell"><div class="tiny-progress"><span style="width:45%"></span></div><small>45%</small></div>
+                  <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
+                </article>
+
+                <article class="task-full-row task-detail-trigger">
+                  <button class="task-check"><i data-lucide="circle"></i></button>
+                  <div class="priority-bar normal"></div>
+                  <div class="task-full-main">
+                    <div class="task-full-title">
+                      <strong>Tổng hợp báo cáo của các chi bộ trực thuộc</strong>
+                      <span class="status status-new">Chưa xử lý</span>
+                    </div>
+                    <p>Theo dõi tiến độ gửi báo cáo và tổng hợp các nội dung nổi bật.</p>
+                    <div class="task-full-meta">
+                      <span><i data-lucide="user"></i> Nguyễn Thị A</span>
+                      <span><i data-lucide="alarm-clock"></i> 20/09/2026</span>
+                      <span><i data-lucide="paperclip"></i> 1 tài liệu</span>
+                      <span class="tag">Tổng hợp</span>
+                    </div>
+                  </div>
+                  <div class="progress-cell"><div class="tiny-progress"><span style="width:10%"></span></div><small>10%</small></div>
+                  <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
+                </article>
+
+                <article class="task-full-row task-detail-trigger">
+                  <button class="task-check"><i data-lucide="circle"></i></button>
+                  <div class="priority-bar overdue"></div>
+                  <div class="task-full-main">
+                    <div class="task-full-title">
+                      <strong>Rà soát danh sách nhiệm vụ quý III</strong>
+                      <span class="status status-danger">Quá hạn</span>
+                    </div>
+                    <p>Kiểm tra các đầu việc chưa hoàn thành và cập nhật nguyên nhân, hướng xử lý.</p>
+                    <div class="task-full-meta">
+                      <span><i data-lucide="user"></i> Trần Văn B</span>
+                      <span class="urgent"><i data-lucide="alarm-clock"></i> Quá hạn 1 ngày</span>
+                      <span><i data-lucide="paperclip"></i> 2 tài liệu</span>
+                      <span class="tag">Theo dõi</span>
+                    </div>
+                  </div>
+                  <div class="progress-cell"><div class="tiny-progress danger-progress"><span style="width:60%"></span></div><small>60%</small></div>
+                  <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
+                </article>
+              </div>
+            </div>
+
+            <div id="taskKanbanView" class="hidden-block">
+              <div class="kanban-board">
+                <div class="kanban-column">
+                  <div class="kanban-head"><span><i data-lucide="circle-dashed"></i> Chưa xử lý</span><strong>3</strong></div>
+                  <div class="kanban-card task-detail-trigger"><span class="kanban-priority blue-bg"></span><h3>Tổng hợp báo cáo các chi bộ</h3><p>Hạn 20/09/2026</p><div><span class="avatar avatar-xs">NA</span><span class="tag">Tổng hợp</span></div></div>
+                  <div class="kanban-card task-detail-trigger"><span class="kanban-priority blue-bg"></span><h3>Chuẩn bị dự thảo kế hoạch tháng 10</h3><p>Hạn 23/09/2026</p><div><span class="avatar avatar-xs blue-avatar">VB</span><span class="tag">Kế hoạch</span></div></div>
+                </div>
+                <div class="kanban-column">
+                  <div class="kanban-head"><span><i data-lucide="loader-circle"></i> Đang thực hiện</span><strong>5</strong></div>
+                  <div class="kanban-card task-detail-trigger"><span class="kanban-priority red-bg"></span><h3>Hoàn thiện báo cáo tháng 9</h3><p>Hôm nay · 16:30</p><div><span class="avatar avatar-xs green-avatar">VA</span><span class="tag">Báo cáo</span></div></div>
+                  <div class="kanban-card task-detail-trigger"><span class="kanban-priority amber-bg"></span><h3>Chuẩn bị tài liệu họp BTV</h3><p>18/09/2026 · 08:00</p><div><span class="avatar avatar-xs blue-avatar">VP</span><span class="tag">Cuộc họp</span></div></div>
+                </div>
+                <div class="kanban-column">
+                  <div class="kanban-head"><span><i data-lucide="badge-check"></i> Chờ duyệt</span><strong>2</strong></div>
+                  <div class="kanban-card task-detail-trigger"><span class="kanban-priority purple-bg"></span><h3>Dự thảo thông báo kết luận</h3><p>Đã trình lúc 10:45</p><div><span class="avatar avatar-xs purple-avatar">TC</span><span class="tag">Dự thảo</span></div></div>
+                </div>
+                <div class="kanban-column danger-column">
+                  <div class="kanban-head"><span><i data-lucide="circle-alert"></i> Quá hạn</span><strong>1</strong></div>
+                  <div class="kanban-card task-detail-trigger"><span class="kanban-priority dark-red-bg"></span><h3>Rà soát nhiệm vụ quý III</h3><p class="danger-text">Quá hạn 1 ngày</p><div><span class="avatar avatar-xs amber-avatar">TB</span><span class="tag">Theo dõi</span></div></div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- LỊCH CÔNG TÁC -->
+        <div class="page hidden-page" id="page-calendar">
+          <section class="module-header">
+            <div>
+              <p class="eyebrow">ĐIỀU HÀNH LỊCH</p>
+              <h1>Lịch công tác</h1>
+              <p>Theo dõi lịch chung, lịch lãnh đạo, cuộc họp và các mốc công việc quan trọng.</p>
+            </div>
+            <div class="module-actions">
+              <button class="btn btn-secondary demo-action"><i data-lucide="rotate-cw"></i> Đồng bộ lịch</button>
+              <button class="btn btn-primary open-create-modal" data-type="calendar"><i data-lucide="calendar-plus"></i> Thêm lịch</button>
+            </div>
+          </section>
+
+          <section class="calendar-shell">
+            <aside class="calendar-side panel">
+              <div class="mini-calendar">
+                <div class="mini-cal-head"><button class="icon-btn"><i data-lucide="chevron-left"></i></button><strong>Tháng 9, 2026</strong><button class="icon-btn"><i data-lucide="chevron-right"></i></button></div>
+                <div class="mini-cal-weekdays"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
+                <div class="mini-cal-grid">
+                  <span class="muted-day">31</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span>
+                  <span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span>
+                  <span>14</span><span>15</span><span>16</span><span class="selected-day">17</span><span>18</span><span>19</span><span>20</span>
+                  <span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span>
+                  <span>28</span><span>29</span><span>30</span><span class="muted-day">1</span><span class="muted-day">2</span><span class="muted-day">3</span><span class="muted-day">4</span>
+                </div>
+              </div>
+
+              <div class="calendar-filter">
+                <h3>Lịch hiển thị</h3>
+                <label><input type="checkbox" checked data-calendar-group="GENERAL"><span class="calendar-color red-calendar"></span> Lịch chung</label>
+                <label><input type="checkbox" checked data-calendar-group="SECRETARY"><span class="calendar-color blue-calendar"></span> Bí thư</label>
+                <label><input type="checkbox" checked data-calendar-group="DEPUTY_SECRETARY"><span class="calendar-color green-calendar"></span> Phó Bí thư</label>
+                <label><input type="checkbox" checked data-calendar-group="OFFICE"><span class="calendar-color purple-calendar"></span> Văn phòng</label>
+              </div>
+            </aside>
+
+            <section class="calendar-main panel">
+              <div class="calendar-main-head">
+                <div class="calendar-nav">
+                  <button class="btn btn-light btn-sm" id="calendarTodayBtn">Hôm nay</button>
+                  <button class="icon-btn" id="calendarPrevWeek"><i data-lucide="chevron-left"></i></button>
+                  <button class="icon-btn" id="calendarNextWeek"><i data-lucide="chevron-right"></i></button>
+                  <div><strong id="calendarRangeTitle">14 – 20 tháng 9, 2026</strong><span id="calendarWeekNumber">Tuần 38</span></div>
+                </div>
+                <div class="segmented">
+                  <button class="segment">Tháng</button>
+                  <button class="segment active">Tuần</button>
+                  <button class="segment">Danh sách</button>
+                </div>
+              </div>
+
+              <div class="week-calendar" id="weekCalendar">
+                <div class="week-header" id="calendarWeekHeader"></div>
+                <div class="week-body" id="calendarWeekBody"></div>
+              </div>
+            </section>
+          </section>
+        </div>
+
+        <!-- CUỘC HỌP -->
+        <div class="page hidden-page stabilized-page" id="page-meetings">
+          <section class="module-header">
+            <div>
+              <p class="eyebrow">QUẢN LÝ CUỘC HỌP</p>
+              <h1>Cuộc họp</h1>
+              <p>Chuẩn bị chương trình, tài liệu, biên bản, kết luận và nhiệm vụ sau họp.</p>
+            </div>
+            <div class="module-actions">
+              <button class="btn btn-secondary demo-action"><i data-lucide="file-text"></i> Mẫu biên bản</button>
+              <button class="btn btn-primary open-create-modal" data-type="meeting"><i data-lucide="calendar-plus"></i> Tạo cuộc họp</button>
+            </div>
+          </section>
+
+          <section class="meeting-layout">
+            <div class="meeting-main">
+              <div class="module-tabs meeting-tabs">
+                <button class="module-tab active" data-meeting-filter="upcoming">Sắp diễn ra <span id="meetingUpcomingCount">0</span></button>
+                <button class="module-tab" data-meeting-filter="past">Đã diễn ra <span id="meetingPastCount">0</span></button>
+                <button class="module-tab" data-meeting-filter="all">Tất cả <span id="meetingAllCount">0</span></button>
+              </div>
+
+              <div class="meeting-cards" id="meetingCards">
+                <article class="meeting-card featured meeting-detail-trigger">
+                  <div class="meeting-date red-date"><strong>17</strong><span>THÁNG 9</span></div>
+                  <div class="meeting-info">
+                    <div class="meeting-title-row"><span class="status status-warning">Hôm nay · 14:00</span><span class="meeting-type">Ban Thường vụ</span></div>
+                    <h2>Họp Ban Thường vụ Đảng ủy tháng 9/2026</h2>
+                    <p>Xem xét tình hình thực hiện nhiệm vụ tháng 9 và một số nội dung thuộc thẩm quyền.</p>
+                    <div class="meeting-meta"><span><i data-lucide="map-pin"></i> Hội trường Đảng ủy</span><span><i data-lucide="users"></i> 12 người</span><span><i data-lucide="paperclip"></i> 5 tài liệu</span></div>
+                    <div class="meeting-progress"><span>Chuẩn bị hồ sơ</span><div><i style="width:82%"></i></div><strong>82%</strong></div>
+                  </div>
+                  <div class="meeting-action"><button class="btn btn-primary btn-sm">Mở hồ sơ</button><button class="icon-btn"><i data-lucide="more-horizontal"></i></button></div>
+                </article>
+
+                <article class="meeting-card meeting-detail-trigger">
+                  <div class="meeting-date"><strong>18</strong><span>THÁNG 9</span></div>
+                  <div class="meeting-info">
+                    <div class="meeting-title-row"><span class="status status-new">08:00</span><span class="meeting-type">Giao ban</span></div>
+                    <h2>Họp giao ban công tác Văn phòng tuần 38</h2>
+                    <p>Rà soát tiến độ công việc, văn bản và nhiệm vụ trọng tâm tuần tới.</p>
+                    <div class="meeting-meta"><span><i data-lucide="map-pin"></i> Phòng họp 01</span><span><i data-lucide="users"></i> 7 người</span><span><i data-lucide="paperclip"></i> 3 tài liệu</span></div>
+                  </div>
+                  <div class="meeting-action"><button class="btn btn-light btn-sm">Chuẩn bị</button><button class="icon-btn"><i data-lucide="more-horizontal"></i></button></div>
+                </article>
+
+                <article class="meeting-card meeting-detail-trigger">
+                  <div class="meeting-date"><strong>22</strong><span>THÁNG 9</span></div>
+                  <div class="meeting-info">
+                    <div class="meeting-title-row"><span class="status status-new">13:30</span><span class="meeting-type">Ban Chấp hành</span></div>
+                    <h2>Hội nghị Ban Chấp hành Đảng bộ sơ kết quý III</h2>
+                    <p>Đánh giá kết quả quý III, thảo luận nhiệm vụ trọng tâm quý IV năm 2026.</p>
+                    <div class="meeting-meta"><span><i data-lucide="map-pin"></i> Hội trường lớn</span><span><i data-lucide="users"></i> 28 người</span><span><i data-lucide="paperclip"></i> 8 tài liệu</span></div>
+                  </div>
+                  <div class="meeting-action"><button class="btn btn-light btn-sm">Chuẩn bị</button><button class="icon-btn"><i data-lucide="more-horizontal"></i></button></div>
+                </article>
+              </div>
+            </div>
+
+            <aside class="meeting-side panel" id="meetingSidePanel">
+              <div class="panel-head">
+                <div><h2>Cuộc họp gần nhất</h2><p>Dữ liệu sẽ được tải từ hệ thống</p></div>
+                <span class="meeting-ring">—</span>
+              </div>
+              <div class="empty-data">
+                <i data-lucide="calendar-days"></i>
+                <strong>Chưa có cuộc họp sắp tới</strong>
+                <span>Tạo cuộc họp để bắt đầu quản lý hồ sơ.</span>
+              </div>
+            </aside>
+          </section>
+        </div>
+
+        <!-- TRỢ LÝ THAM MƯU -->
+        <div class="page hidden-page stabilized-page" id="page-advisory">
+          <section class="module-header">
+            <div>
+              <p class="eyebrow">TRỢ LÝ NGHIỆP VỤ</p>
+              <h1>Trung tâm tham mưu</h1>
+              <p>Hỗ trợ soạn thảo, tóm tắt, rà soát và tổng hợp nội dung phục vụ công tác tham mưu.</p>
+            </div>
+            <div class="module-actions">
+              <button class="btn btn-secondary access-hidden" id="aiConfigBtn"><i data-lucide="settings-2"></i> Cấu hình AI</button>
+              <button class="btn btn-secondary" id="advisoryHistoryBtn"><i data-lucide="history"></i> Lịch sử</button>
+              <button class="btn btn-primary advisory-new-chat"><i data-lucide="message-square-plus"></i> Phiên mới</button>
+            </div>
+          </section>
+
+          <section class="advisory-layout">
+            <aside class="advisory-side panel">
+              <div class="panel-head">
+                <div><h2>Tác vụ thường dùng</h2><p>Chọn nhanh nghiệp vụ cần hỗ trợ</p></div>
+              </div>
+              <div class="advisory-shortcuts">
+                <button class="advisory-shortcut" data-task-type="DRAFT" data-prompt="Soạn dự thảo công văn theo nội dung và tài liệu tôi cung cấp.">
+                  <span class="tool-icon red-soft"><i data-lucide="file-pen-line"></i></span>
+                  <div><strong>Soạn văn bản</strong><small>Tạo dự thảo theo mẫu</small></div>
+                </button>
+                <button class="advisory-shortcut" data-task-type="SUMMARY" data-prompt="Tóm tắt tài liệu này thành các ý chính để báo cáo lãnh đạo.">
+                  <span class="tool-icon amber-soft"><i data-lucide="text-search"></i></span>
+                  <div><strong>Tóm tắt tài liệu</strong><small>Nắm nhanh nội dung chính</small></div>
+                </button>
+                <button class="advisory-shortcut" data-task-type="REVIEW" data-prompt="Rà soát dự thảo này về câu chữ, logic và những nội dung còn thiếu.">
+                  <span class="tool-icon blue-soft"><i data-lucide="spell-check-2"></i></span>
+                  <div><strong>Rà soát dự thảo</strong><small>Kiểm tra trước khi trình</small></div>
+                </button>
+                <button class="advisory-shortcut" data-task-type="CONCLUSION" data-prompt="Từ biên bản họp này, hãy dự thảo thông báo kết luận và liệt kê nhiệm vụ sau họp.">
+                  <span class="tool-icon purple-soft"><i data-lucide="notebook-tabs"></i></span>
+                  <div><strong>Thông báo kết luận</strong><small>Từ biên bản cuộc họp</small></div>
+                </button>
+                <button class="advisory-shortcut" data-task-type="REPORT" data-prompt="Tổng hợp các nhiệm vụ này thành báo cáo tiến độ tuần, chia theo trạng thái và đầu mối xử lý.">
+                  <span class="tool-icon green-soft"><i data-lucide="chart-spline"></i></span>
+                  <div><strong>Tổng hợp báo cáo</strong><small>Tuần / tháng / quý</small></div>
+                </button>
+              </div>
+
+              <div class="advisory-note">
+                <i data-lucide="shield-check"></i>
+                <div><strong>Nguyên tắc sử dụng</strong><span>Nội dung do trợ lý tạo là bản nháp hỗ trợ. Người dùng cần kiểm tra trước khi trình hoặc ban hành.</span></div>
+              </div>
+            </aside>
+
+            <section class="advisory-main panel">
+              <div class="assistant-hero">
+                <div class="assistant-orb"><i data-lucide="sparkles"></i></div>
+                <div>
+                  <span class="assistant-kicker">TRỢ LÝ THAM MƯU</span>
+                  <h2>Tôi có thể hỗ trợ công việc gì hôm nay?</h2>
+                  <p>Mô tả yêu cầu hoặc chọn một tác vụ ở bên trái. Bạn có thể đính kèm văn bản, biên bản, báo cáo hoặc mẫu có sẵn.</p>
+                </div>
+              </div>
+
+              <div class="assistant-suggestions">
+                <button class="suggestion-chip advisory-shortcut" data-task-type="SUMMARY" data-prompt="Tóm tắt văn bản này trong 5 ý chính và nêu những đầu việc cần triển khai."><i data-lucide="scan-text"></i> Tóm tắt văn bản thành 5 ý</button>
+                <button class="suggestion-chip advisory-shortcut" data-task-type="CONCLUSION" data-prompt="Soạn dự thảo thông báo kết luận từ biên bản cuộc họp."><i data-lucide="file-output"></i> Tạo thông báo kết luận</button>
+                <button class="suggestion-chip advisory-shortcut" data-task-type="REVIEW" data-prompt="Kiểm tra dự thảo này và đánh dấu các nội dung cần rà soát trước khi trình."><i data-lucide="badge-check"></i> Kiểm tra dự thảo</button>
+              </div>
+
+              <div class="assistant-thread" id="assistantThread">
+                <div class="assistant-empty">
+                  <i data-lucide="messages-square"></i>
+                  <strong>Chưa có nội dung trong phiên này</strong>
+                  <span>Nhập yêu cầu phía dưới để bắt đầu.</span>
+                </div>
+              </div>
+
+              <div class="assistant-composer">
+                <div class="composer-context-row">
+                  <span class="assistant-mode-badge" id="assistantModeBadge">Tham mưu chung</span>
+                  <span class="assistant-config-status" id="assistantConfigStatus">Đang kiểm tra AI...</span>
+                </div>
+                <div class="composer-files" id="composerFiles"></div>
+                <textarea id="advisoryPrompt" rows="3" placeholder="Ví dụ: Từ biên bản cuộc họp này, soạn dự thảo thông báo kết luận và liệt kê các nhiệm vụ cần theo dõi..."></textarea>
+                <div class="composer-actions">
+                  <div>
+                    <button class="icon-btn advisory-attach" title="Đính kèm"><i data-lucide="paperclip"></i></button>
+                    <button class="icon-btn demo-action" title="Chọn từ kho tài liệu"><i data-lucide="folder-open"></i></button>
+                  </div>
+                  <button class="btn btn-primary" id="sendAdvisory"><i data-lucide="send"></i> Gửi yêu cầu</button>
+                </div>
+              </div>
+            </section>
+          </section>
+        </div>
+
+        <!-- BÁO CÁO -->
+        <div class="page hidden-page stabilized-page" id="page-reports">
+          <section class="module-header">
+            <div>
+              <p class="eyebrow">BÁO CÁO & THỐNG KÊ</p>
+              <h1>Báo cáo điều hành</h1>
+              <p>Tổng hợp tình hình văn bản, nhiệm vụ và tiến độ thực hiện theo kỳ báo cáo.</p>
+            </div>
+            <div class="module-actions">
+              <button class="btn btn-secondary demo-action"><i data-lucide="file-down"></i> Xuất PDF</button>
+              <button class="btn btn-primary report-generate"><i data-lucide="wand-sparkles"></i> Tạo báo cáo</button>
+            </div>
+          </section>
+
+          <section class="report-filter panel">
+            <div class="report-filter-group">
+              <label>Kỳ báo cáo</label>
+              <div class="segmented report-period">
+                <button class="segment">Tuần</button>
+                <button class="segment active">Tháng</button>
+                <button class="segment">Quý</button>
+                <button class="segment">Tùy chỉnh</button>
+              </div>
+            </div>
+            <div class="report-filter-group">
+              <label>Thời gian</label>
+              <button class="filter-chip"><i data-lucide="calendar-range"></i> Tháng 09/2026 <i data-lucide="chevron-down"></i></button>
+            </div>
+            <div class="report-filter-group">
+              <label>Đơn vị</label>
+              <button class="filter-chip"><i data-lucide="building-2"></i> Tất cả <i data-lucide="chevron-down"></i></button>
+            </div>
+            <div class="report-filter-spacer"></div>
+            <span class="report-updated"><i data-lucide="refresh-cw"></i> Cập nhật 14:18</span>
+          </section>
+
+          <section class="report-stat-grid">
+            <article class="report-stat">
+              <div><span>Tổng nhiệm vụ</span><strong id="reportTotalTasks">0</strong><small class="positive" id="reportTotalHint">Dữ liệu thật</small></div>
+              <span class="report-stat-icon blue"><i data-lucide="list-checks"></i></span>
+            </article>
+            <article class="report-stat">
+              <div><span>Đã hoàn thành</span><strong id="reportCompletedTasks">0</strong><small class="positive" id="reportCompletedHint">0%</small></div>
+              <span class="report-stat-icon green"><i data-lucide="circle-check-big"></i></span>
+            </article>
+            <article class="report-stat">
+              <div><span>Đang thực hiện</span><strong id="reportInProgressTasks">0</strong><small id="reportProgressHint">0%</small></div>
+              <span class="report-stat-icon amber"><i data-lucide="loader-circle"></i></span>
+            </article>
+            <article class="report-stat">
+              <div><span>Quá hạn</span><strong id="reportOverdueTasks">0</strong><small class="danger-text" id="reportOverdueHint">Cần theo dõi</small></div>
+              <span class="report-stat-icon red"><i data-lucide="triangle-alert"></i></span>
+            </article>
+          </section>
+
+          <section class="report-grid">
+            <article class="panel report-chart-card">
+              <div class="panel-head"><div><h2>Tiến độ xử lý nhiệm vụ</h2><p>So sánh 6 tháng gần nhất</p></div><button class="icon-btn demo-action"><i data-lucide="more-horizontal"></i></button></div>
+              <div class="bar-chart">
+                <div class="bar-y"><span>50</span><span>40</span><span>30</span><span>20</span><span>10</span><span>0</span></div>
+                <div class="bar-area">
+                  <div class="bar-grid-lines"></div>
+                  <div class="bar-groups" id="reportBarGroups"></div>
+                </div>
+              </div>
+              <div class="chart-legend-row"><span><i class="legend-dot done"></i> Hoàn thành</span><span><i class="legend-dot doing"></i> Đang xử lý</span><span><i class="legend-dot overdue"></i> Quá hạn</span></div>
+            </article>
+
+            <article class="panel report-ring-card">
+              <div class="panel-head"><div><h2>Cơ cấu nhiệm vụ</h2><p>Theo trạng thái</p></div></div>
+              <div class="large-donut-wrap">
+                <div class="multi-donut" id="reportDonut"></div>
+                <div class="multi-donut-center"><strong id="reportDonutTotal">0</strong><span>Nhiệm vụ</span></div>
+              </div>
+              <div class="report-breakdown" id="reportBreakdown">
+                <div><span><i class="legend-dot done"></i> Hoàn thành</span><strong>0 <small>0%</small></strong></div>
+                <div><span><i class="legend-dot doing"></i> Đang thực hiện</span><strong>0 <small>0%</small></strong></div>
+                <div><span><i class="legend-dot overdue"></i> Quá hạn</span><strong>0 <small>0%</small></strong></div>
+              </div>
+            </article>
+          </section>
+
+          <section class="report-lower-grid">
+            <article class="panel">
+              <div class="panel-head"><div><h2>Nhiệm vụ cần chú ý</h2><p>Các đầu việc sắp đến hạn hoặc quá hạn</p></div><button class="text-btn" id="reportToTasks">Xem tất cả <i data-lucide="arrow-right"></i></button></div>
+              <div class="attention-list" id="reportAttentionList">
+                <div><span class="attention-status overdue-att"><i data-lucide="circle-alert"></i></span><div><strong>Rà soát danh sách nhiệm vụ quý III</strong><small>Trần Văn B · Quá hạn 1 ngày</small></div><span class="status status-danger">Quá hạn</span></div>
+                <div><span class="attention-status due-att"><i data-lucide="clock-3"></i></span><div><strong>Chuẩn bị tài liệu họp Ban Thường vụ</strong><small>Văn phòng · Hạn 18/09/2026</small></div><span class="status status-warning">Sắp hạn</span></div>
+                <div><span class="attention-status due-att"><i data-lucide="clock-3"></i></span><div><strong>Hoàn thiện báo cáo tháng 9</strong><small>Nguyễn Văn A · Hạn hôm nay 16:30</small></div><span class="status status-warning">Sắp hạn</span></div>
+              </div>
+            </article>
+
+            <article class="panel report-template-card">
+              <div class="panel-head"><div><h2>Tạo báo cáo nhanh</h2><p>Từ dữ liệu hiện có</p></div></div>
+              <div class="report-template-list">
+                <button class="report-template report-generate"><i data-lucide="calendar-days"></i><div><strong>Báo cáo tuần</strong><span>Tổng hợp công việc trong tuần</span></div><i data-lucide="chevron-right"></i></button>
+                <button class="report-template report-generate"><i data-lucide="calendar-range"></i><div><strong>Báo cáo tháng</strong><span>Tình hình thực hiện nhiệm vụ</span></div><i data-lucide="chevron-right"></i></button>
+                <button class="report-template report-generate"><i data-lucide="chart-no-axes-combined"></i><div><strong>Báo cáo quý</strong><span>Đánh giá và số liệu tổng hợp</span></div><i data-lucide="chevron-right"></i></button>
+              </div>
+            </article>
+          </section>
+        </div>
+
+        <!-- KHO TÀI LIỆU -->
+        <div class="page hidden-page stabilized-page" id="page-repository">
+          <section class="module-header">
+            <div>
+              <p class="eyebrow">KHO HỒ SƠ SỐ</p>
+              <h1>Kho tài liệu</h1>
+              <p>Lưu trữ, phân loại và tra cứu tài liệu dùng chung của Văn phòng.</p>
+            </div>
+            <div class="module-actions">
+              <button class="btn btn-secondary repo-new-folder"><i data-lucide="folder-plus"></i> Tạo thư mục</button>
+              <button class="btn btn-primary repo-upload"><i data-lucide="upload"></i> Tải tài liệu lên</button>
+            </div>
+          </section>
+          <input type="file" id="repoUploadInput" hidden>
+
+          <section class="repository-shell">
+            <aside class="repository-side panel">
+              <div class="repo-nav">
+                <button class="repo-nav-item active"><i data-lucide="files"></i><span>Tất cả tài liệu</span><strong>128</strong></button>
+                <button class="repo-nav-item"><i data-lucide="clock-3"></i><span>Gần đây</span></button>
+                <button class="repo-nav-item"><i data-lucide="star"></i><span>Đánh dấu</span></button>
+                <button class="repo-nav-item"><i data-lucide="share-2"></i><span>Được chia sẻ</span></button>
+              </div>
+              <div class="repo-divider"></div>
+              <div class="repo-folder-list">
+                <div class="repo-side-title">THƯ MỤC</div>
+                <button><span><i data-lucide="folder"></i> Văn bản chỉ đạo</span><small>36</small></button>
+                <button><span><i data-lucide="folder"></i> Báo cáo</span><small>24</small></button>
+                <button><span><i data-lucide="folder"></i> Kế hoạch</span><small>18</small></button>
+                <button><span><i data-lucide="folder"></i> Biên bản họp</span><small>21</small></button>
+                <button><span><i data-lucide="folder"></i> Mẫu văn bản</span><small>16</small></button>
+                <button><span><i data-lucide="folder"></i> Tài liệu tham khảo</span><small>13</small></button>
+              </div>
+              <div class="storage-card">
+                <div class="storage-head"><span><i data-lucide="hard-drive"></i> Dung lượng</span><strong>4.6 GB</strong></div>
+                <div class="storage-bar"><span style="width:46%"></span></div>
+                <small>Đã dùng 4.6 GB / 10 GB</small>
+              </div>
+            </aside>
+
+            <section class="repository-main panel">
+              <div class="repo-toolbar">
+                <div class="filter-search repo-search"><i data-lucide="search"></i><input id="repoSearch" type="text" placeholder="Tìm trong kho tài liệu..."></div>
+                <div class="toolbar-spacer"></div>
+                <button class="filter-chip"><i data-lucide="list-filter"></i> Loại tài liệu <i data-lucide="chevron-down"></i></button>
+                <button class="filter-chip"><i data-lucide="arrow-down-up"></i> Mới nhất</button>
+                <div class="view-switch">
+                  <button class="view-btn active" data-repo-view="grid"><i data-lucide="layout-grid"></i></button>
+                  <button class="view-btn" data-repo-view="list"><i data-lucide="list"></i></button>
+                </div>
+              </div>
+
+              <div class="repo-breadcrumb" id="repoBreadcrumb"><button><i data-lucide="home"></i></button><i data-lucide="chevron-right"></i><strong>Tất cả tài liệu</strong></div>
+
+              <div class="repo-content" id="repoGridView">
+                <div class="repo-section-title"><span>Thư mục</span><small>6 thư mục</small></div>
+                <div class="folder-grid" id="repoFolderGrid">
+                  <article class="folder-card"><div class="folder-icon red-folder"><i data-lucide="folder"></i></div><div><strong>Văn bản chỉ đạo</strong><span>36 tài liệu · Cập nhật hôm nay</span></div><button class="icon-btn"><i data-lucide="more-horizontal"></i></button></article>
+                  <article class="folder-card"><div class="folder-icon blue-folder"><i data-lucide="folder"></i></div><div><strong>Báo cáo</strong><span>24 tài liệu · Cập nhật 16/09</span></div><button class="icon-btn"><i data-lucide="more-horizontal"></i></button></article>
+                  <article class="folder-card"><div class="folder-icon amber-folder"><i data-lucide="folder"></i></div><div><strong>Kế hoạch</strong><span>18 tài liệu · Cập nhật 15/09</span></div><button class="icon-btn"><i data-lucide="more-horizontal"></i></button></article>
+                  <article class="folder-card"><div class="folder-icon purple-folder"><i data-lucide="folder"></i></div><div><strong>Biên bản họp</strong><span>21 tài liệu · Cập nhật 17/09</span></div><button class="icon-btn"><i data-lucide="more-horizontal"></i></button></article>
+                </div>
+
+                <div class="repo-section-title"><span>Tài liệu gần đây</span><small>12 tài liệu</small></div>
+                <div class="file-grid" id="repoFileGrid">
+                  <article class="file-card">
+                    <div class="file-preview pdf-preview"><i data-lucide="file-text"></i><span>PDF</span></div>
+                    <div class="file-card-info"><strong>Bao-cao-cong-tac-thang-9.pdf</strong><span>2.4 MB · Hôm nay 13:40</span></div>
+                    <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
+                  </article>
+                  <article class="file-card">
+                    <div class="file-preview word-preview"><i data-lucide="file-text"></i><span>DOCX</span></div>
+                    <div class="file-card-info"><strong>Du-thao-ket-luan-BTV.docx</strong><span>820 KB · Hôm nay 11:15</span></div>
+                    <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
+                  </article>
+                  <article class="file-card">
+                    <div class="file-preview sheet-preview"><i data-lucide="sheet"></i><span>XLSX</span></div>
+                    <div class="file-card-info"><strong>Tong-hop-nhiem-vu-QIII.xlsx</strong><span>1.1 MB · 16/09/2026</span></div>
+                    <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
+                  </article>
+                  <article class="file-card">
+                    <div class="file-preview pdf-preview"><i data-lucide="file-text"></i><span>PDF</span></div>
+                    <div class="file-card-info"><strong>124-CV-DU.pdf</strong><span>2.4 MB · 17/09/2026</span></div>
+                    <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
+                  </article>
+                </div>
+              </div>
+
+              <div class="repo-list-view hidden-block" id="repoListView">
+                <table class="data-table repo-table">
+                  <thead><tr><th>Tên</th><th>Loại</th><th>Dung lượng</th><th>Người cập nhật</th><th>Cập nhật</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td class="repo-name-cell"><i data-lucide="folder"></i><strong>Văn bản chỉ đạo</strong></td><td>Thư mục</td><td>—</td><td>Văn phòng</td><td>Hôm nay</td><td><button class="icon-btn"><i data-lucide="more-horizontal"></i></button></td></tr>
+                    <tr><td class="repo-name-cell pdf-text"><i data-lucide="file-text"></i><strong>Bao-cao-cong-tac-thang-9.pdf</strong></td><td>PDF</td><td>2.4 MB</td><td>Nguyễn Thị A</td><td>13:40</td><td><button class="icon-btn"><i data-lucide="more-horizontal"></i></button></td></tr>
+                    <tr><td class="repo-name-cell word-text"><i data-lucide="file-text"></i><strong>Du-thao-ket-luan-BTV.docx</strong></td><td>DOCX</td><td>820 KB</td><td>Nguyễn Văn A</td><td>11:15</td><td><button class="icon-btn"><i data-lucide="more-horizontal"></i></button></td></tr>
+                    <tr><td class="repo-name-cell sheet-text"><i data-lucide="sheet"></i><strong>Tong-hop-nhiem-vu-QIII.xlsx</strong></td><td>XLSX</td><td>1.1 MB</td><td>Trần Văn B</td><td>16/09</td><td><button class="icon-btn"><i data-lucide="more-horizontal"></i></button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+        </div>
+
+        <!-- CÔNG CỤ -->
+        <div class="page hidden-page" id="page-tools">
+          <section class="module-header">
+            <div>
+              <p class="eyebrow">CÔNG CỤ HỖ TRỢ</p>
+              <h1>Bộ công cụ nghiệp vụ</h1>
+              <p>Các tiện ích giúp xử lý tài liệu, soạn thảo và tổng hợp công việc nhanh hơn.</p>
+            </div>
+          </section>
+
+          <section class="tool-category">
+            <div class="tool-category-head"><div><h2>Văn bản & tài liệu</h2><p>Công cụ phục vụ xử lý hồ sơ và tài liệu hằng ngày</p></div></div>
+            <div class="tool-app-grid">
+              <button class="tool-app tool-launch" data-tool="compare">
+                <span class="tool-app-icon purple-soft"><i data-lucide="git-compare-arrows"></i></span>
+                <div><strong>So sánh văn bản</strong><span>Đối chiếu 2 phiên bản và làm nổi bật nội dung thay đổi.</span></div>
+                <i data-lucide="arrow-up-right"></i>
+              </button>
+              <button class="tool-app tool-launch" data-tool="ocr">
+                <span class="tool-app-icon blue-soft"><i data-lucide="scan-text"></i></span>
+                <div><strong>OCR tài liệu</strong><span>Trích xuất văn bản từ ảnh hoặc PDF scan.</span></div>
+                <i data-lucide="arrow-up-right"></i>
+              </button>
+              <button class="tool-app tool-launch" data-tool="summary">
+                <span class="tool-app-icon amber-soft"><i data-lucide="text-search"></i></span>
+                <div><strong>Tóm tắt tài liệu</strong><span>Tạo bản tóm tắt ngắn gọn theo mục đích sử dụng.</span></div>
+                <i data-lucide="arrow-up-right"></i>
+              </button>
+              <button class="tool-app tool-launch" data-tool="proofread">
+                <span class="tool-app-icon green-soft"><i data-lucide="spell-check-2"></i></span>
+                <div><strong>Kiểm tra văn bản</strong><span>Rà soát chính tả, câu chữ và các trường thông tin còn thiếu.</span></div>
+                <i data-lucide="arrow-up-right"></i>
+              </button>
+            </div>
+          </section>
+
+          <section class="tool-category">
+            <div class="tool-category-head"><div><h2>Tham mưu & tổng hợp</h2><p>Hỗ trợ tạo bản nháp, báo cáo và nội dung phục vụ lãnh đạo</p></div></div>
+            <div class="tool-app-grid">
+              <button class="tool-app tool-launch" data-tool="draft">
+                <span class="tool-app-icon red-soft"><i data-lucide="file-pen-line"></i></span>
+                <div><strong>Soạn văn bản</strong><span>Tạo công văn, báo cáo, kế hoạch, thông báo theo mẫu.</span></div>
+                <i data-lucide="arrow-up-right"></i>
+              </button>
+              <button class="tool-app tool-launch" data-tool="speech">
+                <span class="tool-app-icon purple-soft"><i data-lucide="mic-vocal"></i></span>
+                <div><strong>Gợi ý bài phát biểu</strong><span>Tạo dàn ý và bản nháp từ chủ đề, bối cảnh và dữ liệu cung cấp.</span></div>
+                <i data-lucide="arrow-up-right"></i>
+              </button>
+              <button class="tool-app tool-launch" data-tool="report">
+                <span class="tool-app-icon blue-soft"><i data-lucide="chart-spline"></i></span>
+                <div><strong>Tổng hợp báo cáo</strong><span>Tổng hợp tiến độ, số liệu và đầu việc theo kỳ báo cáo.</span></div>
+                <i data-lucide="arrow-up-right"></i>
+              </button>
+              <button class="tool-app tool-launch" data-tool="voice">
+                <span class="tool-app-icon amber-soft"><i data-lucide="volume-2"></i></span>
+                <div><strong>Văn bản → giọng nói</strong><span>Đọc nội dung tài liệu để nghe nhanh khi cần.</span></div>
+                <i data-lucide="arrow-up-right"></i>
+              </button>
+            </div>
+          </section>
+
+          <section class="panel recent-tools">
+            <div class="panel-head"><div><h2>Đã sử dụng gần đây</h2><p>Lịch sử thao tác mẫu trên hệ thống</p></div><button class="text-btn demo-action">Xem lịch sử <i data-lucide="arrow-right"></i></button></div>
+            <div class="recent-tool-list">
+              <div><span class="tool-icon purple-soft"><i data-lucide="git-compare-arrows"></i></span><div><strong>So sánh văn bản</strong><small>Du-thao-v2.docx ↔ Du-thao-v3.docx</small></div><time>13:24 hôm nay</time><span class="status status-success">Hoàn thành</span></div>
+              <div><span class="tool-icon amber-soft"><i data-lucide="text-search"></i></span><div><strong>Tóm tắt tài liệu</strong><small>124-CV-DU.pdf</small></div><time>10:42 hôm nay</time><span class="status status-success">Hoàn thành</span></div>
+              <div><span class="tool-icon blue-soft"><i data-lucide="scan-text"></i></span><div><strong>OCR tài liệu</strong><small>scan-bien-ban-hop.pdf</small></div><time>16/09 · 15:10</time><span class="status status-success">Hoàn thành</span></div>
+            </div>
+          </section>
+        </div>
+
+
+        <!-- QUẢN TRỊ HỆ THỐNG -->
+        <div class="page hidden-page stabilized-page" id="page-admin">
+          <section class="module-header">
+            <div>
+              <p class="eyebrow">QUẢN TRỊ HỆ THỐNG</p>
+              <h1>Người dùng & phân quyền</h1>
+              <p>Quản lý tài khoản, vai trò, đơn vị và phạm vi sử dụng hệ thống.</p>
+            </div>
+            <div class="module-actions">
+              <button class="btn btn-secondary" id="adminAddDepartment">
+                <i data-lucide="building-2"></i> Thêm đơn vị
+              </button>
+              <button class="btn btn-primary" id="adminAddUser">
+                <i data-lucide="user-plus"></i> Thêm người dùng
+              </button>
+            </div>
+          </section>
+
+          <section class="admin-stat-grid">
+            <article class="admin-stat-card">
+              <span class="admin-stat-icon blue-soft"><i data-lucide="users"></i></span>
+              <div><strong id="adminUserTotal">0</strong><span>Tổng người dùng</span></div>
+            </article>
+            <article class="admin-stat-card">
+              <span class="admin-stat-icon green-soft"><i data-lucide="user-check"></i></span>
+              <div><strong id="adminUserActive">0</strong><span>Đang hoạt động</span></div>
+            </article>
+            <article class="admin-stat-card">
+              <span class="admin-stat-icon red-soft"><i data-lucide="shield-check"></i></span>
+              <div><strong id="adminAdminCount">0</strong><span>Quản trị viên</span></div>
+            </article>
+            <article class="admin-stat-card">
+              <span class="admin-stat-icon amber-soft"><i data-lucide="building-2"></i></span>
+              <div><strong id="adminDepartmentCount">0</strong><span>Đơn vị</span></div>
+            </article>
+          </section>
+
+          <section class="panel admin-main-panel">
+            <div class="admin-tabs" id="adminTabs">
+              <button class="admin-tab active" data-admin-tab="users">
+                <i data-lucide="users"></i> Người dùng
+              </button>
+              <button class="admin-tab" data-admin-tab="roles">
+                <i data-lucide="shield"></i> Vai trò & quyền
+              </button>
+              <button class="admin-tab" data-admin-tab="departments">
+                <i data-lucide="building-2"></i> Đơn vị
+              </button>
+              <button class="admin-tab" data-admin-tab="activity">
+                <i data-lucide="history"></i> Nhật ký hoạt động
+              </button>
+            </div>
+
+            <div class="admin-tab-panel" id="adminUsersPanel">
+              <div class="admin-toolbar">
+                <div class="filter-search">
+                  <i data-lucide="search"></i>
+                  <input id="adminUserSearch" type="text" placeholder="Tìm theo tên hoặc email...">
+                </div>
+                <div class="toolbar-spacer"></div>
+                <button class="filter-chip" id="adminRoleFilter">
+                  <i data-lucide="shield"></i> Tất cả vai trò
+                </button>
+                <button class="filter-chip" id="adminStatusFilter">
+                  <i data-lucide="circle-dot"></i> Tất cả trạng thái
+                </button>
+              </div>
+
+              <div class="data-table-wrap">
+                <table class="data-table admin-user-table">
+                  <thead>
+                    <tr>
+                      <th>Người dùng</th>
+                      <th>Đơn vị</th>
+                      <th>Vai trò</th>
+                      <th>Trạng thái</th>
+                      <th>Liên hệ</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminUserTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="admin-tab-panel hidden-block" id="adminRolesPanel">
+              <div class="admin-role-grid" id="adminRoleGrid"></div>
+            </div>
+
+            <div class="admin-tab-panel hidden-block" id="adminDepartmentsPanel">
+              <div class="admin-department-grid" id="adminDepartmentGrid"></div>
+            </div>
+            <div class="admin-tab-panel hidden-block" id="adminActivityPanel">
+              <div class="admin-toolbar">
+                <div class="filter-search">
+                  <i data-lucide="search"></i>
+                  <input id="activitySearch" type="text" placeholder="Tìm theo người dùng, hành động, đối tượng...">
+                </div>
+                <div class="toolbar-spacer"></div>
+                <button class="filter-chip" id="activityRefreshBtn">
+                  <i data-lucide="refresh-cw"></i> Làm mới
+                </button>
+                <button class="filter-chip" id="activityRunReminderBtn">
+                  <i data-lucide="bell-ring"></i> Quét nhắc việc
+                </button>
+              </div>
+              <div class="data-table-wrap">
+                <table class="data-table activity-table">
+                  <thead>
+                    <tr>
+                      <th>Thời gian</th>
+                      <th>Người thực hiện</th>
+                      <th>Hành động</th>
+                      <th>Đối tượng</th>
+                      <th>Chi tiết</th>
+                    </tr>
+                  </thead>
+                  <tbody id="activityTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="page hidden-page" id="page-placeholder">
+          <div class="placeholder-card">
+            <div class="placeholder-icon"><i data-lucide="construction"></i></div>
+            <h2 id="placeholderTitle">Trang đang được hoàn thiện</h2>
+            <p>Module này chưa được đưa vào bản giao diện hiện tại.</p>
+            <button class="btn btn-primary" id="backDashboard"><i data-lucide="arrow-left"></i> Quay về Tổng quan</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- MOBILE OVERLAY -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- QUICK CREATE MENU -->
+  <div class="floating-menu" id="quickMenu">
+    <div class="floating-title">Tạo mới</div>
+    <button><i data-lucide="inbox"></i><span>Văn bản đến</span></button>
+    <button><i data-lucide="list-plus"></i><span>Nhiệm vụ</span></button>
+    <button><i data-lucide="users-round"></i><span>Cuộc họp</span></button>
+    <button><i data-lucide="calendar-plus"></i><span>Lịch công tác</span></button>
+    <button><i data-lucide="file-pen-line"></i><span>Dự thảo</span></button>
+    <button><i data-lucide="upload"></i><span>Tài liệu</span></button>
+  </div>
+
+  <!-- NOTIFICATIONS -->
+  <div class="notification-panel" id="notificationPanel">
+    <div class="notif-head">
+      <div>
+        <strong>Thông báo</strong>
+        <span id="notificationSummary">Đang tải...</span>
+      </div>
+      <button class="icon-btn" id="closeNotifications"><i data-lucide="x"></i></button>
+    </div>
+
+    <div class="notif-list" id="notificationList">
+      <div class="notif-loading">
+        <span class="backend-spinner"></span>
+        <span>Đang tải thông báo...</span>
+      </div>
+    </div>
+
+    <button class="notif-all" id="markAllNotifications">Đánh dấu tất cả đã đọc</button>
+  </div>
+
+
+  <!-- DETAIL DRAWER -->
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+  <aside class="detail-drawer" id="detailDrawer">
+    <div class="drawer-head">
+      <div>
+        <span class="drawer-eyebrow" id="drawerEyebrow">HỒ SƠ</span>
+        <h2 id="drawerTitle">Chi tiết</h2>
+      </div>
+      <button class="icon-btn" id="closeDrawer"><i data-lucide="x"></i></button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+    <div class="drawer-foot">
+      <button class="btn btn-secondary" id="drawerSecondary">Đóng</button>
+      <button class="btn btn-primary demo-action" id="drawerPrimary"><i data-lucide="pen-line"></i> Cập nhật</button>
+    </div>
+  </aside>
+
+  <!-- CREATE MODAL -->
+  <div class="modal-overlay" id="createModal">
+    <div class="app-modal">
+      <div class="modal-head">
+        <div>
+          <span class="drawer-eyebrow">TẠO MỚI</span>
+          <h2 id="createModalTitle">Tiếp nhận văn bản</h2>
+        </div>
+        <button class="icon-btn close-create-modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid" id="createForm">
+          <label class="form-field form-span-2"><span>Tiêu đề / trích yếu <b>*</b></span><input type="text" placeholder="Nhập nội dung..."></label>
+          <label class="form-field"><span>Số / ký hiệu</span><input type="text" placeholder="VD: 124-CV/ĐU"></label>
+          <label class="form-field"><span>Ngày</span><input type="date" value="2026-09-17"></label>
+          <label class="form-field"><span>Người phụ trách</span><select><option>Nguyễn Thị A</option><option>Văn phòng</option><option>Trần Văn B</option></select></label>
+          <label class="form-field"><span>Hạn xử lý</span><input type="date" value="2026-09-20"></label>
+          <label class="form-field form-span-2"><span>Ghi chú</span><textarea rows="4" placeholder="Nhập thông tin bổ sung..."></textarea></label>
+          <label class="upload-zone form-span-2"><input type="file"><i data-lucide="cloud-upload"></i><strong>Thả file vào đây hoặc bấm để chọn</strong><span>PDF, DOCX, XLSX · tối đa 20 MB</span></label>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary close-create-modal">Hủy</button>
+        <button class="btn btn-primary" id="saveCreateModal"><i data-lucide="save"></i> Lưu bản nháp</button>
+      </div>
+    </div>
+  </div>
+
+
+
+
+
+
+
+  <!-- D1 DOCUMENT CREATE / EDIT -->
+  <div class="modal-overlay" id="d1DocumentModal">
+    <div class="app-modal d1-document-modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="drawer-eyebrow">HỒ SƠ VĂN BẢN</span>
+          <h2 id="d1DocumentModalTitle">Tiếp nhận văn bản</h2>
+        </div>
+        <button class="icon-btn d1-document-modal-close"><i data-lucide="x"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-grid d1-document-form-grid">
+          <label class="form-field form-span-2">
+            <span>Trích yếu văn bản <b>*</b></span>
+            <input id="d1DocTitle" type="text" placeholder="Nhập trích yếu...">
+          </label>
+
+          <label class="form-field">
+            <span>Số / ký hiệu</span>
+            <input id="d1DocNo" type="text" placeholder="VD: 124-CV/ĐU">
+          </label>
+
+          <label class="form-field">
+            <span>Nhóm hồ sơ</span>
+            <select id="d1DocDirection">
+              <option value="INCOMING">Văn bản đến</option>
+              <option value="OUTGOING">Văn bản đi</option>
+              <option value="DRAFT">Dự thảo</option>
+            </select>
+          </label>
+
+          <label class="form-field">
+            <span>Loại văn bản</span>
+            <input id="d1DocType" type="text" placeholder="Công văn, Kế hoạch, Báo cáo...">
+          </label>
+
+          <label class="form-field">
+            <span>Cơ quan ban hành</span>
+            <input id="d1DocIssuer" type="text" placeholder="Nhập cơ quan ban hành">
+          </label>
+
+          <label class="form-field">
+            <span>Ngày ban hành</span>
+            <input id="d1DocIssuedDate" type="date">
+          </label>
+
+          <label class="form-field">
+            <span>Ngày nhận / lập</span>
+            <input id="d1DocReceivedDate" type="date">
+          </label>
+
+          <label class="form-field">
+            <span>Lĩnh vực</span>
+            <input id="d1DocField" type="text" placeholder="VD: Công tác Đảng">
+          </label>
+
+          <label class="form-field">
+            <span>Mức độ ưu tiên</span>
+            <select id="d1DocPriority">
+              <option value="NORMAL">Bình thường</option>
+              <option value="HIGH">Cao</option>
+              <option value="URGENT">Khẩn</option>
+            </select>
+          </label>
+
+          <label class="form-field">
+            <span>Người xử lý</span>
+            <select id="d1DocAssignee"></select>
+          </label>
+
+          <label class="form-field">
+            <span>Hạn xử lý</span>
+            <input id="d1DocDueDate" type="datetime-local">
+          </label>
+
+          <label class="form-field form-span-2">
+            <span>Tóm tắt nội dung</span>
+            <textarea id="d1DocSummary" rows="3" placeholder="Nội dung chính, yêu cầu cần xử lý..."></textarea>
+          </label>
+
+          <label class="form-field form-span-2">
+            <span>Ghi chú nội bộ</span>
+            <textarea id="d1DocNotes" rows="3" placeholder="Thông tin bổ sung phục vụ xử lý..."></textarea>
+          </label>
+
+          <label class="upload-zone form-span-2" id="d1DocumentUploadZone">
+            <input id="d1DocumentFiles" type="file" multiple>
+            <i data-lucide="cloud-upload"></i>
+            <strong>Chọn tài liệu đính kèm</strong>
+            <span>Tối đa 5 tệp/lần · mỗi tệp tối đa 20 MB · tải tuần tự lên Google Drive</span>
+          </label>
+
+          <div class="d1-selected-files form-span-2" id="d1SelectedFiles"></div>
+        </div>
+      </div>
+
+      <div class="modal-foot">
+        <button class="btn btn-secondary d1-document-modal-close">Hủy</button>
+        <button class="btn btn-primary" id="d1SaveDocument">
+          <i data-lucide="save"></i> Lưu hồ sơ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <input id="d1AddFileInput" type="file" multiple hidden>
+
+
+  <!-- C2 DRAFT HISTORY -->
+  <div class="modal-overlay" id="draftHistoryModal">
+    <div class="app-modal draft-history-modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="drawer-eyebrow">TRỢ LÝ THAM MƯU</span>
+          <h2>Lịch sử bản nháp</h2>
+        </div>
+        <button class="icon-btn draft-history-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="draft-history-list" id="draftHistoryList"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary draft-history-close">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- C2 LINK DRAFT TO SOURCE -->
+  <div class="modal-overlay" id="draftLinkModal">
+    <div class="app-modal draft-link-modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="drawer-eyebrow">LIÊN KẾT HỒ SƠ</span>
+          <h2>Gắn bản nháp vào hồ sơ</h2>
+        </div>
+        <button class="icon-btn draft-link-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <label class="form-field">
+            <span>Loại hồ sơ</span>
+            <select id="draftLinkType">
+              <option value="DOCUMENT">Văn bản</option>
+              <option value="MEETING">Cuộc họp</option>
+            </select>
+          </label>
+          <label class="form-field">
+            <span>Hồ sơ</span>
+            <select id="draftLinkSource"></select>
+          </label>
+        </div>
+        <div class="draft-link-note">
+          Sau khi liên kết, bản nháp sẽ xuất hiện ngay trong hồ sơ Văn bản hoặc Cuộc họp tương ứng.
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary draft-link-close">Hủy</button>
+        <button class="btn btn-primary" id="saveDraftLink"><i data-lucide="link-2"></i> Liên kết</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- C1 AI FILE PICKER -->
+  <div class="modal-overlay" id="aiFileModal">
+    <div class="app-modal ai-file-modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="drawer-eyebrow">KHO TÀI LIỆU</span>
+          <h2>Chọn tài liệu cho Trợ lý</h2>
+        </div>
+        <button class="icon-btn ai-file-modal-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="ai-file-toolbar">
+          <button class="btn btn-light btn-sm" id="aiFileRootBtn"><i data-lucide="home"></i> Gốc</button>
+          <button class="btn btn-light btn-sm" id="aiFileBackBtn"><i data-lucide="arrow-left"></i> Quay lại</button>
+          <strong id="aiFileFolderName">Kho tài liệu</strong>
+        </div>
+        <div class="ai-file-browser" id="aiFileBrowser"></div>
+        <div class="ai-file-selected">
+          <strong>Đã chọn <span id="aiSelectedCount">0</span>/4 tài liệu</strong>
+          <span>Hỗ trợ tốt: Google Docs, TXT, PDF, ảnh.</span>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary ai-file-modal-close">Đóng</button>
+        <button class="btn btn-primary" id="aiUseSelectedFiles"><i data-lucide="paperclip"></i> Dùng tài liệu đã chọn</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- C1 AI CONFIG -->
+  <div class="modal-overlay" id="aiConfigModal">
+    <div class="app-modal ai-config-modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="drawer-eyebrow">CẤU HÌNH TRỢ LÝ AI</span>
+          <h2>Kết nối AI</h2>
+        </div>
+        <button class="icon-btn ai-config-modal-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <label class="form-field">
+            <span>Provider</span>
+            <select id="aiConfigProvider">
+              <option value="GEMINI">Gemini API</option>
+            </select>
+          </label>
+          <label class="form-field">
+            <span>Model <b>*</b></span>
+            <input id="aiConfigModel" type="text" placeholder="Nhập tên model có trong tài khoản của bạn">
+          </label>
+          <label class="form-field form-span-2">
+            <span>API key</span>
+            <input id="aiConfigApiKey" type="password" placeholder="Chỉ nhập khi tạo mới hoặc muốn thay key">
+          </label>
+        </div>
+        <div class="ai-config-note">
+          API key được lưu trong Script Properties của Apps Script, không đưa xuống HTML.
+          Tên model để cấu hình thủ công để bạn có thể đổi model mà không sửa source.
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary ai-config-modal-close">Hủy</button>
+        <button class="btn btn-primary" id="saveAiConfig"><i data-lucide="save"></i> Lưu cấu hình</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ADMIN USER MODAL -->
+  <div class="modal-overlay" id="adminUserModal">
+    <div class="app-modal admin-modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="drawer-eyebrow">QUẢN TRỊ NGƯỜI DÙNG</span>
+          <h2 id="adminUserModalTitle">Thêm người dùng</h2>
+        </div>
+        <button class="icon-btn admin-user-modal-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <label class="form-field form-span-2">
+            <span>Họ và tên <b>*</b></span>
+            <input id="adminUserFullName" type="text" placeholder="Nguyễn Văn A">
+          </label>
+          <label class="form-field form-span-2">
+            <span>Email đăng nhập <b>*</b></span>
+            <input id="adminUserEmail" type="email" placeholder="user@example.com">
+          </label>
+          <label class="form-field">
+            <span>Đơn vị</span>
+            <select id="adminUserDepartment"></select>
+          </label>
+          <label class="form-field">
+            <span>Vai trò</span>
+            <select id="adminUserRole">
+              <option value="STAFF">Cán bộ / Chuyên viên</option>
+              <option value="OFFICE">Văn phòng</option>
+              <option value="LEADER">Lãnh đạo</option>
+              <option value="ADMIN">Quản trị hệ thống</option>
+            </select>
+          </label>
+          <label class="form-field">
+            <span>Trạng thái</span>
+            <select id="adminUserStatus">
+              <option value="ACTIVE">Đang hoạt động</option>
+              <option value="INACTIVE">Ngừng sử dụng</option>
+            </select>
+          </label>
+          <label class="form-field">
+            <span>Số điện thoại</span>
+            <input id="adminUserPhone" type="text" placeholder="09xx xxx xxx">
+          </label>
+        </div>
+        <div class="admin-role-hint" id="adminRoleHint"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary admin-user-modal-close">Hủy</button>
+        <button class="btn btn-primary" id="adminSaveUser">
+          <i data-lucide="save"></i> Lưu người dùng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN DEPARTMENT MODAL -->
+  <div class="modal-overlay" id="adminDepartmentModal">
+    <div class="app-modal admin-department-modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="drawer-eyebrow">QUẢN TRỊ ĐƠN VỊ</span>
+          <h2 id="adminDepartmentModalTitle">Thêm đơn vị</h2>
+        </div>
+        <button class="icon-btn admin-department-modal-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <label class="form-field">
+            <span>Mã đơn vị <b>*</b></span>
+            <input id="adminDepartmentCode" type="text" placeholder="VD: VP">
+          </label>
+          <label class="form-field">
+            <span>Trạng thái</span>
+            <select id="adminDepartmentStatus">
+              <option value="ACTIVE">Đang sử dụng</option>
+              <option value="INACTIVE">Ngừng sử dụng</option>
+            </select>
+          </label>
+          <label class="form-field form-span-2">
+            <span>Tên đơn vị <b>*</b></span>
+            <input id="adminDepartmentName" type="text" placeholder="Văn phòng Đảng ủy">
+          </label>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary admin-department-modal-close">Hủy</button>
+        <button class="btn btn-primary" id="adminSaveDepartment">
+          <i data-lucide="save"></i> Lưu đơn vị
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- TOOL WORKSPACE -->
+  <div class="modal-overlay" id="toolModal">
+    <div class="app-modal tool-modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="drawer-eyebrow">CÔNG CỤ HỖ TRỢ</span>
+          <h2 id="toolModalTitle">So sánh văn bản</h2>
+        </div>
+        <button class="icon-btn close-tool-modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" id="toolModalBody"></div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary close-tool-modal">Đóng</button>
+        <button class="btn btn-primary" id="runToolAction"><i data-lucide="play"></i> Chạy thử</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- TOAST -->
+  <div class="toast" id="toast">
+    <div class="toast-icon"><i data-lucide="circle-check"></i></div>
+    <div>
+      <strong id="toastTitle">Đã sẵn sàng</strong>
+      <span id="toastMessage">Thao tác mẫu đã được thực hiện.</span>
+    </div>
+  </div>
+
+  <?!= include('scripts'); ?>
+</body>
+</html>

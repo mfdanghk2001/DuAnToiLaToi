@@ -1,0 +1,3345 @@
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
+
+  const body = document.body;
+  const sidebar = document.getElementById('sidebar');
+  const collapseBtn = document.getElementById('sidebarCollapse');
+  const mobileMenu = document.getElementById('mobileMenu');
+  const overlay = document.getElementById('sidebarOverlay');
+  const quickCreate = document.getElementById('quickCreate');
+  const quickMenu = document.getElementById('quickMenu');
+  const notificationBtn = document.getElementById('notificationBtn');
+  const notificationPanel = document.getElementById('notificationPanel');
+  const closeNotifications = document.getElementById('closeNotifications');
+  const todayLabel = document.getElementById('todayLabel');
+  const globalSearch = document.getElementById('globalSearch');
+
+  const drawer = document.getElementById('detailDrawer');
+  const drawerOverlay = document.getElementById('drawerOverlay');
+  const closeDrawerBtn = document.getElementById('closeDrawer');
+  const drawerSecondary = document.getElementById('drawerSecondary');
+  const drawerEyebrow = document.getElementById('drawerEyebrow');
+  const drawerTitle = document.getElementById('drawerTitle');
+  const drawerBody = document.getElementById('drawerBody');
+
+  const createModal = document.getElementById('createModal');
+  const createModalTitle = document.getElementById('createModalTitle');
+  const saveCreateModal = document.getElementById('saveCreateModal');
+
+  const pageNames = {
+    dashboard: 'Tổng quan',
+    documents: 'Văn bản',
+    tasks: 'Nhiệm vụ',
+    calendar: 'Lịch công tác',
+    meetings: 'Cuộc họp',
+    advisory: 'Trợ lý tham mưu',
+    reports: 'Báo cáo & thống kê',
+    repository: 'Kho tài liệu',
+    tools: 'Công cụ hỗ trợ',
+    admin: 'Quản trị hệ thống'
+  };
+
+  const pageIds = ['dashboard','documents','tasks','calendar','meetings','advisory','reports','repository','tools','admin'];
+
+  const formatToday = () => {
+    if (!todayLabel) return;
+    const now = new Date();
+    const weekday = new Intl.DateTimeFormat('vi-VN', {weekday:'long'}).format(now);
+    const date = new Intl.DateTimeFormat('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'}).format(now);
+    todayLabel.textContent = `${weekday.toUpperCase()} · ${date}`;
+  };
+  formatToday();
+
+  const showToast = (title, message) => {
+    const toast = document.getElementById('toast');
+    document.getElementById('toastTitle').textContent = title;
+    document.getElementById('toastMessage').textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
+  };
+
+  const closeMobileSidebar = () => {
+    sidebar.classList.remove('mobile-open');
+    overlay.classList.remove('show');
+  };
+
+  const showPage = (page) => {
+    document.querySelectorAll('.workspace > .page').forEach(p => p.classList.add('hidden-page'));
+    const target = pageIds.includes(page) ? document.getElementById(`page-${page}`) : document.getElementById('page-placeholder');
+    target?.classList.remove('hidden-page');
+
+    if (!pageIds.includes(page) && page !== 'dashboard') {
+      const t = document.getElementById('placeholderTitle');
+      if (t) t.textContent = pageNames[page] || 'Module tiếp theo';
+    }
+    window.scrollTo({top:0,left:0,behavior:'auto'});
+    closeMobileSidebar();
+    setTimeout(() => lucide.createIcons(), 20);
+  };
+
+  collapseBtn?.addEventListener('click', () => body.classList.toggle('sidebar-collapsed'));
+  mobileMenu?.addEventListener('click', () => {sidebar.classList.add('mobile-open');overlay.classList.add('show')});
+  overlay?.addEventListener('click', closeMobileSidebar);
+
+  document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+    item.addEventListener('click', e => {
+      e.preventDefault();
+      document.querySelectorAll('.nav-item[data-page]').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      showPage(item.dataset.page);
+
+      if (item.dataset.page === 'documents') {
+        loadDocumentsD1();
+      }
+      if (item.dataset.page === 'repository') {
+        loadRepositoryB4(B4.repoFolderId || '');
+      }
+      if (item.dataset.page === 'reports') {
+        loadReportB4();
+      }
+      if (item.dataset.page === 'admin') {
+        loadAdminB5();
+      }
+    });
+  });
+
+  document.getElementById('backDashboard')?.addEventListener('click', () => {
+    document.querySelector('.nav-item[data-page="dashboard"]')?.click();
+  });
+
+  quickCreate?.addEventListener('click', e => {
+    e.stopPropagation();
+    quickMenu.classList.toggle('show');
+    notificationPanel.classList.remove('show');
+  });
+
+  notificationBtn?.addEventListener('click', async e => {
+    e.stopPropagation();
+    const opening=!notificationPanel.classList.contains('show');
+    notificationPanel.classList.toggle('show');
+    quickMenu.classList.remove('show');
+    if(opening) await loadNotificationsB6();
+  });
+  closeNotifications?.addEventListener('click', () => notificationPanel.classList.remove('show'));
+
+  document.addEventListener('click', e => {
+    if (quickMenu && !quickMenu.contains(e.target) && !quickCreate.contains(e.target)) quickMenu.classList.remove('show');
+    if (notificationPanel && !notificationPanel.contains(e.target) && !notificationBtn.contains(e.target)) notificationPanel.classList.remove('show');
+  });
+
+  // Tabs
+  document.querySelectorAll('.module-tabs').forEach(tabs => {
+    tabs.querySelectorAll('.module-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.querySelectorAll('.module-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+      });
+    });
+  });
+
+  // Task view switch
+  document.querySelectorAll('[data-task-view]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-task-view]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const isKanban = btn.dataset.taskView === 'kanban';
+      document.getElementById('taskListView')?.classList.toggle('hidden-block', isKanban);
+      document.getElementById('taskKanbanView')?.classList.toggle('hidden-block', !isKanban);
+      lucide.createIcons();
+    });
+  });
+
+  // Search filter demo
+  const bindSearch = (inputId, selector) => {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener('input', () => {
+      const q = input.value.toLowerCase().trim();
+      document.querySelectorAll(selector).forEach(row => {
+        row.style.display = row.innerText.toLowerCase().includes(q) ? '' : 'none';
+      });
+    });
+  };
+  bindSearch('taskSearch', '.task-full-row');
+
+  // Drawer
+  const drawerTemplates = {
+    document: `
+      <div class="detail-summary">
+        <span class="status status-progress">Đang xử lý</span>
+        <h3>124-CV/ĐU · Về việc triển khai nhiệm vụ trọng tâm trong tháng 9 năm 2026</h3>
+        <p>Văn bản đến từ Đảng ủy cấp trên, đã được tiếp nhận và giao Văn phòng theo dõi xử lý.</p>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-field"><span>Cơ quan ban hành</span><strong>Đảng ủy cấp trên</strong></div>
+        <div class="detail-field"><span>Ngày nhận</span><strong>17/09/2026</strong></div>
+        <div class="detail-field"><span>Người xử lý</span><strong>Nguyễn Thị A</strong></div>
+        <div class="detail-field"><span>Hạn xử lý</span><strong class="danger-text">20/09/2026</strong></div>
+        <div class="detail-field"><span>Lĩnh vực</span><strong>Công tác Đảng</strong></div>
+        <div class="detail-field"><span>Độ ưu tiên</span><strong>Cao</strong></div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Tài liệu đính kèm</h4><button class="text-btn demo-action">Thêm file</button></div>
+        <div class="file-chip"><i data-lucide="file-text"></i><div><strong>124-CV-DU.pdf</strong><small>PDF · 2.4 MB</small></div><button class="icon-btn demo-action"><i data-lucide="eye"></i></button></div>
+        <div class="file-chip"><i data-lucide="file-spreadsheet"></i><div><strong>Phu-luc-nhiem-vu.xlsx</strong><small>XLSX · 560 KB</small></div><button class="icon-btn demo-action"><i data-lucide="eye"></i></button></div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Tiến trình xử lý</h4></div>
+        <div class="timeline-item"><time>09:30</time><span class="timeline-dot"></span><p><strong>Văn thư tiếp nhận</strong><br>Đã nhập văn bản vào hệ thống.</p></div>
+        <div class="timeline-item"><time>09:42</time><span class="timeline-dot"></span><p><strong>Chuyển Văn phòng</strong><br>Đề nghị nghiên cứu và tham mưu xử lý.</p></div>
+        <div class="timeline-item"><time>10:05</time><span class="timeline-dot"></span><p><strong>Giao Nguyễn Thị A xử lý</strong><br>Hạn hoàn thành ngày 20/09/2026.</p></div>
+      </div>`,
+    task: `
+      <div class="detail-summary">
+        <span class="status status-progress">Đang thực hiện</span>
+        <h3>Hoàn thiện dự thảo báo cáo công tác tháng 9</h3>
+        <p>Tổng hợp số liệu, hoàn thiện nội dung và trình lãnh đạo xem xét trước thời hạn.</p>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-field"><span>Mã nhiệm vụ</span><strong>NV-2026-0028</strong></div>
+        <div class="detail-field"><span>Mức độ</span><strong class="danger-text">Ưu tiên cao</strong></div>
+        <div class="detail-field"><span>Người giao</span><strong>Văn phòng</strong></div>
+        <div class="detail-field"><span>Người chủ trì</span><strong>Nguyễn Văn A</strong></div>
+        <div class="detail-field"><span>Ngày giao</span><strong>14/09/2026</strong></div>
+        <div class="detail-field"><span>Hạn hoàn thành</span><strong class="danger-text">17/09/2026 · 16:30</strong></div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Tiến độ</h4><span class="status status-progress">72%</span></div>
+        <div class="drawer-progress"><div><i></i></div><strong>72%</strong></div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Tài liệu công việc</h4><button class="text-btn demo-action">Thêm tài liệu</button></div>
+        <div class="file-chip"><i data-lucide="file-text"></i><div><strong>Du-thao-bao-cao-v3.docx</strong><small>DOCX · Cập nhật 12:15</small></div><button class="icon-btn demo-action"><i data-lucide="eye"></i></button></div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Cập nhật gần đây</h4></div>
+        <div class="timeline-item"><time>12:15</time><span class="timeline-dot"></span><p><strong>Nguyễn Văn A</strong><br>Đã hoàn thành phần tổng hợp số liệu, đang rà soát nội dung.</p></div>
+        <div class="timeline-item"><time>09:20</time><span class="timeline-dot"></span><p><strong>Văn phòng</strong><br>Bổ sung số liệu mục 2.3 theo báo cáo mới.</p></div>
+      </div>`,
+    meeting: `
+      <div class="detail-summary">
+        <span class="status status-warning">Hôm nay · 14:00</span>
+        <h3>Họp Ban Thường vụ Đảng ủy tháng 9/2026</h3>
+        <p>Xem xét tình hình thực hiện nhiệm vụ tháng 9 và một số nội dung thuộc thẩm quyền.</p>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-field"><span>Thời gian</span><strong>14:00 · 17/09/2026</strong></div>
+        <div class="detail-field"><span>Địa điểm</span><strong>Hội trường Đảng ủy</strong></div>
+        <div class="detail-field"><span>Chủ trì</span><strong>Bí thư Đảng ủy</strong></div>
+        <div class="detail-field"><span>Thành phần</span><strong>12 người</strong></div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Chuẩn bị</h4><span class="status status-success">82%</span></div>
+        <div class="drawer-progress"><div><i style="width:82%;background:#16A34A"></i></div><strong>82%</strong></div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Tài liệu phục vụ họp</h4><button class="text-btn demo-action">Thêm tài liệu</button></div>
+        <div class="file-chip"><i data-lucide="file-text"></i><div><strong>Chuong-trinh-hop.pdf</strong><small>PDF · Đã duyệt</small></div><button class="icon-btn demo-action"><i data-lucide="eye"></i></button></div>
+        <div class="file-chip"><i data-lucide="file-text"></i><div><strong>Du-thao-ket-luan.docx</strong><small>DOCX · Đang hoàn thiện</small></div><button class="icon-btn demo-action"><i data-lucide="pen-line"></i></button></div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Nội dung dự kiến</h4></div>
+        <div class="timeline-item"><time>01</time><span class="timeline-dot"></span><p>Đánh giá kết quả thực hiện nhiệm vụ tháng 9.</p></div>
+        <div class="timeline-item"><time>02</time><span class="timeline-dot"></span><p>Thảo luận nhiệm vụ trọng tâm tháng 10.</p></div>
+        <div class="timeline-item"><time>03</time><span class="timeline-dot"></span><p>Xem xét các nội dung thuộc thẩm quyền.</p></div>
+      </div>`
+  };
+
+  const openDrawer = (type) => {
+    const labels = {document:['HỒ SƠ VĂN BẢN','Chi tiết văn bản'],task:['NHIỆM VỤ','Chi tiết nhiệm vụ'],meeting:['CUỘC HỌP','Hồ sơ cuộc họp']};
+    drawerEyebrow.textContent = labels[type][0];
+    drawerTitle.textContent = labels[type][1];
+    drawerBody.innerHTML = drawerTemplates[type];
+    drawer.classList.add('show');
+    drawerOverlay.classList.add('show');
+    lucide.createIcons();
+  };
+  const closeDrawer = () => {drawer.classList.remove('show');drawerOverlay.classList.remove('show')};
+  closeDrawerBtn?.addEventListener('click', closeDrawer);
+  drawerSecondary?.addEventListener('click', closeDrawer);
+  drawerOverlay?.addEventListener('click', closeDrawer);
+  document.querySelectorAll('.document-detail-trigger').forEach(el => el.addEventListener('click', e => {if (!e.target.closest('button')) openDrawer('document')}));
+  document.querySelectorAll('.task-detail-trigger').forEach(el => el.addEventListener('click', e => {if (!e.target.closest('button')) openDrawer('task')}));
+  document.querySelectorAll('.meeting-detail-trigger').forEach(el => el.addEventListener('click', e => {if (!e.target.closest('button')) openDrawer('meeting')}));
+
+
+  const createForm = document.getElementById('createForm');
+
+  const modalForms = {
+    document: `
+      <label class="form-field form-span-2"><span>Trích yếu văn bản <b>*</b></span><input type="text" placeholder="Nhập trích yếu..."></label>
+      <label class="form-field"><span>Số / ký hiệu</span><input type="text" placeholder="VD: 124-CV/ĐU"></label>
+      <label class="form-field"><span>Loại văn bản</span><select><option>Văn bản đến</option><option>Văn bản đi</option><option>Dự thảo</option></select></label>
+      <label class="form-field"><span>Cơ quan ban hành</span><input type="text" placeholder="Nhập cơ quan ban hành"></label>
+      <label class="form-field"><span>Ngày nhận</span><input type="date" value="2026-09-17"></label>
+      <label class="form-field"><span>Người xử lý</span><select><option>Nguyễn Thị A</option><option>Văn phòng</option><option>Trần Văn B</option></select></label>
+      <label class="form-field"><span>Hạn xử lý</span><input type="date" value="2026-09-20"></label>
+      <label class="form-field form-span-2"><span>Ghi chú</span><textarea rows="3" placeholder="Nhập thông tin bổ sung..."></textarea></label>
+      <label class="upload-zone form-span-2"><input type="file"><i data-lucide="cloud-upload"></i><strong>Thả file vào đây hoặc bấm để chọn</strong><span>PDF, DOCX, XLSX · tối đa 20 MB</span></label>`,
+    task: `
+      <label class="form-field form-span-2"><span>Tên nhiệm vụ <b>*</b></span><input type="text" placeholder="Nhập nhiệm vụ cần giao..."></label>
+      <label class="form-field"><span>Người chủ trì</span><select><option>Nguyễn Thị A</option><option>Nguyễn Văn A</option><option>Trần Văn B</option></select></label>
+      <label class="form-field"><span>Người phối hợp</span><select><option>Văn phòng</option><option>Bộ phận chuyên môn</option><option>Không có</option></select></label>
+      <label class="form-field"><span>Mức độ ưu tiên</span><select><option>Bình thường</option><option>Cao</option><option>Khẩn</option></select></label>
+      <label class="form-field"><span>Hạn hoàn thành</span><input type="datetime-local" value="2026-09-20T16:30"></label>
+      <label class="form-field form-span-2"><span>Nội dung / yêu cầu</span><textarea rows="4" placeholder="Mô tả kết quả cần hoàn thành..."></textarea></label>
+      <label class="upload-zone form-span-2"><input type="file"><i data-lucide="paperclip"></i><strong>Đính kèm tài liệu giao việc</strong><span>PDF, DOCX, XLSX · tối đa 20 MB</span></label>`,
+    meeting: `
+      <label class="form-field form-span-2"><span>Tên cuộc họp <b>*</b></span><input type="text" placeholder="VD: Họp Ban Thường vụ tháng 9/2026"></label>
+      <label class="form-field"><span>Ngày họp</span><input type="date" value="2026-09-17"></label>
+      <label class="form-field"><span>Thời gian</span><input type="time" value="14:00"></label>
+      <label class="form-field"><span>Chủ trì</span><input type="text" placeholder="Bí thư Đảng ủy"></label>
+      <label class="form-field"><span>Địa điểm</span><input type="text" placeholder="Hội trường Đảng ủy"></label>
+      <label class="form-field form-span-2"><span>Nội dung dự kiến</span><textarea rows="4" placeholder="Nhập các nội dung cần trao đổi..."></textarea></label>
+      <label class="upload-zone form-span-2"><input type="file"><i data-lucide="folder-up"></i><strong>Đính kèm tài liệu phục vụ họp</strong><span>PDF, DOCX, XLSX · tối đa 20 MB</span></label>`,
+    calendar: `
+      <label class="form-field form-span-2"><span>Tên lịch công tác <b>*</b></span><input type="text" placeholder="VD: Làm việc với bộ phận chuyên môn"></label>
+      <label class="form-field"><span>Ngày</span><input type="date" value="2026-09-17"></label>
+      <label class="form-field"><span>Thời gian bắt đầu</span><input type="time" value="14:00"></label>
+      <label class="form-field"><span>Thời gian kết thúc</span><input type="time" value="15:30"></label>
+      <label class="form-field"><span>Nhóm lịch</span><select><option>Lịch chung</option><option>Bí thư</option><option>Phó Bí thư</option><option>Văn phòng</option></select></label>
+      <label class="form-field form-span-2"><span>Địa điểm</span><input type="text" placeholder="Nhập địa điểm"></label>
+      <label class="form-field form-span-2"><span>Ghi chú</span><textarea rows="3" placeholder="Nhập thành phần hoặc nội dung cần chuẩn bị..."></textarea></label>`
+  };
+
+  // Modal
+  let currentCreateType = null;
+  const createTitles = {document:'Tiếp nhận văn bản',task:'Giao nhiệm vụ',meeting:'Tạo cuộc họp',calendar:'Thêm lịch công tác'};
+  const openModal = type => {
+    currentCreateType = type;
+    createModalTitle.textContent = createTitles[type] || 'Tạo mới';
+    if (createForm && modalForms[type]) createForm.innerHTML = modalForms[type];
+    if (type === 'task' && createForm && B2.users?.length) {
+      const sel = createForm.querySelector('select');
+      if (sel) sel.innerHTML = B2.users.map(u => `<option>${esc(u.full_name || u.email)}</option>`).join('');
+    }
+    createModal.classList.add('show');
+    lucide.createIcons();
+  };
+  const closeModal = () => {
+    createModal.classList.remove('show');
+  };
+  document.querySelectorAll('.open-create-modal').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.type)));
+  document.querySelectorAll('.close-create-modal').forEach(btn => btn.addEventListener('click', closeModal));
+  createModal?.addEventListener('click', e => {if (e.target === createModal) closeModal()});
+  saveCreateModal?.addEventListener('click', async () => {
+    await saveB2Create(currentCreateType);
+  });
+
+  // Quick menu actions to real modal/page.
+  const quickButtons = quickMenu?.querySelectorAll('button') || [];
+  quickButtons.forEach((btn, i) => {
+    btn.addEventListener('click', () => {
+      quickMenu.classList.remove('show');
+      if (i === 0) openModal('document');
+      else if (i === 1) openModal('task');
+      else if (i === 2) openModal('meeting');
+      else if (i === 3) openModal('calendar');
+      else showToast('Đã chọn thao tác', btn.innerText.trim() + ' sẽ được hoàn thiện ở bước A4/B.');
+    });
+  });
+
+  document.querySelectorAll('.demo-action').forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    showToast('Giao diện thử nghiệm', 'Nút này đã sẵn sàng; dữ liệu thật sẽ được nối ở bước B.');
+  }));
+
+  document.querySelectorAll('.tool-card').forEach(card => card.addEventListener('click', () => {
+    showToast(card.querySelector('strong')?.textContent || 'Công cụ', 'Module Công cụ sẽ được hoàn thiện ở bước A4.');
+  }));
+
+  document.getElementById('btnViewCalendar')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="calendar"]')?.click());
+  document.getElementById('btnNewDocument')?.addEventListener('click', () => openModal('document'));
+
+
+
+  // =========================
+  // B2 - Google Apps Script backend
+  // =========================
+  const B2 = {
+    user:null,
+    users:[],
+    dashboard:null,
+    documents:[],
+    tasks:[],
+    calendarEvents:[],
+    meetings:[]
+  };
+
+  const B4 = {
+    repoFolderId:'',
+    repoRootId:'',
+    repoData:null,
+    report:null
+  };
+
+  const B5 = {
+    admin:null,
+    editingUserId:'',
+    editingDepartmentId:'',
+    roleFilter:'ALL',
+    statusFilter:'ALL'
+  };
+
+  const B6 = {
+    notifications:[],
+    activityLogs:[]
+  };
+
+  const C1 = {
+    taskType:'GENERAL',
+    config:null,
+    selectedFiles:[],
+    fileFolderId:'',
+    fileRootId:'',
+    fileHistory:[]
+  };
+
+  const C2 = {
+    outputs:{},
+    activeLinkOutputId:'',
+    history:[]
+  };
+
+  const D1 = {
+    filters:{
+      q:'',
+      direction:'ALL',
+      status:'ALL',
+      year:'ALL',
+      issuer:'ALL',
+      field:'ALL',
+      page:1,
+      pageSize:10
+    },
+    list:null,
+    current:null,
+    editingId:'',
+    selectedFiles:[]
+  };
+
+  const gasCall = (fn, ...args) => new Promise((resolve, reject) => {
+    if (!window.google || !google.script || !google.script.run) {
+      reject(new Error('Không tìm thấy môi trường Google Apps Script.'));
+      return;
+    }
+    let runner = google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(err => reject(new Error(err?.message || String(err))));
+    runner[fn](...args);
+  });
+
+  const esc = value => String(value ?? '')
+    .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+    .replaceAll('"','&quot;').replaceAll("'","&#039;");
+
+  const formatDateVN = value => {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (isNaN(d)) return esc(value);
+    return new Intl.DateTimeFormat('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'}).format(d);
+  };
+
+  const formatDateTimeVN = value => {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (isNaN(d)) return esc(value);
+    return new Intl.DateTimeFormat('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d);
+  };
+
+  const initials = name => {
+    const s = String(name || 'U').trim().split(/\s+/);
+    return ((s[0]?.[0] || '') + (s[s.length-1]?.[0] || '')).toUpperCase();
+  };
+
+  const statusMeta = status => ({
+    NEW:['Mới tiếp nhận','status-new'],
+    PROCESSING:['Đang xử lý','status-progress'],
+    IN_PROGRESS:['Đang thực hiện','status-progress'],
+    WAITING_APPROVAL:['Chờ duyệt','status-review'],
+    COMPLETED:['Hoàn thành','status-success'],
+    ARCHIVED:['Lưu trữ','status-new'],
+    OVERDUE:['Quá hạn','status-danger'],
+    CANCELLED:['Đã hủy','status-new']
+  }[status] || [status || 'Chưa xác định','status-new']);
+
+  const directionLabel = x => ({INCOMING:'Văn bản đến',OUTGOING:'Văn bản đi',DRAFT:'Dự thảo'}[x] || x || 'Văn bản');
+
+  const userName = id => {
+    const u=B2.users.find(x=>x.user_id===id);
+    return u ? (u.full_name || u.email) : '';
+  };
+
+  const showBackendError = msg => {
+    const banner=document.getElementById('backendBanner');
+    if (!banner) return;
+    banner.classList.remove('hidden');
+    banner.classList.add('error');
+    banner.innerHTML=`<div><strong>Không tải được dữ liệu</strong><span>${esc(msg)}</span></div>`;
+  };
+
+  const hideBackendBanner = () => document.getElementById('backendBanner')?.classList.add('hidden');
+
+  const renderUser = () => {
+    if (!B2.user) return;
+    const name=B2.user.fullName || B2.user.email || 'Người dùng';
+    document.querySelectorAll('.profile-text strong,.sidebar-user-info strong').forEach(el=>el.textContent=name);
+    document.querySelectorAll('.profile-text span,.sidebar-user-info span').forEach(el=>el.textContent=B2.user.role || 'Người dùng');
+    document.querySelectorAll('.profile-chip .avatar,.sidebar-user .avatar').forEach(el=>el.textContent=initials(name));
+  };
+
+  const renderDashboard = () => {
+    const d=B2.dashboard;
+    if (!d) return;
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=String(v).padStart(2,'0')};
+    set('dashNewDocuments',d.stats.newDocuments);
+    set('dashTasksToday',d.stats.tasksToday);
+    set('dashDueSoon',d.stats.dueSoon);
+    set('dashOverdue',d.stats.overdue);
+    document.getElementById('navDocumentCount') && (document.getElementById('navDocumentCount').textContent=d.documents.total);
+    document.getElementById('navTaskCount') && (document.getElementById('navTaskCount').textContent=d.tasks.total);
+
+    const taskBox=document.getElementById('dashboardTaskList');
+    if (taskBox) {
+      if (!d.priorityTasks.length) taskBox.innerHTML=`<div class="empty-data"><i data-lucide="circle-check-big"></i><strong>Chưa có nhiệm vụ cần xử lý</strong><span>Các nhiệm vụ mới sẽ xuất hiện tại đây.</span></div>`;
+      else taskBox.innerHTML=d.priorityTasks.map(t=>{
+        const st=statusMeta(t.effective_status || t.status);
+        const p=t.priority==='URGENT'?'high':t.priority==='HIGH'?'medium':'normal';
+        return `<article class="task-row b2-task-detail" data-id="${esc(t.task_id)}">
+          <div class="priority-dot ${p}"></div><div class="task-main">
+          <div class="task-title-row"><h3>${esc(t.title)}</h3><span class="status ${st[1]}">${st[0]}</span></div>
+          <div class="task-meta"><span><i data-lucide="user"></i> ${esc(t.owner_name||userName(t.owner_user_id)||'Chưa giao')}</span>
+          <span><i data-lucide="calendar-clock"></i> ${formatDateTimeVN(t.due_date)}</span>
+          <span class="tag">${esc(t.priority||'NORMAL')}</span></div></div>
+          <button class="icon-btn row-action"><i data-lucide="chevron-right"></i></button></article>`;
+      }).join('');
+    }
+
+    const docBox=document.getElementById('dashboardDocumentList');
+    if (docBox) {
+      if (!d.recentDocuments.length) docBox.innerHTML=`<div class="empty-data"><i data-lucide="files"></i><strong>Chưa có văn bản</strong><span>Tiếp nhận văn bản đầu tiên để bắt đầu.</span></div>`;
+      else docBox.innerHTML=d.recentDocuments.map(x=>`<article class="document-row b2-document-detail" data-id="${esc(x.document_id)}">
+        <div class="doc-icon"><i data-lucide="file-text"></i></div><div class="doc-main">
+        <div class="doc-top"><strong>${esc(x.document_no||'Chưa có số')}</strong>${x.status==='NEW'?'<span class="new-badge">Mới</span>':''}</div>
+        <h3>${esc(x.title)}</h3><div class="doc-meta">${esc(x.issuer||directionLabel(x.direction))} · ${formatDateVN(x.received_date)}</div></div>
+        <button class="btn btn-light btn-sm">Xem</button></article>`).join('');
+    }
+    lucide.createIcons();
+  };
+
+  const renderDocuments = () => {
+    // D1 owns the complete Văn bản page.
+    // B2 still supplies Dashboard data and cross-module references.
+    const d=B2.dashboard;
+    if (d) {
+      const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=String(v).padStart(2,'0')};
+      set('docIncomingCount',d.documents.incoming);
+      set('docOutgoingCount',d.documents.outgoing);
+      set('docProcessingCount',d.documents.processing);
+      set('docDueSoonCount',d.documents.dueSoon);
+    }
+  };
+
+  const renderTasks = () => {
+    const d=B2.dashboard;
+    if (d) {
+      [['taskNewCount',d.tasks.newCount],['taskProgressCount',d.tasks.inProgress],['taskWaitingCount',d.tasks.waitingApproval],['taskOverdueCount',d.tasks.overdue]]
+        .forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.textContent=String(v).padStart(2,'0')});
+    }
+    const box=document.getElementById('taskFullList');
+    if (!box) return;
+    if (!B2.tasks.length) {
+      box.innerHTML=`<div class="empty-data"><i data-lucide="list-checks"></i><strong>Chưa có nhiệm vụ</strong><span>Bấm “Giao nhiệm vụ” để tạo công việc đầu tiên.</span></div>`;
+      lucide.createIcons(); return;
+    }
+    box.innerHTML=B2.tasks.map(t=>{
+      const st=statusMeta(t.effective_status||t.status);
+      const priority=t.priority==='URGENT'?'high':t.priority==='HIGH'?'medium':'normal';
+      const owner=t.owner_name||userName(t.owner_user_id)||'Chưa giao';
+      const progress=Number(t.progress||0);
+      return `<article class="task-full-row b2-task-detail" data-id="${esc(t.task_id)}">
+        <button class="task-check"><i data-lucide="circle"></i></button><div class="priority-bar ${priority}"></div>
+        <div class="task-full-main"><div class="task-full-title"><strong>${esc(t.title)}</strong><span class="status ${st[1]}">${st[0]}</span></div>
+        <p>${esc(t.description||'Chưa có mô tả.')}</p><div class="task-full-meta">
+        <span><i data-lucide="user"></i> ${esc(owner)}</span><span><i data-lucide="alarm-clock"></i> ${formatDateTimeVN(t.due_date)}</span>
+        <span class="tag">${esc(t.priority||'NORMAL')}</span></div></div>
+        <div class="progress-cell"><div class="tiny-progress"><span style="width:${progress}%"></span></div><small>${progress}%</small></div>
+        <button class="icon-btn"><i data-lucide="more-horizontal"></i></button></article>`;
+    }).join('');
+    lucide.createIcons();
+  };
+
+  const renderAllB2 = () => {
+    renderUser(); renderDashboard(); renderDocuments(); renderTasks();
+  };
+
+  const refreshB2 = async () => {
+    const data=await gasCall('apiRefreshB2');
+    if (!data?.ok) throw new Error(data?.message||'Không tải được dữ liệu.');
+    B2.dashboard=data.dashboard;
+    B2.documents=data.documents||[];
+    B2.tasks=data.tasks||[];
+    B2.calendarEvents=data.calendarEvents||[];
+    B2.meetings=data.meetings||[];
+    renderAllB2();
+    applyAccessB5();
+    renderCalendarB3();
+    renderMeetingsB3();
+  };
+
+  const readFileAsBase64 = file => new Promise((resolve,reject)=>{
+    if (!file) return resolve(null);
+    const r=new FileReader();
+    r.onload=()=>resolve({name:file.name,mimeType:file.type||'application/octet-stream',base64:r.result});
+    r.onerror=()=>reject(new Error('Không đọc được file đính kèm.'));
+    r.readAsDataURL(file);
+  });
+
+  const field = (selector) => createForm?.querySelector(selector);
+
+  const setSaving = on => {
+    if (!saveCreateModal) return;
+    saveCreateModal.disabled=on;
+    saveCreateModal.classList.toggle('saving',on);
+    saveCreateModal.innerHTML=on?`<span class="backend-spinner"></span> Đang lưu...`:`<i data-lucide="save"></i> Lưu`;
+    lucide.createIcons();
+  };
+
+  async function saveB2Create(type) {
+    if (!type) return;
+    if (!['document','task','calendar','meeting'].includes(type)) {
+      closeModal();
+      showToast('Chưa nối dữ liệu', 'Chức năng này chưa được nối dữ liệu thật.');
+      return;
+    }
+    try {
+      setSaving(true);
+      if (type==='document') {
+        throw new Error('Vui lòng sử dụng form Văn bản D1.');
+      } else if (type==='task') {
+        const inputs=[...createForm.querySelectorAll('input,select,textarea')].filter(x=>x.type!=='file');
+        const values=inputs.map(x=>x.value);
+        const title=values[0]||'';
+        if (!title.trim()) throw new Error('Bạn chưa nhập tên nhiệm vụ.');
+        const ownerName=values[1]||'';
+        const owner=B2.users.find(u=>(u.full_name||u.email)===ownerName);
+        const priorityMap={'Bình thường':'NORMAL','Cao':'HIGH','Khẩn':'URGENT'};
+
+        await gasCall('apiCreateTask',{
+          title,
+          owner_user_id:owner?.user_id||B2.user?.userId||'',
+          collaborator_ids:'',
+          priority:priorityMap[values[3]]||'NORMAL',
+          due_date:values[4]||'',
+          description:values[5]||'',
+          source_type:window.D1DocumentTaskSource ? 'DOCUMENT' : (window.C2DraftTaskSource ? 'DRAFT' : (window.B3MeetingTaskSource ? 'MEETING' : '')),
+          source_id:window.D1DocumentTaskSource || window.C2DraftTaskSource || window.B3MeetingTaskSource || ''
+        });
+
+        window.B3MeetingTaskSource='';
+        window.C2DraftTaskSource='';
+        window.D1DocumentTaskSource='';
+      } else if (type==='calendar') {
+        const inputs=[...createForm.querySelectorAll('input,select,textarea')].filter(x=>x.type!=='file');
+        const values=inputs.map(x=>x.value);
+        const title=values[0]||'';
+        if(!title.trim()) throw new Error('Bạn chưa nhập tên lịch công tác.');
+
+        const groupMap={
+          'Lịch chung':'GENERAL',
+          'Bí thư':'SECRETARY',
+          'Phó Bí thư':'DEPUTY_SECRETARY',
+          'Văn phòng':'OFFICE'
+        };
+
+        await gasCall('apiCreateCalendarEvent',{
+          title,
+          event_date:values[1]||'',
+          start_time:values[2]||'',
+          end_time:values[3]||'',
+          calendar_group:groupMap[values[4]]||'GENERAL',
+          location:values[5]||'',
+          description:values[6]||''
+        });
+      } else if (type==='meeting') {
+        const inputs=[...createForm.querySelectorAll('input,select,textarea')].filter(x=>x.type!=='file');
+        const values=inputs.map(x=>x.value);
+        const fileInput=createForm.querySelector('input[type="file"]');
+        const attachment=await readFileAsBase64(fileInput?.files?.[0]||null);
+        const title=values[0]||'';
+        if(!title.trim()) throw new Error('Bạn chưa nhập tên cuộc họp.');
+
+        await gasCall('apiCreateMeeting',{
+          title,
+          meeting_date:values[1]||'',
+          start_time:values[2]||'',
+          chairperson:values[3]||'',
+          location:values[4]||'',
+          agenda:values[5]||'',
+          meeting_type:'Khác',
+          attachment
+        });
+      }
+      closeModal();
+      await refreshB2();
+      const successMessage={
+        document:'Văn bản đã được lưu vào Google Sheets/Drive.',
+        task:'Nhiệm vụ đã được lưu vào Google Sheets.',
+        calendar:'Lịch công tác đã được lưu vào Google Sheets.',
+        meeting:'Cuộc họp đã được lưu và tự động thêm vào lịch công tác.'
+      }[type] || 'Dữ liệu đã được lưu.';
+      showToast('Đã lưu thành công', successMessage);
+    } catch(err) {
+      showToast('Không thể lưu', err.message||String(err));
+    } finally { setSaving(false); }
+  }
+
+
+  // =========================
+  // B3 - Calendar + Meetings
+  // =========================
+  let calendarAnchor = new Date(2026, 8, 17);
+  let meetingFilter = 'upcoming';
+
+  const startOfWeek = date => {
+    const d=new Date(date);
+    const day=(d.getDay()+6)%7;
+    d.setHours(0,0,0,0);
+    d.setDate(d.getDate()-day);
+    return d;
+  };
+
+  const addDays = (date,n) => {
+    const d=new Date(date);
+    d.setDate(d.getDate()+n);
+    return d;
+  };
+
+  const dateKeyLocal = d =>
+    `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+  const isoWeekNumber = d => {
+    const x=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+    const dayNum=x.getUTCDay()||7;
+    x.setUTCDate(x.getUTCDate()+4-dayNum);
+    const yearStart=new Date(Date.UTC(x.getUTCFullYear(),0,1));
+    return Math.ceil((((x-yearStart)/86400000)+1)/7);
+  };
+
+  const timeToMinutes = t => {
+    const m=String(t||'').match(/^(\d{1,2}):(\d{2})/);
+    return m ? Number(m[1])*60+Number(m[2]) : 7*60;
+  };
+
+  const eventClassByGroup = group => ({
+    GENERAL:'red-event',
+    SECRETARY:'blue-event',
+    DEPUTY_SECRETARY:'green-event',
+    OFFICE:'purple-event'
+  }[group] || 'blue-event');
+
+  const enabledCalendarGroups = () =>
+    [...document.querySelectorAll('[data-calendar-group]')]
+      .filter(x=>x.checked)
+      .map(x=>x.dataset.calendarGroup);
+
+  function renderCalendarB3() {
+    const header=document.getElementById('calendarWeekHeader');
+    const body=document.getElementById('calendarWeekBody');
+    if(!header||!body) return;
+
+    const monday=startOfWeek(calendarAnchor);
+    const sunday=addDays(monday,6);
+    const weekdays=['T2','T3','T4','T5','T6','T7','CN'];
+
+    const title=document.getElementById('calendarRangeTitle');
+    if(title) {
+      const sameMonth=monday.getMonth()===sunday.getMonth();
+      title.textContent=sameMonth
+        ? `${monday.getDate()} – ${sunday.getDate()} tháng ${monday.getMonth()+1}, ${monday.getFullYear()}`
+        : `${monday.getDate()}/${monday.getMonth()+1} – ${sunday.getDate()}/${sunday.getMonth()+1}/${sunday.getFullYear()}`;
+    }
+    const wk=document.getElementById('calendarWeekNumber');
+    if(wk) wk.textContent=`Tuần ${isoWeekNumber(monday)}`;
+
+    const todayKey=dateKeyLocal(new Date());
+
+    header.innerHTML=`<div class="time-head"></div>`+
+      weekdays.map((w,i)=>{
+        const d=addDays(monday,i);
+        return `<div class="${dateKeyLocal(d)===todayKey?'today-col':''}">
+          <span>${w}</span><strong>${d.getDate()}</strong>
+        </div>`;
+      }).join('');
+
+    const enabled=enabledCalendarGroups();
+    const weekEvents=(B2.calendarEvents||[]).filter(e=>{
+      if(!enabled.includes(e.calendar_group||'GENERAL')) return false;
+      const k=String(e.event_date||'').slice(0,10);
+      return k>=dateKeyLocal(monday)&&k<=dateKeyLocal(sunday);
+    });
+
+    const times=Array.from({length:11},(_,i)=>`${String(i+7).padStart(2,'0')}:00`);
+    let bodyHtml=`<div class="time-column">${times.map(t=>`<span>${t}</span>`).join('')}</div>`;
+
+    for(let i=0;i<7;i++){
+      const day=addDays(monday,i);
+      const k=dateKeyLocal(day);
+      const events=weekEvents.filter(e=>String(e.event_date||'').slice(0,10)===k);
+
+      let col=`<div class="day-column ${k===todayKey?'today-column-bg':''}">`;
+      if(k===todayKey){
+        const now=new Date();
+        const min=now.getHours()*60+now.getMinutes();
+        if(min>=7*60&&min<=18*60){
+          const top=(min-7*60)/60*50;
+          col+=`<div class="current-time-line" style="top:${top}px"><span></span></div>`;
+        }
+      }
+
+      events.forEach(e=>{
+        const start=timeToMinutes(e.start_time);
+        const end=e.end_time ? timeToMinutes(e.end_time) : start+60;
+        const top=Math.max(0,(start-7*60)/60*50);
+        const height=Math.max(38,(end-start)/60*50);
+        col+=`<div class="cal-event ${eventClassByGroup(e.calendar_group)} b3-event-detail"
+          data-id="${esc(e.event_id)}" style="top:${top}px;height:${height}px">
+          <strong>${esc(e.title)}</strong>
+          <span>${esc(e.start_time||'')} ${e.location?'· '+esc(e.location):''}</span>
+        </div>`;
+      });
+
+      col+=`</div>`;
+      bodyHtml+=col;
+    }
+
+    body.innerHTML=bodyHtml;
+    lucide.createIcons();
+  }
+
+  const meetingDateTime = m => {
+    const raw=`${String(m.meeting_date||'').slice(0,10)}T${m.start_time||'00:00'}`;
+    const d=new Date(raw);
+    return isNaN(d)?new Date(0):d;
+  };
+
+  const meetingStatusLabel = m => {
+    const dt=meetingDateTime(m);
+    const now=new Date();
+    if(m.status==='COMPLETED') return ['Đã hoàn thành','status-success'];
+    if(dt<now) return ['Đã diễn ra','status-new'];
+
+    const today=dateKeyLocal(now);
+    if(String(m.meeting_date||'').slice(0,10)===today) return ['Hôm nay · '+(m.start_time||''),'status-warning'];
+    return [m.start_time||'Sắp diễn ra','status-new'];
+  };
+
+  function renderMeetingsB3() {
+    const box=document.getElementById('meetingCards');
+    if(!box) return;
+
+    const now=new Date();
+    const all=B2.meetings||[];
+    const upcoming=all.filter(m=>meetingDateTime(m)>=now && m.status!=='COMPLETED');
+    const past=all.filter(m=>meetingDateTime(m)<now || m.status==='COMPLETED');
+
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v};
+    set('meetingUpcomingCount',upcoming.length);
+    set('meetingPastCount',past.length);
+    set('meetingAllCount',all.length);
+
+    let list=meetingFilter==='past'?past:meetingFilter==='all'?all:upcoming;
+
+    if(!list.length){
+      box.innerHTML=`<div class="panel empty-data" style="min-height:260px">
+        <i data-lucide="calendar-x"></i>
+        <strong>Chưa có cuộc họp trong nhóm này</strong>
+        <span>Bấm “Tạo cuộc họp” để thêm dữ liệu thật.</span>
+      </div>`;
+    } else {
+      box.innerHTML=list.map((m,idx)=>{
+        const d=new Date(String(m.meeting_date||'').slice(0,10)+'T00:00:00');
+        const status=meetingStatusLabel(m);
+        const linked=(m.linked_tasks||[]).length;
+        return `<article class="meeting-card ${idx===0&&meetingFilter!=='past'?'featured':''} meeting-real-card b3-meeting-detail" data-id="${esc(m.meeting_id)}">
+          <div class="meeting-date ${idx===0&&meetingFilter!=='past'?'red-date':''}">
+            <strong>${isNaN(d)?'—':String(d.getDate()).padStart(2,'0')}</strong>
+            <span>${isNaN(d)?'':('THÁNG '+(d.getMonth()+1))}</span>
+          </div>
+          <div class="meeting-info">
+            <div class="meeting-title-row"><span class="status ${status[1]}">${esc(status[0])}</span><span class="meeting-type">${esc(m.meeting_type||'Cuộc họp')}</span></div>
+            <h2>${esc(m.title)}</h2>
+            <p>${esc(m.agenda||'Chưa nhập nội dung dự kiến.')}</p>
+            <div class="meeting-meta">
+              <span><i data-lucide="map-pin"></i> ${esc(m.location||'Chưa xác định')}</span>
+              <span><i data-lucide="user-round"></i> ${esc(m.chairperson||'Chưa xác định')}</span>
+              <span><i data-lucide="list-checks"></i> ${linked} nhiệm vụ</span>
+            </div>
+          </div>
+          <div class="meeting-action">
+            <button class="btn btn-light btn-sm">Mở hồ sơ</button>
+            <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
+          </div>
+        </article>`;
+      }).join('');
+    }
+
+    renderMeetingSideB3(upcoming[0]||all[0]||null);
+    lucide.createIcons();
+  }
+
+  function renderMeetingSideB3(m) {
+    const side=document.getElementById('meetingSidePanel');
+    if(!side) return;
+    if(!m){
+      side.innerHTML=`<div class="panel-head"><div><h2>Cuộc họp gần nhất</h2><p>Chưa có dữ liệu</p></div><span class="meeting-ring">—</span></div>
+        <div class="empty-data"><i data-lucide="calendar-days"></i><strong>Chưa có cuộc họp</strong><span>Tạo cuộc họp để bắt đầu.</span></div>`;
+      return;
+    }
+    const linked=m.linked_tasks||[];
+    side.innerHTML=`<div class="panel-head"><div><h2>Hồ sơ gần nhất</h2><p>${esc(formatDateVN(m.meeting_date))} · ${esc(m.start_time||'')}</p></div><span class="meeting-ring">${linked.length}</span></div>
+      <div class="checklist">
+        <label class="check-item ${m.agenda?'done':''}"><span>${m.agenda?'<i data-lucide="check"></i>':''}</span><div><strong>Nội dung / chương trình</strong><small>${m.agenda?'Đã có nội dung':'Chưa nhập'}</small></div></label>
+        <label class="check-item ${m.drive_folder_id?'done':''}"><span>${m.drive_folder_id?'<i data-lucide="check"></i>':''}</span><div><strong>Thư mục hồ sơ</strong><small>${m.drive_folder_id?'Đã tạo trên Drive':'Chưa tạo'}</small></div></label>
+        <label class="check-item ${m.minutes_file_id?'done':''}"><span>${m.minutes_file_id?'<i data-lucide="check"></i>':''}</span><div><strong>Tài liệu đính kèm</strong><small>${m.minutes_file_id?'Có tài liệu':'Chưa có'}</small></div></label>
+        <label class="check-item ${linked.length?'done':''}"><span>${linked.length?'<i data-lucide="check"></i>':''}</span><div><strong>Nhiệm vụ sau họp</strong><small>${linked.length} nhiệm vụ</small></div></label>
+      </div>
+      <button class="full-soft-btn b3-meeting-detail" data-id="${esc(m.meeting_id)}"><i data-lucide="folder-open"></i> Mở hồ sơ cuộc họp</button>`;
+  }
+
+  function openB3Event(id) {
+    const e=(B2.calendarEvents||[]).find(x=>x.event_id===id);
+    if(!e) return;
+    drawerEyebrow.textContent='LỊCH CÔNG TÁC';
+    drawerTitle.textContent='Chi tiết lịch';
+    drawerBody.innerHTML=`<div class="detail-summary">
+      <span class="status status-progress">${esc(e.event_type||'WORK')}</span>
+      <h3>${esc(e.title)}</h3>
+      <p>${esc(e.description||'Chưa có ghi chú.')}</p></div>
+      <div class="detail-grid">
+        <div class="detail-field"><span>Ngày</span><strong>${formatDateVN(e.event_date)}</strong></div>
+        <div class="detail-field"><span>Thời gian</span><strong>${esc(e.start_time||'—')} – ${esc(e.end_time||'—')}</strong></div>
+        <div class="detail-field"><span>Địa điểm</span><strong>${esc(e.location||'—')}</strong></div>
+        <div class="detail-field"><span>Nhóm lịch</span><strong><i class="calendar-event-dot ${esc(e.calendar_group||'GENERAL')}"></i> ${esc(e.calendar_group||'GENERAL')}</strong></div>
+      </div>
+      ${e.meeting_id?`<div class="detail-section"><button class="btn btn-primary b3-meeting-detail" data-id="${esc(e.meeting_id)}"><i data-lucide="users-round"></i> Mở hồ sơ cuộc họp</button></div>`:''}`;
+    drawer.classList.add('show');drawerOverlay.classList.add('show');lucide.createIcons();
+  }
+
+  function openB3Meeting(id) {
+    const m=(B2.meetings||[]).find(x=>x.meeting_id===id);
+    if(!m) return;
+    const st=meetingStatusLabel(m);
+    const linked=m.linked_tasks||[];
+
+    drawerEyebrow.textContent='CUỘC HỌP';
+    drawerTitle.textContent='Hồ sơ cuộc họp';
+    drawerBody.innerHTML=`<div class="detail-summary">
+      <span class="status ${st[1]}">${esc(st[0])}</span>
+      <h3>${esc(m.title)}</h3>
+      <p>${esc(m.agenda||'Chưa nhập nội dung dự kiến.')}</p>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-field"><span>Ngày họp</span><strong>${formatDateVN(m.meeting_date)}</strong></div>
+      <div class="detail-field"><span>Thời gian</span><strong>${esc(m.start_time||'—')} – ${esc(m.end_time||'—')}</strong></div>
+      <div class="detail-field"><span>Chủ trì</span><strong>${esc(m.chairperson||'—')}</strong></div>
+      <div class="detail-field"><span>Địa điểm</span><strong>${esc(m.location||'—')}</strong></div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-head"><h4>Hồ sơ Drive</h4></div>
+      ${m.folder_url?`<a class="meeting-folder-link" href="${esc(m.folder_url)}" target="_blank"><i data-lucide="folder-open"></i> Mở thư mục cuộc họp</a>`:'<span style="font-size:8.5px;color:#94A3B8">Chưa có thư mục.</span>'}
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-head"><h4>Kết luận / đầu việc sau họp</h4></div>
+      <textarea class="meeting-conclusion-box" id="meetingConclusionText" placeholder="Ví dụ: Giao Văn phòng hoàn thiện dự thảo báo cáo trước ngày..."></textarea>
+      <div class="drawer-action-row">
+        <button class="btn btn-secondary" id="saveMeetingAgendaBtn" data-id="${esc(m.meeting_id)}"><i data-lucide="save"></i> Lưu ghi chú</button>
+        <button class="btn btn-primary" id="createTaskFromMeetingBtn" data-id="${esc(m.meeting_id)}"><i data-lucide="list-plus"></i> Tạo nhiệm vụ</button>
+      </div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-head"><h4>Nhiệm vụ đã tạo</h4><span class="status status-new">${linked.length}</span></div>
+      <div class="meeting-task-list">
+        ${linked.length?linked.map(t=>{
+          const s=statusMeta(t.effective_status||t.status);
+          return `<div class="meeting-task-mini b2-task-detail" data-id="${esc(t.task_id)}"><div><strong>${esc(t.title)}</strong><small>${esc(t.owner_name||userName(t.owner_user_id)||'Chưa giao')} · ${formatDateVN(t.due_date)}</small></div><span class="status ${s[1]}">${s[0]}</span></div>`;
+        }).join(''):'<div class="empty-data" style="min-height:90px"><strong>Chưa có nhiệm vụ</strong><span>Tạo nhiệm vụ trực tiếp từ kết luận cuộc họp.</span></div>'}
+      </div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-head"><h4>Bản nháp tham mưu</h4></div>
+      <div id="c2LinkedDraftsSource" class="linked-drafts-box">
+        <div class="notif-loading" style="min-height:70px"><span class="backend-spinner"></span></div>
+      </div>
+    </div>`;
+
+    drawer.classList.add('show');
+    drawerOverlay.classList.add('show');
+    lucide.createIcons();
+
+    document.getElementById('saveMeetingAgendaBtn')?.addEventListener('click',async ()=>{
+      const text=document.getElementById('meetingConclusionText')?.value||'';
+      if(!text.trim()){showToast('Chưa có nội dung','Nhập ghi chú/kết luận trước khi lưu.');return;}
+      try{
+        await gasCall('apiUpdateMeetingAgenda',m.meeting_id,text);
+        await refreshB2();
+        showToast('Đã lưu','Nội dung cuộc họp đã được cập nhật.');
+        openB3Meeting(m.meeting_id);
+      }catch(err){showToast('Không thể lưu',err.message||String(err))}
+    });
+
+    document.getElementById('createTaskFromMeetingBtn')?.addEventListener('click',()=>{
+      const text=document.getElementById('meetingConclusionText')?.value?.trim()||'';
+      window.B3MeetingTaskSource=m.meeting_id;
+      openModal('task');
+
+      setTimeout(()=>{
+        const fields=[...createForm.querySelectorAll('input,select,textarea')].filter(x=>x.type!=='file');
+        if(fields[0]) fields[0].value=text ? text.slice(0,140) : `Thực hiện kết luận: ${m.title}`;
+        if(fields[5]) fields[5].value=text || `Nhiệm vụ phát sinh từ cuộc họp: ${m.title}`;
+      },20);
+      closeDrawer();
+    });
+
+    loadLinkedDraftsC2('MEETING',m.meeting_id);
+  }
+
+  document.getElementById('calendarTodayBtn')?.addEventListener('click',()=>{
+    calendarAnchor=new Date();
+    renderCalendarB3();
+  });
+  document.getElementById('calendarPrevWeek')?.addEventListener('click',()=>{
+    calendarAnchor=addDays(calendarAnchor,-7);renderCalendarB3();
+  });
+  document.getElementById('calendarNextWeek')?.addEventListener('click',()=>{
+    calendarAnchor=addDays(calendarAnchor,7);renderCalendarB3();
+  });
+  document.querySelectorAll('[data-calendar-group]').forEach(cb=>{
+    cb.addEventListener('change',renderCalendarB3);
+  });
+
+  document.querySelectorAll('[data-meeting-filter]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      meetingFilter=btn.dataset.meetingFilter;
+      renderMeetingsB3();
+    });
+  });
+
+  document.addEventListener('click',e=>{
+    const ev=e.target.closest('.b3-event-detail');
+    if(ev){e.stopPropagation();openB3Event(ev.dataset.id);return;}
+    const mt=e.target.closest('.b3-meeting-detail');
+    if(mt){e.stopPropagation();openB3Meeting(mt.dataset.id);}
+  });
+
+
+
+  // =========================
+  // D1 - Complete document module
+  // =========================
+  const documentStatusOptionsD1 = [
+    ['NEW','Mới tiếp nhận'],
+    ['PROCESSING','Đang xử lý'],
+    ['WAITING_APPROVAL','Chờ duyệt'],
+    ['COMPLETED','Hoàn thành'],
+    ['ARCHIVED','Lưu trữ']
+  ];
+
+  const historyActionLabelD1 = action => ({
+    CREATE:'Tiếp nhận văn bản',
+    UPDATE_INFO:'Cập nhật thông tin',
+    UPDATE_PROCESSING:'Cập nhật xử lý',
+    ADD_FILE:'Thêm tài liệu',
+    NOTE:'Ghi chú xử lý',
+    ARCHIVE:'Lưu trữ hồ sơ',
+    CREATE_TASK:'Tạo nhiệm vụ'
+  }[action] || action || 'Cập nhật');
+
+  const priorityLabelD1 = p => ({
+    NORMAL:'Bình thường',
+    HIGH:'Cao',
+    URGENT:'Khẩn'
+  }[p] || p || 'Bình thường');
+
+  const formatInputDateD1 = value => {
+    if(!value) return '';
+    const d=new Date(value);
+    if(isNaN(d)) return String(value).slice(0,10);
+    const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const formatInputDateTimeD1 = value => {
+    if(!value) return '';
+    const d=new Date(value);
+    if(isNaN(d)) return String(value).slice(0,16);
+    const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+    const hh=String(d.getHours()).padStart(2,'0'),mm=String(d.getMinutes()).padStart(2,'0');
+    return `${y}-${m}-${day}T${hh}:${mm}`;
+  };
+
+  function populateSelectD1(id,items,currentValue,allLabel){
+    const el=document.getElementById(id);
+    if(!el) return;
+    const current=currentValue ?? el.value;
+    el.innerHTML=(allLabel!==undefined?`<option value="ALL">${esc(allLabel)}</option>`:'')+
+      items.map(i=>`<option value="${esc(i.value)}">${esc(i.label)}</option>`).join('');
+    if([...el.options].some(o=>o.value===current)) el.value=current;
+  }
+
+  async function loadDocumentsD1(resetPage=false){
+    const body=document.getElementById('documentTableBody');
+    if(!body) return;
+    if(resetPage) D1.filters.page=1;
+
+    body.innerHTML=`<tr><td colspan="7"><div class="admin-loading"><span class="backend-spinner"></span><span>Đang tải hồ sơ văn bản...</span></div></td></tr>`;
+
+    try{
+      const data=await gasCall('apiD1ListDocuments',D1.filters);
+      D1.list=data;
+      D1.filters.page=data.pagination.page;
+      renderDocumentsD1();
+    }catch(err){
+      body.innerHTML=`<tr><td colspan="7"><div class="empty-data"><i data-lucide="circle-alert"></i><strong>Không tải được văn bản</strong><span>${esc(err.message||String(err))}</span></div></td></tr>`;
+      lucide.createIcons();
+    }
+  }
+
+  function renderDocumentsD1(){
+    const data=D1.list;
+    if(!data) return;
+    const s=data.stats||{};
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=String(v||0).padStart(2,'0')};
+
+    set('docIncomingCount',s.incoming);
+    set('docOutgoingCount',s.outgoing);
+    set('docProcessingCount',s.processing);
+    set('docDueSoonCount',s.dueSoon);
+    set('docTabAll',s.total);
+    set('docTabIncoming',s.incoming);
+    set('docTabOutgoing',s.outgoing);
+    set('docTabDraft',s.draft);
+    set('docTabArchived',s.archived);
+
+    const opts=data.options||{};
+    populateSelectD1(
+      'documentYearFilter',
+      (opts.years||[]).map(x=>({value:x,label:`Năm ${x}`})),
+      D1.filters.year,
+      'Tất cả năm'
+    );
+    populateSelectD1(
+      'documentIssuerFilter',
+      (opts.issuers||[]).map(x=>({value:x,label:x})),
+      D1.filters.issuer,
+      'Tất cả cơ quan'
+    );
+    populateSelectD1(
+      'documentFieldFilter',
+      (opts.fields||[]).map(x=>({value:x,label:x})),
+      D1.filters.field,
+      'Tất cả lĩnh vực'
+    );
+
+    const body=document.getElementById('documentTableBody');
+    const rows=data.items||[];
+
+    body.innerHTML=rows.length?rows.map(x=>{
+      const effective=x.effective_status||x.status;
+      const st=statusMeta(effective);
+      const assignee=x.assignee_name||'Chưa giao';
+      const overdue=effective==='OVERDUE';
+      const pr=x.priority&&x.priority!=='NORMAL'
+        ? `<span class="document-priority ${esc(x.priority)}">${esc(priorityLabelD1(x.priority))}</span>`
+        :'';
+
+      return `<tr class="clickable-row d1-document-row ${overdue?'document-row-overdue':''}" data-id="${esc(x.document_id)}">
+        <td>
+          <strong>${esc(x.document_no||'—')}</strong>${pr}
+          <small>${esc(directionLabel(x.direction))}</small>
+        </td>
+        <td class="title-cell">
+          ${esc(x.title)}
+          <small>${esc(x.issuer||'—')} · ${esc(x.field||'Chưa phân loại')}</small>
+        </td>
+        <td>${formatDateVN(x.received_date||x.issued_date)}</td>
+        <td><span class="person-cell"><span class="avatar avatar-xs">${esc(initials(assignee))}</span> ${esc(assignee)}</span></td>
+        <td class="${overdue?'document-date-overdue':''}">${formatDateTimeVN(x.due_date)}</td>
+        <td><span class="status ${st[1]}">${st[0]}</span></td>
+        <td><button class="icon-btn d1-open-document" data-id="${esc(x.document_id)}"><i data-lucide="chevron-right"></i></button></td>
+      </tr>`;
+    }).join(''):`<tr><td colspan="7"><div class="empty-data"><i data-lucide="files"></i><strong>Không có văn bản phù hợp</strong><span>Thay đổi bộ lọc hoặc tiếp nhận hồ sơ mới.</span></div></td></tr>`;
+
+    const p=data.pagination;
+    const text=document.getElementById('documentResultText');
+    if(text) text.textContent=p.total?`Hiển thị ${p.from}–${p.to} trong ${p.total} văn bản`:'Hiển thị 0 văn bản';
+
+    renderDocumentPaginationD1(p);
+    lucide.createIcons();
+  }
+
+  function renderDocumentPaginationD1(p){
+    const box=document.getElementById('documentPagination');
+    if(!box) return;
+
+    const pages=[];
+    const start=Math.max(1,p.page-2);
+    const end=Math.min(p.pages,p.page+2);
+    for(let i=start;i<=end;i++) pages.push(i);
+
+    box.innerHTML=`
+      <button ${p.page<=1?'disabled':''} data-page="${p.page-1}"><i data-lucide="chevron-left"></i></button>
+      ${pages.map(n=>`<button class="${n===p.page?'active':''}" data-page="${n}">${n}</button>`).join('')}
+      <button ${p.page>=p.pages?'disabled':''} data-page="${p.page+1}"><i data-lucide="chevron-right"></i></button>`;
+    lucide.createIcons();
+  }
+
+  function documentUsersD1(){
+    return D1.list?.options?.users || B2.users || [];
+  }
+
+  function openDocumentModalD1(doc=null,focusFiles=false){
+    D1.editingId=doc?.document_id||'';
+    D1.selectedFiles=[];
+
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??''};
+    document.getElementById('d1DocumentModalTitle').textContent=doc?'Cập nhật văn bản':'Tiếp nhận văn bản';
+
+    set('d1DocTitle',doc?.title||'');
+    set('d1DocNo',doc?.document_no||'');
+    set('d1DocDirection',doc?.direction||'INCOMING');
+    set('d1DocType',doc?.document_type||'');
+    set('d1DocIssuer',doc?.issuer||'');
+    set('d1DocIssuedDate',formatInputDateD1(doc?.issued_date));
+    set('d1DocReceivedDate',formatInputDateD1(doc?.received_date||new Date()));
+    set('d1DocField',doc?.field||'');
+    set('d1DocPriority',doc?.priority||'NORMAL');
+    set('d1DocDueDate',formatInputDateTimeD1(doc?.due_date));
+    set('d1DocSummary',doc?.summary||'');
+    set('d1DocNotes',doc?.notes||'');
+
+    const assignee=document.getElementById('d1DocAssignee');
+    const users=documentUsersD1();
+    assignee.innerHTML=users.map(u=>`<option value="${esc(u.user_id)}">${esc(u.full_name||u.email)}</option>`).join('');
+    assignee.value=doc?.assignee_user_id||B2.user?.userId||users[0]?.user_id||'';
+
+    document.getElementById('d1DocumentFiles').value='';
+    renderSelectedFilesD1();
+
+    document.getElementById('d1DocumentModal')?.classList.add('show');
+    lucide.createIcons();
+
+    if(focusFiles){
+      setTimeout(()=>document.getElementById('d1DocumentFiles')?.click(),100);
+    }
+  }
+
+  function closeDocumentModalD1(){
+    document.getElementById('d1DocumentModal')?.classList.remove('show');
+    D1.editingId='';
+    D1.selectedFiles=[];
+  }
+
+  function renderSelectedFilesD1(){
+    const box=document.getElementById('d1SelectedFiles');
+    if(!box) return;
+    box.innerHTML=D1.selectedFiles.map((f,i)=>`
+      <span class="d1-selected-file">
+        <i data-lucide="file"></i>
+        <strong>${esc(f.name)}</strong>
+        <small>${humanSize(f.size)}</small>
+        <button type="button" class="icon-btn d1-remove-selected-file" data-index="${i}"><i data-lucide="x"></i></button>
+      </span>`).join('');
+    lucide.createIcons();
+  }
+
+  function validateFilesD1(files){
+    const arr=[...files];
+    if(arr.length>5) throw new Error('Mỗi lần chỉ chọn tối đa 5 tệp.');
+    const tooLarge=arr.find(f=>f.size>20*1024*1024);
+    if(tooLarge) throw new Error(`${tooLarge.name} vượt quá 20 MB.`);
+    return arr;
+  }
+
+  async function uploadFilesD1(documentId,files){
+    for(let i=0;i<files.length;i++){
+      const f=files[i];
+      showToast('Đang tải tài liệu',`${i+1}/${files.length} · ${f.name}`);
+      const encoded=await readFileAsBase64(f);
+      await gasCall('apiD1AddDocumentFile',documentId,encoded);
+    }
+  }
+
+  async function saveDocumentD1(){
+    const title=document.getElementById('d1DocTitle')?.value.trim()||'';
+    if(!title){showToast('Thiếu thông tin','Bạn chưa nhập trích yếu văn bản.');return;}
+
+    const payload={
+      title,
+      document_no:document.getElementById('d1DocNo')?.value||'',
+      direction:document.getElementById('d1DocDirection')?.value||'INCOMING',
+      document_type:document.getElementById('d1DocType')?.value||'',
+      issuer:document.getElementById('d1DocIssuer')?.value||'',
+      issued_date:document.getElementById('d1DocIssuedDate')?.value||'',
+      received_date:document.getElementById('d1DocReceivedDate')?.value||'',
+      field:document.getElementById('d1DocField')?.value||'',
+      priority:document.getElementById('d1DocPriority')?.value||'NORMAL',
+      assignee_user_id:document.getElementById('d1DocAssignee')?.value||'',
+      due_date:document.getElementById('d1DocDueDate')?.value||'',
+      summary:document.getElementById('d1DocSummary')?.value||'',
+      notes:document.getElementById('d1DocNotes')?.value||''
+    };
+
+    const btn=document.getElementById('d1SaveDocument');
+    btn.disabled=true;
+    btn.innerHTML='<span class="backend-spinner"></span> Đang lưu...';
+
+    try{
+      let saved;
+      if(D1.editingId){
+        saved=await gasCall('apiD1UpdateDocument',D1.editingId,payload);
+      }else{
+        saved=await gasCall('apiD1CreateDocument',payload);
+      }
+
+      if(D1.selectedFiles.length){
+        await uploadFilesD1(saved.document_id,D1.selectedFiles);
+      }
+
+      closeDocumentModalD1();
+      await refreshB2();
+      await loadDocumentsD1();
+
+      showToast(
+        'Đã lưu văn bản',
+        D1.selectedFiles.length
+          ? `Đã lưu hồ sơ và ${D1.selectedFiles.length} tài liệu lên Google Drive.`
+          : 'Thông tin văn bản đã được cập nhật.'
+      );
+
+      if(D1.editingId) await openDocumentD1(saved.document_id);
+    }catch(err){
+      showToast('Không thể lưu văn bản',err.message||String(err));
+    }finally{
+      btn.disabled=false;
+      btn.innerHTML='<i data-lucide="save"></i> Lưu hồ sơ';
+      lucide.createIcons();
+    }
+  }
+
+  function historyDescriptionD1(h){
+    const d=h.detail||{};
+    if(h.action==='CREATE') return `Tạo hồ sơ ${d.document_no||''} · trạng thái ${d.status||'NEW'}`;
+    if(h.action==='UPDATE_INFO') return 'Cập nhật thông tin hồ sơ văn bản.';
+    if(h.action==='UPDATE_PROCESSING'){
+      const bits=[];
+      if(d.from_status!==d.to_status) bits.push(`${statusMeta(d.from_status)[0]} → ${statusMeta(d.to_status)[0]}`);
+      if(d.from_assignee!==d.to_assignee) bits.push('thay đổi người xử lý');
+      if(d.to_due_date) bits.push(`hạn ${formatDateTimeVN(d.to_due_date)}`);
+      if(d.note) bits.push(d.note);
+      return bits.join(' · ')||'Cập nhật xử lý.';
+    }
+    if(h.action==='ADD_FILE') return `Thêm tệp ${d.file_name||''}`;
+    if(h.action==='NOTE') return d.note||'Ghi chú xử lý';
+    if(h.action==='ARCHIVE') return d.note?`Lưu trữ · ${d.note}`:'Đưa hồ sơ vào lưu trữ.';
+    if(h.action==='CREATE_TASK') return `Tạo nhiệm vụ: ${d.title||d.task_id||''}`;
+    return 'Cập nhật hồ sơ.';
+  }
+
+  async function openDocumentD1(documentId){
+    drawerEyebrow.textContent='HỒ SƠ VĂN BẢN';
+    drawerTitle.textContent='Chi tiết văn bản';
+    drawerBody.innerHTML=`<div class="admin-loading"><span class="backend-spinner"></span><span>Đang tải hồ sơ...</span></div>`;
+    drawer.classList.add('show');
+    drawerOverlay.classList.add('show');
+
+    try{
+      const data=await gasCall('apiD1GetDocument',documentId);
+      D1.current=data;
+      renderDocumentDrawerD1();
+    }catch(err){
+      drawerBody.innerHTML=`<div class="empty-data"><i data-lucide="circle-alert"></i><strong>Không tải được hồ sơ</strong><span>${esc(err.message||String(err))}</span></div>`;
+      lucide.createIcons();
+    }
+  }
+
+  function renderDocumentDrawerD1(){
+    const data=D1.current;
+    if(!data) return;
+    const x=data.document;
+    const effective=x.effective_status||x.status;
+    const st=statusMeta(effective);
+    const canUpdate=hasPermissionB5('documents.update');
+    const canTask=hasPermissionB5('tasks.create');
+
+    drawerBody.innerHTML=`
+      <div class="detail-summary">
+        <span class="status ${st[1]}">${st[0]}</span>
+        ${x.priority&&x.priority!=='NORMAL'?`<span class="document-priority ${esc(x.priority)}">${esc(priorityLabelD1(x.priority))}</span>`:''}
+        <h3>${esc(x.document_no||'—')} · ${esc(x.title)}</h3>
+        <p>${esc(x.summary||x.notes||'Chưa có nội dung tóm tắt.')}</p>
+      </div>
+
+      <div class="d1-drawer-actions">
+        ${canUpdate?`<button class="btn btn-secondary btn-sm" id="d1EditDocument"><i data-lucide="pencil"></i> Cập nhật hồ sơ</button>`:''}
+        ${canTask?`<button class="btn btn-secondary btn-sm" id="d1CreateTaskFromDocument"><i data-lucide="list-plus"></i> Tạo nhiệm vụ</button>`:''}
+        ${x.folder_url?`<a class="btn btn-secondary btn-sm" href="${esc(x.folder_url)}" target="_blank"><i data-lucide="folder-open"></i> Mở thư mục</a>`:''}
+        ${canUpdate&&x.status!=='ARCHIVED'?`<button class="btn btn-light btn-sm" id="d1ArchiveDocument"><i data-lucide="archive"></i> Lưu trữ</button>`:''}
+      </div>
+
+      <div class="detail-grid">
+        <div class="detail-field"><span>Nhóm hồ sơ</span><strong>${esc(directionLabel(x.direction))}</strong></div>
+        <div class="detail-field"><span>Loại văn bản</span><strong>${esc(x.document_type||'—')}</strong></div>
+        <div class="detail-field"><span>Cơ quan ban hành</span><strong>${esc(x.issuer||'—')}</strong></div>
+        <div class="detail-field"><span>Lĩnh vực</span><strong>${esc(x.field||'—')}</strong></div>
+        <div class="detail-field"><span>Ngày ban hành</span><strong>${formatDateVN(x.issued_date)}</strong></div>
+        <div class="detail-field"><span>Ngày nhận / lập</span><strong>${formatDateVN(x.received_date)}</strong></div>
+      </div>
+
+      ${canUpdate?`
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Xử lý văn bản</h4></div>
+        <div class="d1-processing-card">
+          <div class="d1-processing-grid">
+            <label class="form-field">
+              <span>Người xử lý</span>
+              <select id="d1ProcessingAssignee">
+                ${documentUsersD1().map(u=>`<option value="${esc(u.user_id)}" ${u.user_id===x.assignee_user_id?'selected':''}>${esc(u.full_name||u.email)}</option>`).join('')}
+              </select>
+            </label>
+            <label class="form-field">
+              <span>Trạng thái</span>
+              <select id="d1ProcessingStatus">
+                ${documentStatusOptionsD1.map(([v,l])=>`<option value="${v}" ${v===x.status?'selected':''}>${l}</option>`).join('')}
+              </select>
+            </label>
+            <label class="form-field">
+              <span>Hạn xử lý</span>
+              <input id="d1ProcessingDueDate" type="datetime-local" value="${esc(formatInputDateTimeD1(x.due_date))}">
+            </label>
+            <label class="form-field d1-processing-note">
+              <span>Ghi chú lần cập nhật</span>
+              <textarea id="d1ProcessingNote" rows="2" placeholder="VD: Đã chuyển chuyên viên tổng hợp, chờ lãnh đạo cho ý kiến..."></textarea>
+            </label>
+          </div>
+          <div class="d1-processing-actions">
+            <button class="btn btn-primary btn-sm" id="d1SaveProcessing"><i data-lucide="save"></i> Lưu xử lý</button>
+          </div>
+        </div>
+      </div>`:`
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Xử lý văn bản</h4></div>
+        <div class="detail-grid">
+          <div class="detail-field"><span>Người xử lý</span><strong>${esc(x.assignee_name||'—')}</strong></div>
+          <div class="detail-field"><span>Hạn xử lý</span><strong>${formatDateTimeVN(x.due_date)}</strong></div>
+        </div>
+      </div>`}
+
+      <div class="detail-section">
+        <div class="detail-section-head">
+          <h4>Tài liệu đính kèm</h4>
+          ${canUpdate?`<button class="text-btn" id="d1AddDocumentFile"><i data-lucide="paperclip"></i> Thêm file</button>`:''}
+        </div>
+        <div class="d1-file-list">
+          ${(data.files||[]).length?(data.files||[]).map(f=>`
+            <div class="d1-file-row">
+              <span class="d1-file-icon"><i data-lucide="file-text"></i></span>
+              <div><strong>${esc(f.file_name||'Tài liệu')}</strong><small>${humanSize(f.size)} · ${formatDateTimeVN(f.created_at)}</small></div>
+              <a class="icon-btn" href="${esc(f.url)}" target="_blank"><i data-lucide="external-link"></i></a>
+            </div>`).join(''):`<div class="d1-empty-small"><i data-lucide="files"></i><span>Chưa có tài liệu đính kèm.</span></div>`}
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-head">
+          <h4>Nhiệm vụ liên quan</h4>
+          ${canTask?`<button class="text-btn" id="d1CreateTaskFromDocumentInline">Tạo nhiệm vụ</button>`:''}
+        </div>
+        <div class="d1-linked-task-list">
+          ${(data.tasks||[]).length?(data.tasks||[]).map(t=>{
+            const ts=statusMeta(t.effective_status||t.status);
+            return `<div class="d1-linked-task b2-task-detail" data-id="${esc(t.task_id)}">
+              <div><strong>${esc(t.title)}</strong><small>${esc(t.owner_name||'Chưa giao')} · ${formatDateTimeVN(t.due_date)}</small></div>
+              <span class="status ${ts[1]}">${ts[0]}</span>
+            </div>`;
+          }).join(''):`<div class="d1-empty-small"><i data-lucide="list-checks"></i><span>Chưa có nhiệm vụ liên kết.</span></div>`}
+        </div>
+      </div>
+
+      ${canUpdate?`
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Ghi chú xử lý</h4></div>
+        <div class="d1-note-box">
+          <textarea id="d1DocumentNote" placeholder="Ghi nhận trao đổi, chỉ đạo hoặc kết quả xử lý..."></textarea>
+          <button class="btn btn-secondary btn-sm" id="d1AddNote"><i data-lucide="message-square-plus"></i> Thêm</button>
+        </div>
+      </div>`:''}
+
+      <div class="detail-section">
+        <div class="detail-section-head"><h4>Lịch sử xử lý</h4></div>
+        <div class="d1-history-list">
+          ${(data.history||[]).length?(data.history||[]).map((h,i)=>`
+            <div class="d1-history-item">
+              <div class="d1-history-time">${formatDateTimeVN(h.created_at)}</div>
+              <div class="d1-history-track"><span class="d1-history-dot"></span>${i<(data.history.length-1)?'<span class="d1-history-line"></span>':''}</div>
+              <div class="d1-history-content">
+                <strong>${esc(historyActionLabelD1(h.action))} · ${esc(h.actor_name||'Hệ thống')}</strong>
+                <p>${esc(historyDescriptionD1(h))}</p>
+              </div>
+            </div>`).join(''):`<div class="d1-empty-small"><span>Chưa có lịch sử xử lý.</span></div>`}
+        </div>
+      </div>`;
+
+    bindDocumentDrawerActionsD1();
+    lucide.createIcons();
+  }
+
+  function openTaskFromDocumentD1(){
+    const x=D1.current?.document;
+    if(!x) return;
+    window.D1DocumentTaskSource=x.document_id;
+    openModal('task');
+
+    setTimeout(()=>{
+      const fields=[...createForm.querySelectorAll('input,select,textarea')].filter(n=>n.type!=='file');
+      if(fields[0]) fields[0].value=`Xử lý văn bản ${x.document_no||''}: ${x.title}`.slice(0,180);
+      if(fields[3]){
+        fields[3].value=x.priority==='URGENT'?'Khẩn':x.priority==='HIGH'?'Cao':'Bình thường';
+      }
+      if(fields[4] && x.due_date) fields[4].value=formatInputDateTimeD1(x.due_date);
+      if(fields[5]) fields[5].value=[x.summary,x.notes].filter(Boolean).join('\n\n');
+    },30);
+    closeDrawer();
+  }
+
+  function bindDocumentDrawerActionsD1(){
+    const x=D1.current?.document;
+    if(!x) return;
+
+    document.getElementById('d1EditDocument')?.addEventListener('click',()=>{
+      closeDrawer();
+      openDocumentModalD1(x);
+    });
+
+    document.getElementById('d1CreateTaskFromDocument')?.addEventListener('click',openTaskFromDocumentD1);
+    document.getElementById('d1CreateTaskFromDocumentInline')?.addEventListener('click',openTaskFromDocumentD1);
+
+    document.getElementById('d1SaveProcessing')?.addEventListener('click',async()=>{
+      try{
+        await gasCall('apiD1UpdateDocumentProcessing',x.document_id,{
+          assignee_user_id:document.getElementById('d1ProcessingAssignee')?.value||'',
+          status:document.getElementById('d1ProcessingStatus')?.value||x.status,
+          due_date:document.getElementById('d1ProcessingDueDate')?.value||'',
+          note:document.getElementById('d1ProcessingNote')?.value||''
+        });
+        await refreshB2();
+        await loadDocumentsD1();
+        await openDocumentD1(x.document_id);
+        showToast('Đã cập nhật xử lý','Người xử lý, trạng thái và thời hạn đã được lưu.');
+      }catch(err){showToast('Không thể cập nhật',err.message||String(err))}
+    });
+
+    document.getElementById('d1AddDocumentFile')?.addEventListener('click',()=>{
+      const input=document.getElementById('d1AddFileInput');
+      input.dataset.documentId=x.document_id;
+      input.click();
+    });
+
+    document.getElementById('d1AddNote')?.addEventListener('click',async()=>{
+      const input=document.getElementById('d1DocumentNote');
+      const note=input?.value.trim()||'';
+      if(!note){showToast('Chưa có nội dung','Nhập ghi chú xử lý trước khi thêm.');return;}
+      try{
+        await gasCall('apiD1AddDocumentNote',x.document_id,note);
+        await openDocumentD1(x.document_id);
+        showToast('Đã thêm ghi chú','Lịch sử xử lý đã được cập nhật.');
+      }catch(err){showToast('Không thể thêm ghi chú',err.message||String(err))}
+    });
+
+    document.getElementById('d1ArchiveDocument')?.addEventListener('click',async()=>{
+      if(!confirm('Đưa văn bản này vào Lưu trữ? Dữ liệu và file không bị xóa.')) return;
+      try{
+        await gasCall('apiD1ArchiveDocument',x.document_id,'Lưu trữ từ giao diện hồ sơ.');
+        closeDrawer();
+        await refreshB2();
+        await loadDocumentsD1(true);
+        showToast('Đã lưu trữ','Văn bản đã được chuyển vào tab Lưu trữ.');
+      }catch(err){showToast('Không thể lưu trữ',err.message||String(err))}
+    });
+  }
+
+  document.getElementById('documentCreateBtn')?.addEventListener('click',()=>openDocumentModalD1());
+  document.getElementById('documentImportBtn')?.addEventListener('click',()=>openDocumentModalD1(null,true));
+  document.querySelectorAll('.d1-document-modal-close').forEach(btn=>btn.addEventListener('click',closeDocumentModalD1));
+  document.getElementById('d1DocumentModal')?.addEventListener('click',e=>{
+    if(e.target.id==='d1DocumentModal') closeDocumentModalD1();
+  });
+  document.getElementById('d1SaveDocument')?.addEventListener('click',saveDocumentD1);
+
+  document.getElementById('d1DocumentFiles')?.addEventListener('change',e=>{
+    try{
+      D1.selectedFiles=validateFilesD1(e.target.files||[]);
+      renderSelectedFilesD1();
+    }catch(err){
+      e.target.value='';
+      D1.selectedFiles=[];
+      renderSelectedFilesD1();
+      showToast('Tệp không hợp lệ',err.message||String(err));
+    }
+  });
+
+  document.addEventListener('click',e=>{
+    const remove=e.target.closest('.d1-remove-selected-file');
+    if(remove){
+      D1.selectedFiles.splice(Number(remove.dataset.index),1);
+      renderSelectedFilesD1();
+      return;
+    }
+
+    const row=e.target.closest('.d1-document-row');
+    if(row && !e.target.closest('button')) openDocumentD1(row.dataset.id);
+
+    const open=e.target.closest('.d1-open-document');
+    if(open) openDocumentD1(open.dataset.id);
+  });
+
+  document.getElementById('d1AddFileInput')?.addEventListener('change',async e=>{
+    const documentId=e.target.dataset.documentId;
+    try{
+      const files=validateFilesD1(e.target.files||[]);
+      await uploadFilesD1(documentId,files);
+      e.target.value='';
+      await refreshB2();
+      await openDocumentD1(documentId);
+      await loadDocumentsD1();
+      showToast('Đã thêm tài liệu',`${files.length} tệp đã được tải lên hồ sơ.`);
+    }catch(err){
+      e.target.value='';
+      showToast('Không thể tải tài liệu',err.message||String(err));
+    }
+  });
+
+  document.querySelectorAll('#documentTabs [data-doc-direction]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('#documentTabs [data-doc-direction]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      D1.filters.direction=btn.dataset.docDirection;
+      D1.filters.page=1;
+      loadDocumentsD1();
+    });
+  });
+
+  let documentSearchTimerD1=null;
+  document.getElementById('documentSearch')?.addEventListener('input',e=>{
+    clearTimeout(documentSearchTimerD1);
+    documentSearchTimerD1=setTimeout(()=>{
+      D1.filters.q=e.target.value.trim();
+      D1.filters.page=1;
+      loadDocumentsD1();
+    },300);
+  });
+
+  [
+    ['documentYearFilter','year'],
+    ['documentIssuerFilter','issuer'],
+    ['documentFieldFilter','field'],
+    ['documentStatusFilter','status']
+  ].forEach(([id,key])=>{
+    document.getElementById(id)?.addEventListener('change',e=>{
+      D1.filters[key]=e.target.value;
+      D1.filters.page=1;
+      loadDocumentsD1();
+    });
+  });
+
+  document.getElementById('documentResetFilters')?.addEventListener('click',()=>{
+    D1.filters={q:'',direction:'ALL',status:'ALL',year:'ALL',issuer:'ALL',field:'ALL',page:1,pageSize:10};
+    const search=document.getElementById('documentSearch');if(search)search.value='';
+    ['documentYearFilter','documentIssuerFilter','documentFieldFilter','documentStatusFilter'].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.value='ALL';
+    });
+    document.querySelectorAll('#documentTabs [data-doc-direction]').forEach(b=>b.classList.toggle('active',b.dataset.docDirection==='ALL'));
+    loadDocumentsD1();
+  });
+
+  document.getElementById('documentPagination')?.addEventListener('click',e=>{
+    const btn=e.target.closest('button[data-page]');
+    if(!btn||btn.disabled) return;
+    D1.filters.page=Number(btn.dataset.page);
+    loadDocumentsD1();
+  });
+
+
+    const openB2Document = id => {
+    openDocumentD1(id);
+  };
+
+  const openB2Task = id => {
+    const t=B2.tasks.find(x=>x.task_id===id); if(!t)return;
+    const st=statusMeta(t.effective_status||t.status), progress=Number(t.progress||0);
+    drawerEyebrow.textContent='NHIỆM VỤ';drawerTitle.textContent='Chi tiết nhiệm vụ';
+    drawerBody.innerHTML=`<div class="detail-summary"><span class="status ${st[1]}">${st[0]}</span>
+      <h3>${esc(t.title)}</h3><p>${esc(t.description||'Chưa có mô tả.')}</p></div>
+      <div class="detail-grid"><div class="detail-field"><span>Mã nhiệm vụ</span><strong>${esc(t.task_id)}</strong></div>
+      <div class="detail-field"><span>Mức độ</span><strong>${esc(t.priority||'NORMAL')}</strong></div>
+      <div class="detail-field"><span>Người giao</span><strong>${esc(t.assigner_name||userName(t.assigner_user_id)||'—')}</strong></div>
+      <div class="detail-field"><span>Người chủ trì</span><strong>${esc(t.owner_name||userName(t.owner_user_id)||'—')}</strong></div>
+      <div class="detail-field"><span>Ngày giao</span><strong>${formatDateVN(t.start_date)}</strong></div>
+      <div class="detail-field"><span>Hạn hoàn thành</span><strong>${formatDateTimeVN(t.due_date)}</strong></div></div>
+      <div class="detail-section"><div class="detail-section-head"><h4>Tiến độ</h4><span class="status status-progress">${progress}%</span></div>
+      <div class="drawer-progress"><div><i style="width:${progress}%"></i></div><strong>${progress}%</strong></div></div>`;
+    drawer.classList.add('show');drawerOverlay.classList.add('show');lucide.createIcons();
+  };
+
+  document.addEventListener('click', e=>{
+    const d=e.target.closest('.b2-document-detail');if(d&&!e.target.closest('.icon-btn'))openB2Document(d.dataset.id);
+    const t=e.target.closest('.b2-task-detail');if(t&&!e.target.closest('.icon-btn'))openB2Task(t.dataset.id);
+  });
+
+  const bootstrapB2 = async () => {
+    try {
+      const data=await gasCall('apiBootstrapB2');
+      if (!data?.ok) throw new Error(data?.message||'Không thể khởi tạo dữ liệu.');
+      B2.user=data.user;
+      B2.users=data.users||[];
+      B2.dashboard=data.dashboard;
+      B2.documents=data.documents||[];
+      B2.tasks=data.tasks||[];
+      B2.calendarEvents=data.calendarEvents||[];
+      B2.meetings=data.meetings||[];
+      renderAllB2();
+
+      // C1.1 HOTFIX:
+      // bootstrap ban đầu phải áp dụng quyền sau khi đã lấy được B2.user.
+      // Nếu thiếu dòng này, nút "Cấu hình AI" giữ class access-hidden
+      // dù người đăng nhập là ADMIN.
+      applyAccessB5();
+
+      renderCalendarB3();
+      renderMeetingsB3();
+      hideBackendBanner();
+
+      // Đồng bộ badge thông báo + trạng thái cấu hình AI ngay khi mở web.
+      loadNotificationsB6();
+      loadAiConfigC1();
+      loadDocumentsD1();
+    } catch(err) { showBackendError(err.message||String(err)); }
+  };
+
+  bootstrapB2();
+
+
+
+  // =========================
+  // B4 - Real Repository + Real Reports
+  // =========================
+  const humanSize = bytes => {
+    const n=Number(bytes||0);
+    if(!n) return '0 KB';
+    const units=['B','KB','MB','GB'];
+    let i=0,v=n;
+    while(v>=1024&&i<units.length-1){v/=1024;i++}
+    return `${v>=10||i===0?v.toFixed(0):v.toFixed(1)} ${units[i]}`;
+  };
+
+  const fileKind = mime => {
+    const m=String(mime||'').toLowerCase();
+    if(m.includes('pdf')) return ['PDF','pdf-preview','file-text'];
+    if(m.includes('word')||m.includes('document')) return ['DOCX','word-preview','file-text'];
+    if(m.includes('sheet')||m.includes('excel')||m.includes('spreadsheet')) return ['XLSX','sheet-preview','sheet'];
+    if(m.includes('image')) return ['IMG','blue-soft','image'];
+    return ['FILE','purple-soft','file'];
+  };
+
+  async function loadRepositoryB4(folderId='') {
+    const folderGrid=document.getElementById('repoFolderGrid');
+    const fileGrid=document.getElementById('repoFileGrid');
+    if(!folderGrid||!fileGrid) return;
+
+    folderGrid.innerHTML=`<div class="repo-loading" style="grid-column:1/-1"><span class="backend-spinner"></span><span>Đang đọc Google Drive...</span></div>`;
+    fileGrid.innerHTML='';
+
+    try{
+      const data=await gasCall('apiB4ListRepository',folderId||'');
+      B4.repoData=data;
+      B4.repoFolderId=data.folder.id;
+      B4.repoRootId=data.rootFolderId;
+      renderRepositoryB4();
+    }catch(err){
+      folderGrid.innerHTML=`<div class="repo-empty"><i data-lucide="circle-alert"></i><strong>Không đọc được kho tài liệu</strong><span>${esc(err.message||String(err))}</span></div>`;
+      lucide.createIcons();
+    }
+  }
+
+  function renderRepositoryB4() {
+    const data=B4.repoData;
+    if(!data) return;
+
+    const folderGrid=document.getElementById('repoFolderGrid');
+    const fileGrid=document.getElementById('repoFileGrid');
+    const breadcrumb=document.getElementById('repoBreadcrumb');
+
+    if(breadcrumb){
+      breadcrumb.innerHTML=`
+        <button class="repo-breadcrumb-home"><i data-lucide="home"></i></button>
+        <i data-lucide="chevron-right"></i>
+        ${data.parentId?`<button class="repo-breadcrumb-parent" data-id="${esc(data.parentId)}"><i data-lucide="corner-up-left"></i> Thư mục trước</button><i data-lucide="chevron-right"></i>`:''}
+        <strong>${esc(data.folder.name)}</strong>`;
+    }
+
+    if(folderGrid){
+      folderGrid.innerHTML=data.folders.length
+        ? data.folders.map(f=>`
+          <article class="folder-card repo-item-open" data-folder-id="${esc(f.id)}">
+            <div class="folder-icon amber-folder"><i data-lucide="folder"></i></div>
+            <div><strong>${esc(f.name)}</strong><span>Thư mục Google Drive</span></div>
+            <button class="icon-btn"><i data-lucide="chevron-right"></i></button>
+          </article>`).join('')
+        : `<div class="repo-empty"><i data-lucide="folder-open"></i><strong>Không có thư mục con</strong><span>Bạn có thể tạo thư mục mới tại đây.</span></div>`;
+    }
+
+    if(fileGrid){
+      fileGrid.innerHTML=data.files.length
+        ? data.files.map(f=>{
+          const k=fileKind(f.mimeType);
+          return `<article class="file-card repo-file-open" data-url="${esc(f.url)}">
+            <div class="file-preview ${k[1]}"><i data-lucide="${k[2]}"></i><span>${k[0]}</span></div>
+            <div class="file-card-info"><strong>${esc(f.name)}</strong><span>${humanSize(f.size)} · ${formatDateVN(f.updatedAt)}</span></div>
+            <button class="icon-btn"><i data-lucide="external-link"></i></button>
+          </article>`;
+        }).join('')
+        : `<div class="repo-empty"><i data-lucide="files"></i><strong>Chưa có tài liệu</strong><span>Tải tệp lên để bắt đầu.</span></div>`;
+    }
+
+    renderRepoListB4();
+    lucide.createIcons();
+  }
+
+  function renderRepoListB4(){
+    const list=document.getElementById('repoListView');
+    if(!list||!B4.repoData) return;
+    const data=B4.repoData;
+
+    const rows=[
+      ...data.folders.map(f=>`<tr class="repo-item-open" data-folder-id="${esc(f.id)}">
+        <td class="repo-name-cell"><i data-lucide="folder"></i><strong>${esc(f.name)}</strong></td>
+        <td>Thư mục</td><td>—</td><td>Google Drive</td><td>—</td><td><button class="icon-btn"><i data-lucide="chevron-right"></i></button></td>
+      </tr>`),
+      ...data.files.map(f=>{
+        const k=fileKind(f.mimeType);
+        return `<tr class="repo-file-open" data-url="${esc(f.url)}">
+          <td class="repo-name-cell"><i data-lucide="${k[2]}"></i><strong>${esc(f.name)}</strong></td>
+          <td>${k[0]}</td><td>${humanSize(f.size)}</td><td>Google Drive</td><td>${formatDateVN(f.updatedAt)}</td>
+          <td><button class="icon-btn"><i data-lucide="external-link"></i></button></td>
+        </tr>`;
+      })
+    ].join('');
+
+    list.innerHTML=`<table class="data-table repo-table">
+      <thead><tr><th>Tên</th><th>Loại</th><th>Dung lượng</th><th>Nguồn</th><th>Cập nhật</th><th></th></tr></thead>
+      <tbody>${rows||`<tr><td colspan="6"><div class="empty-data"><strong>Thư mục trống</strong></div></td></tr>`}</tbody>
+    </table>`;
+  }
+
+  async function createRepoFolderB4(){
+    const name=window.prompt('Tên thư mục mới:');
+    if(!name||!name.trim()) return;
+    try{
+      await gasCall('apiB4CreateRepositoryFolder',B4.repoFolderId||'',name.trim());
+      await loadRepositoryB4(B4.repoFolderId||'');
+      showToast('Đã tạo thư mục','Thư mục mới đã được tạo trên Google Drive.');
+    }catch(err){
+      showToast('Không thể tạo thư mục',err.message||String(err));
+    }
+  }
+
+  async function uploadRepoFileB4(file){
+    if(!file) return;
+    try{
+      showToast('Đang tải lên',file.name);
+      const encoded=await readFileAsBase64(file);
+      await gasCall('apiB4UploadRepositoryFile',B4.repoFolderId||'',encoded);
+      await loadRepositoryB4(B4.repoFolderId||'');
+      showToast('Tải lên thành công',`${file.name} đã được lưu vào Google Drive.`);
+    }catch(err){
+      showToast('Không thể tải tệp',err.message||String(err));
+    }
+  }
+
+  document.querySelector('.repo-new-folder')?.addEventListener('click',createRepoFolderB4);
+  document.querySelector('.repo-upload')?.addEventListener('click',()=>document.getElementById('repoUploadInput')?.click());
+  document.getElementById('repoUploadInput')?.addEventListener('change',e=>{
+    const f=e.target.files?.[0];
+    uploadRepoFileB4(f);
+    e.target.value='';
+  });
+
+  document.addEventListener('click',e=>{
+    const folder=e.target.closest('.repo-item-open');
+    if(folder?.dataset.folderId){
+      loadRepositoryB4(folder.dataset.folderId);
+      return;
+    }
+    const parent=e.target.closest('.repo-breadcrumb-parent');
+    if(parent?.dataset.id){
+      loadRepositoryB4(parent.dataset.id);
+      return;
+    }
+    if(e.target.closest('.repo-breadcrumb-home')){
+      loadRepositoryB4(B4.repoRootId||'');
+      return;
+    }
+    const file=e.target.closest('.repo-file-open');
+    if(file?.dataset.url){
+      window.open(file.dataset.url,'_blank','noopener');
+    }
+  });
+
+  const repoSearchInput=document.getElementById('repoSearch');
+  let repoSearchTimer=null;
+  repoSearchInput?.addEventListener('input',()=>{
+    clearTimeout(repoSearchTimer);
+    const q=repoSearchInput.value.trim();
+    if(!q){
+      renderRepositoryB4();
+      return;
+    }
+    repoSearchTimer=setTimeout(async()=>{
+      try{
+        const results=await gasCall('apiB4SearchRepository',q);
+        const fileGrid=document.getElementById('repoFileGrid');
+        const folderGrid=document.getElementById('repoFolderGrid');
+        if(folderGrid) folderGrid.innerHTML='';
+        if(fileGrid){
+          fileGrid.innerHTML=results.length?results.map(item=>{
+            if(item.type==='folder'){
+              return `<article class="folder-card repo-item-open" data-folder-id="${esc(item.id)}">
+                <div class="folder-icon amber-folder"><i data-lucide="folder"></i></div>
+                <div><strong>${esc(item.name)}</strong><span>Kết quả tìm kiếm</span></div>
+                <button class="icon-btn"><i data-lucide="chevron-right"></i></button>
+              </article>`;
+            }
+            const k=fileKind(item.mimeType);
+            return `<article class="file-card repo-file-open" data-url="${esc(item.url)}">
+              <div class="file-preview ${k[1]}"><i data-lucide="${k[2]}"></i><span>${k[0]}</span></div>
+              <div class="file-card-info"><strong>${esc(item.name)}</strong><span>${humanSize(item.size)}</span></div>
+              <button class="icon-btn"><i data-lucide="external-link"></i></button>
+            </article>`;
+          }).join(''):`<div class="repo-empty"><i data-lucide="search-x"></i><strong>Không tìm thấy</strong><span>Không có tài liệu phù hợp.</span></div>`;
+        }
+        lucide.createIcons();
+      }catch(err){showToast('Tìm kiếm lỗi',err.message||String(err))}
+    },350);
+  });
+
+  async function loadReportB4(){
+    try{
+      const data=await gasCall('apiB4GetReportData');
+      B4.report=data;
+      renderReportB4();
+    }catch(err){
+      showToast('Không tải được báo cáo',err.message||String(err));
+    }
+  }
+
+  function renderReportB4(){
+    const r=B4.report;
+    if(!r) return;
+    const s=r.stats;
+    const total=Math.max(1,Number(s.totalTasks||0));
+    const pct=n=>Math.round((Number(n||0)/total)*100);
+
+    const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val};
+    set('reportTotalTasks',s.totalTasks||0);
+    set('reportCompletedTasks',s.completed||0);
+    set('reportInProgressTasks',s.inProgress||0);
+    set('reportOverdueTasks',s.overdue||0);
+    set('reportTotalHint',`${s.totalDocuments||0} văn bản trong hệ thống`);
+    set('reportCompletedHint',`${pct(s.completed)}% tổng nhiệm vụ`);
+    set('reportProgressHint',`${pct(s.inProgress)}% tổng nhiệm vụ`);
+    set('reportOverdueHint',s.overdue?`${s.overdue} nhiệm vụ cần chú ý`:'Không có nhiệm vụ quá hạn');
+
+    const groups=document.getElementById('reportBarGroups');
+    if(groups){
+      const max=Math.max(1,...r.months.flatMap(m=>[m.completed,m.processing,m.overdue]));
+      groups.innerHTML=r.months.map((m,i)=>{
+        const h=v=>Math.max(5,Math.round((Number(v||0)/max)*145));
+        return `<div class="bar-group ${i===r.months.length-1?'current':''}">
+          <div>
+            <i class="bar-done" style="height:${h(m.completed)}px" title="${m.completed} hoàn thành"></i>
+            <i class="bar-doing" style="height:${h(m.processing)}px" title="${m.processing} đang xử lý"></i>
+            <i class="bar-overdue" style="height:${h(m.overdue)}px" title="${m.overdue} quá hạn"></i>
+          </div><span>${esc(m.label)}</span>
+        </div>`;
+      }).join('');
+    }
+
+    const completedPct=pct(s.completed);
+    const progressPct=pct(s.inProgress);
+    const overduePct=Math.max(0,100-completedPct-progressPct);
+    const donut=document.getElementById('reportDonut');
+    if(donut){
+      donut.style.background=`conic-gradient(#16A34A 0 ${completedPct}%,#2563EB ${completedPct}% ${completedPct+progressPct}%,#DC2626 ${completedPct+progressPct}% 100%)`;
+    }
+    set('reportDonutTotal',s.totalTasks||0);
+
+    const breakdown=document.getElementById('reportBreakdown');
+    if(breakdown){
+      breakdown.innerHTML=`
+        <div><span><i class="legend-dot done"></i> Hoàn thành</span><strong>${s.completed||0} <small>${completedPct}%</small></strong></div>
+        <div><span><i class="legend-dot doing"></i> Đang thực hiện</span><strong>${s.inProgress||0} <small>${progressPct}%</small></strong></div>
+        <div><span><i class="legend-dot overdue"></i> Quá hạn</span><strong>${s.overdue||0} <small>${pct(s.overdue)}%</small></strong></div>`;
+    }
+
+    const attention=document.getElementById('reportAttentionList');
+    if(attention){
+      attention.innerHTML=r.attention.length?r.attention.map(t=>{
+        const st=statusMeta(t.effective_status||t.status);
+        const overdue=(t.effective_status||t.status)==='OVERDUE';
+        return `<div class="b2-task-detail" data-id="${esc(t.task_id)}">
+          <span class="attention-status ${overdue?'overdue-att':'due-att'}"><i data-lucide="${overdue?'circle-alert':'clock-3'}"></i></span>
+          <div><strong>${esc(t.title)}</strong><small>${esc(t.owner_name||userName(t.owner_user_id)||'Chưa giao')} · ${formatDateTimeVN(t.due_date)}</small></div>
+          <span class="status ${st[1]}">${st[0]}</span>
+        </div>`;
+      }).join(''):`<div class="empty-data"><i data-lucide="circle-check-big"></i><strong>Không có nhiệm vụ cần chú ý</strong><span>Tiến độ hiện tại đang ổn.</span></div>`;
+    }
+
+    document.querySelector('.report-updated')?.replaceChildren();
+    const updated=document.querySelector('.report-updated');
+    if(updated){
+      updated.className='report-updated report-live-badge';
+      updated.textContent='Dữ liệu thật · '+new Intl.DateTimeFormat('vi-VN',{hour:'2-digit',minute:'2-digit'}).format(new Date(r.generatedAt));
+    }
+    lucide.createIcons();
+  }
+
+
+
+  // =========================
+  // B5 - Admin / Role based access
+  // =========================
+  const roleLabelsB5 = {
+    ADMIN:'Quản trị hệ thống',
+    LEADER:'Lãnh đạo',
+    OFFICE:'Văn phòng',
+    STAFF:'Cán bộ / Chuyên viên'
+  };
+
+  const roleHintB5 = {
+    ADMIN:'Toàn quyền quản trị và toàn bộ nghiệp vụ.',
+    LEADER:'Theo dõi văn bản, nhiệm vụ, lịch, cuộc họp, báo cáo và kho tài liệu.',
+    OFFICE:'Tạo/cập nhật văn bản, nhiệm vụ, lịch, họp; sử dụng tham mưu, báo cáo và kho tài liệu.',
+    STAFF:'Xem dữ liệu được phép và cập nhật nhiệm vụ cá nhân.'
+  };
+
+  const hasPermissionB5 = permission => {
+    const perms=B2.user?.permissions||[];
+    return perms.includes('*') || perms.includes(permission);
+  };
+
+  function applyAccessB5(){
+    if(!B2.user) return;
+    const role=B2.user.role||'';
+
+    const pagePermission={
+      dashboard:'dashboard.view',
+      documents:'documents.view',
+      tasks:'tasks.view',
+      calendar:'calendar.view',
+      meetings:'meetings.view',
+      advisory:'advisory.use',
+      reports:'reports.view',
+      repository:'repository.view'
+    };
+
+    document.querySelectorAll('.nav-item[data-page]').forEach(item=>{
+      const page=item.dataset.page;
+      let allowed=true;
+      if(page==='admin') allowed=role==='ADMIN';
+      else if(page==='tools') allowed=role==='ADMIN'||role==='OFFICE'||hasPermissionB5('advisory.use');
+      else if(pagePermission[page]) allowed=hasPermissionB5(pagePermission[page]);
+      item.classList.toggle('access-hidden',!allowed);
+    });
+
+    const controlRules=[
+      ['.open-create-modal[data-type="document"]','documents.create'],
+      ['#btnNewDocument','documents.create'],
+      ['.open-create-modal[data-type="task"]','tasks.create'],
+      ['.open-create-modal[data-type="calendar"]','calendar.create'],
+      ['.open-create-modal[data-type="meeting"]','meetings.create'],
+      ['.repo-upload','repository.upload'],
+      ['.repo-new-folder','repository.upload'],
+      ['.report-generate','reports.create']
+    ];
+
+    controlRules.forEach(([selector,permission])=>{
+      document.querySelectorAll(selector).forEach(el=>{
+        el.classList.toggle('access-hidden',!hasPermissionB5(permission));
+      });
+    });
+
+    const quick=document.getElementById('quickCreate');
+    if(quick){
+      const canCreate=[
+        'documents.create','tasks.create','calendar.create','meetings.create'
+      ].some(hasPermissionB5);
+      quick.classList.toggle('access-hidden',!canCreate);
+    }
+
+    document.getElementById('aiConfigBtn')?.classList.toggle('access-hidden',role!=='ADMIN');
+
+    document.getElementById('documentCreateBtn')?.classList.toggle('access-hidden',!hasPermissionB5('documents.create'));
+    document.getElementById('documentImportBtn')?.classList.toggle('access-hidden',!hasPermissionB5('documents.create'));
+
+    const displayRole=roleLabelsB5[role]||role;
+    document.querySelectorAll('.profile-text span,.sidebar-user-info span')
+      .forEach(el=>el.textContent=displayRole);
+  }
+
+  async function loadAdminB5(){
+    const body=document.getElementById('adminUserTableBody');
+    if(body) body.innerHTML=`<tr><td colspan="6"><div class="admin-loading"><span class="backend-spinner"></span><span>Đang tải dữ liệu quản trị...</span></div></td></tr>`;
+
+    try{
+      const data=await gasCall('apiB5GetAdminData');
+      B5.admin=data;
+      renderAdminB5();
+    }catch(err){
+      if(body) body.innerHTML=`<tr><td colspan="6"><div class="empty-data"><i data-lucide="shield-alert"></i><strong>Không thể mở Quản trị</strong><span>${esc(err.message||String(err))}</span></div></td></tr>`;
+      lucide.createIcons();
+    }
+  }
+
+  function renderAdminB5(){
+    if(!B5.admin) return;
+    const users=B5.admin.users||[];
+    const deps=B5.admin.departments||[];
+
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=String(v)};
+    set('adminUserTotal',users.length);
+    set('adminUserActive',users.filter(u=>u.status==='ACTIVE').length);
+    set('adminAdminCount',users.filter(u=>u.role==='ADMIN'&&u.status==='ACTIVE').length);
+    set('adminDepartmentCount',deps.filter(d=>d.status==='ACTIVE').length);
+
+    populateAdminDepartmentSelectB5();
+    renderAdminUsersB5();
+    renderAdminRolesB5();
+    renderAdminDepartmentsB5();
+    lucide.createIcons();
+  }
+
+  function filteredAdminUsersB5(){
+    if(!B5.admin) return [];
+    const q=(document.getElementById('adminUserSearch')?.value||'').trim().toLowerCase();
+
+    return (B5.admin.users||[]).filter(u=>{
+      const searchOk=!q ||
+        String(u.full_name||'').toLowerCase().includes(q) ||
+        String(u.email||'').toLowerCase().includes(q) ||
+        String(u.department_name||'').toLowerCase().includes(q);
+
+      const roleOk=B5.roleFilter==='ALL'||u.role===B5.roleFilter;
+      const statusOk=B5.statusFilter==='ALL'||u.status===B5.statusFilter;
+      return searchOk&&roleOk&&statusOk;
+    });
+  }
+
+  function renderAdminUsersB5(){
+    const body=document.getElementById('adminUserTableBody');
+    if(!body||!B5.admin) return;
+    const users=filteredAdminUsersB5();
+
+    if(!users.length){
+      body.innerHTML=`<tr><td colspan="6"><div class="empty-data"><i data-lucide="user-x"></i><strong>Không có người dùng phù hợp</strong><span>Thử thay đổi từ khóa hoặc bộ lọc.</span></div></td></tr>`;
+      lucide.createIcons();
+      return;
+    }
+
+    body.innerHTML=users.map(u=>`
+      <tr>
+        <td>
+          <div class="admin-user-cell">
+            <span class="avatar avatar-xs">${esc(initials(u.full_name||u.email))}</span>
+            <div>
+              <strong>${esc(u.full_name||'Chưa đặt tên')}${u.is_current_user?'<span class="admin-current-badge">Bạn</span>':''}</strong>
+              <small>${esc(u.email)}</small>
+            </div>
+          </div>
+        </td>
+        <td>${esc(u.department_name||'—')}</td>
+        <td><span class="admin-role-badge ${esc(u.role)}">${esc(roleLabelsB5[u.role]||u.role)}</span></td>
+        <td><span class="status ${u.status==='ACTIVE'?'status-success':'status-new'}">${u.status==='ACTIVE'?'Đang hoạt động':'Ngừng sử dụng'}</span></td>
+        <td>${esc(u.phone||'—')}</td>
+        <td>
+          <div class="admin-row-actions">
+            <button class="icon-btn admin-edit-user" data-id="${esc(u.user_id)}" title="Chỉnh sửa">
+              <i data-lucide="pencil"></i>
+            </button>
+          </div>
+        </td>
+      </tr>`).join('');
+
+    lucide.createIcons();
+  }
+
+  function renderAdminRolesB5(){
+    const box=document.getElementById('adminRoleGrid');
+    if(!box||!B5.admin) return;
+
+    const icon={
+      ADMIN:['shield-check','red-soft'],
+      LEADER:['landmark','purple-soft'],
+      OFFICE:['briefcase-business','blue-soft'],
+      STAFF:['user-round','green-soft']
+    };
+
+    box.innerHTML=(B5.admin.roles||[]).map(r=>{
+      const cfg=icon[r.code]||['shield','blue-soft'];
+      const perms=r.permissions||[];
+      return `<article class="admin-role-card">
+        <div class="admin-role-head">
+          <span class="admin-role-icon ${cfg[1]}"><i data-lucide="${cfg[0]}"></i></span>
+          <div><strong>${esc(r.name)}</strong><span>${esc(r.description)}</span></div>
+        </div>
+        <div class="admin-permission-list">
+          ${perms.includes('*')
+            ? '<span class="admin-permission-chip">Toàn quyền hệ thống</span>'
+            : perms.map(p=>`<span class="admin-permission-chip">${esc(p)}</span>`).join('')}
+        </div>
+      </article>`;
+    }).join('');
+  }
+
+  function renderAdminDepartmentsB5(){
+    const box=document.getElementById('adminDepartmentGrid');
+    if(!box||!B5.admin) return;
+
+    const users=B5.admin.users||[];
+    box.innerHTML=(B5.admin.departments||[]).map(d=>{
+      const count=users.filter(u=>u.department_id===d.department_id&&u.status==='ACTIVE').length;
+      return `<article class="admin-department-card">
+        <div class="admin-department-card-head">
+          <div>
+            <span class="admin-department-icon"><i data-lucide="building-2"></i></span>
+            <div><h3>${esc(d.department_name)}</h3><div class="admin-department-code">${esc(d.department_code)}</div></div>
+          </div>
+          <button class="icon-btn admin-edit-department" data-id="${esc(d.department_id)}"><i data-lucide="pencil"></i></button>
+        </div>
+        <div class="admin-department-foot">
+          <span>${count} người dùng hoạt động</span>
+          <span class="status ${d.status==='ACTIVE'?'status-success':'status-new'}">${d.status==='ACTIVE'?'Đang dùng':'Ngừng dùng'}</span>
+        </div>
+      </article>`;
+    }).join('');
+  }
+
+  function populateAdminDepartmentSelectB5(){
+    const sel=document.getElementById('adminUserDepartment');
+    if(!sel||!B5.admin) return;
+    const current=sel.value;
+    sel.innerHTML='<option value="">— Chưa phân đơn vị —</option>'+
+      (B5.admin.departments||[])
+        .filter(d=>d.status==='ACTIVE')
+        .map(d=>`<option value="${esc(d.department_id)}">${esc(d.department_name)}</option>`).join('');
+    if(current) sel.value=current;
+  }
+
+  function openAdminUserModalB5(userId=''){
+    if(!B5.admin) return;
+    B5.editingUserId=userId;
+
+    const modal=document.getElementById('adminUserModal');
+    const title=document.getElementById('adminUserModalTitle');
+    const user=(B5.admin.users||[]).find(u=>u.user_id===userId);
+
+    title.textContent=user?'Chỉnh sửa người dùng':'Thêm người dùng';
+    document.getElementById('adminUserFullName').value=user?.full_name||'';
+    document.getElementById('adminUserEmail').value=user?.email||'';
+    document.getElementById('adminUserEmail').disabled=Boolean(user);
+    populateAdminDepartmentSelectB5();
+    document.getElementById('adminUserDepartment').value=user?.department_id||'';
+    document.getElementById('adminUserRole').value=user?.role||'STAFF';
+    document.getElementById('adminUserStatus').value=user?.status||'ACTIVE';
+    document.getElementById('adminUserPhone').value=user?.phone||'';
+    updateAdminRoleHintB5();
+
+    modal.classList.add('show');
+    lucide.createIcons();
+  }
+
+  function closeAdminUserModalB5(){
+    document.getElementById('adminUserModal')?.classList.remove('show');
+    B5.editingUserId='';
+  }
+
+  function updateAdminRoleHintB5(){
+    const role=document.getElementById('adminUserRole')?.value||'STAFF';
+    const hint=document.getElementById('adminRoleHint');
+    if(hint) hint.innerHTML=`<strong>${esc(roleLabelsB5[role]||role)}</strong><br>${esc(roleHintB5[role]||'')}`;
+  }
+
+  async function saveAdminUserB5(){
+    const payload={
+      full_name:document.getElementById('adminUserFullName')?.value||'',
+      email:document.getElementById('adminUserEmail')?.value||'',
+      department_id:document.getElementById('adminUserDepartment')?.value||'',
+      role:document.getElementById('adminUserRole')?.value||'STAFF',
+      status:document.getElementById('adminUserStatus')?.value||'ACTIVE',
+      phone:document.getElementById('adminUserPhone')?.value||''
+    };
+
+    const btn=document.getElementById('adminSaveUser');
+    if(btn){btn.disabled=true;btn.textContent='Đang lưu...'}
+
+    try{
+      if(B5.editingUserId){
+        await gasCall('apiB5UpdateUser',B5.editingUserId,payload);
+      }else{
+        await gasCall('apiB5CreateUser',payload);
+      }
+      closeAdminUserModalB5();
+      await loadAdminB5();
+      showToast('Đã lưu người dùng','Thông tin tài khoản đã được cập nhật.');
+    }catch(err){
+      showToast('Không thể lưu',err.message||String(err));
+    }finally{
+      if(btn){btn.disabled=false;btn.innerHTML='<i data-lucide="save"></i> Lưu người dùng';lucide.createIcons()}
+    }
+  }
+
+  function openAdminDepartmentModalB5(id=''){
+    if(!B5.admin) return;
+    B5.editingDepartmentId=id;
+
+    const modal=document.getElementById('adminDepartmentModal');
+    const dep=(B5.admin.departments||[]).find(d=>d.department_id===id);
+
+    document.getElementById('adminDepartmentModalTitle').textContent=dep?'Chỉnh sửa đơn vị':'Thêm đơn vị';
+    document.getElementById('adminDepartmentCode').value=dep?.department_code||'';
+    document.getElementById('adminDepartmentCode').disabled=Boolean(dep);
+    document.getElementById('adminDepartmentName').value=dep?.department_name||'';
+    document.getElementById('adminDepartmentStatus').value=dep?.status||'ACTIVE';
+
+    modal.classList.add('show');
+    lucide.createIcons();
+  }
+
+  function closeAdminDepartmentModalB5(){
+    document.getElementById('adminDepartmentModal')?.classList.remove('show');
+    B5.editingDepartmentId='';
+  }
+
+  async function saveAdminDepartmentB5(){
+    const payload={
+      department_code:document.getElementById('adminDepartmentCode')?.value||'',
+      department_name:document.getElementById('adminDepartmentName')?.value||'',
+      status:document.getElementById('adminDepartmentStatus')?.value||'ACTIVE'
+    };
+
+    const btn=document.getElementById('adminSaveDepartment');
+    if(btn){btn.disabled=true;btn.textContent='Đang lưu...'}
+
+    try{
+      if(B5.editingDepartmentId){
+        await gasCall('apiB5UpdateDepartment',B5.editingDepartmentId,payload);
+      }else{
+        await gasCall('apiB5CreateDepartment',payload);
+      }
+      closeAdminDepartmentModalB5();
+      await loadAdminB5();
+      showToast('Đã lưu đơn vị','Danh mục đơn vị đã được cập nhật.');
+    }catch(err){
+      showToast('Không thể lưu',err.message||String(err));
+    }finally{
+      if(btn){btn.disabled=false;btn.innerHTML='<i data-lucide="save"></i> Lưu đơn vị';lucide.createIcons()}
+    }
+  }
+
+  document.querySelectorAll('[data-admin-tab]').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-admin-tab]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const tab=btn.dataset.adminTab;
+    document.getElementById('adminUsersPanel')?.classList.toggle('hidden-block',tab!=='users');
+    document.getElementById('adminRolesPanel')?.classList.toggle('hidden-block',tab!=='roles');
+    document.getElementById('adminDepartmentsPanel')?.classList.toggle('hidden-block',tab!=='departments');
+    document.getElementById('adminActivityPanel')?.classList.toggle('hidden-block',tab!=='activity');
+
+    if(tab==='activity') loadActivityB6();
+  }));
+
+  document.getElementById('adminAddUser')?.addEventListener('click',()=>openAdminUserModalB5());
+  document.getElementById('adminAddDepartment')?.addEventListener('click',()=>openAdminDepartmentModalB5());
+
+  document.querySelectorAll('.admin-user-modal-close').forEach(btn=>btn.addEventListener('click',closeAdminUserModalB5));
+  document.querySelectorAll('.admin-department-modal-close').forEach(btn=>btn.addEventListener('click',closeAdminDepartmentModalB5));
+  document.getElementById('adminUserModal')?.addEventListener('click',e=>{if(e.target.id==='adminUserModal')closeAdminUserModalB5()});
+  document.getElementById('adminDepartmentModal')?.addEventListener('click',e=>{if(e.target.id==='adminDepartmentModal')closeAdminDepartmentModalB5()});
+
+  document.getElementById('adminSaveUser')?.addEventListener('click',saveAdminUserB5);
+  document.getElementById('adminSaveDepartment')?.addEventListener('click',saveAdminDepartmentB5);
+  document.getElementById('adminUserRole')?.addEventListener('change',updateAdminRoleHintB5);
+
+  document.getElementById('adminUserSearch')?.addEventListener('input',renderAdminUsersB5);
+
+  document.getElementById('adminRoleFilter')?.addEventListener('click',()=>{
+    const values=['ALL','ADMIN','LEADER','OFFICE','STAFF'];
+    const i=values.indexOf(B5.roleFilter);
+    B5.roleFilter=values[(i+1)%values.length];
+    const label=B5.roleFilter==='ALL'?'Tất cả vai trò':roleLabelsB5[B5.roleFilter];
+    document.getElementById('adminRoleFilter').innerHTML=`<i data-lucide="shield"></i> ${esc(label)}`;
+    renderAdminUsersB5();lucide.createIcons();
+  });
+
+  document.getElementById('adminStatusFilter')?.addEventListener('click',()=>{
+    const values=['ALL','ACTIVE','INACTIVE'];
+    const i=values.indexOf(B5.statusFilter);
+    B5.statusFilter=values[(i+1)%values.length];
+    const label={ALL:'Tất cả trạng thái',ACTIVE:'Đang hoạt động',INACTIVE:'Ngừng sử dụng'}[B5.statusFilter];
+    document.getElementById('adminStatusFilter').innerHTML=`<i data-lucide="circle-dot"></i> ${esc(label)}`;
+    renderAdminUsersB5();lucide.createIcons();
+  });
+
+  document.addEventListener('click',e=>{
+    const editUser=e.target.closest('.admin-edit-user');
+    if(editUser){openAdminUserModalB5(editUser.dataset.id);return;}
+
+    const editDep=e.target.closest('.admin-edit-department');
+    if(editDep){openAdminDepartmentModalB5(editDep.dataset.id);}
+  });
+
+
+
+  // =========================
+  // B6 - Notifications + Activity Log
+  // =========================
+  const notificationTypeMetaB6 = type => ({
+    TASK_ASSIGNED:['blue-dot','list-checks'],
+    TASK_DUE_SOON:['amber-dot','clock-3'],
+    TASK_OVERDUE:['red-dot','circle-alert'],
+    DOCUMENT_DUE_SOON:['purple-dot','file-clock'],
+    MEETING_UPCOMING:['green-dot','calendar-clock']
+  }[type] || ['blue-dot','bell']);
+
+  const relativeTimeB6 = value => {
+    if(!value) return '';
+    const d=new Date(value);
+    if(isNaN(d)) return '';
+    const diff=Math.max(0,Date.now()-d.getTime());
+    const min=Math.floor(diff/60000);
+    if(min<1) return 'Vừa xong';
+    if(min<60) return `${min} phút`;
+    const hour=Math.floor(min/60);
+    if(hour<24) return `${hour} giờ`;
+    const day=Math.floor(hour/24);
+    if(day<7) return `${day} ngày`;
+    return formatDateVN(value);
+  };
+
+  function updateNotificationBadgeB6(){
+    const unread=(B6.notifications||[]).filter(n=>!n.is_read).length;
+    const indicator=document.getElementById('notificationIndicator');
+    const count=document.getElementById('notificationCount');
+
+    indicator?.classList.toggle('notification-hidden',unread===0);
+    count?.classList.toggle('notification-hidden',unread===0);
+
+    if(count) count.textContent=unread>99?'99+':String(unread);
+  }
+
+  async function loadNotificationsB6(){
+    const list=document.getElementById('notificationList');
+    if(list) list.innerHTML=`<div class="notif-loading"><span class="backend-spinner"></span><span>Đang tải thông báo...</span></div>`;
+
+    try{
+      B6.notifications=await gasCall('apiB6GetNotifications')||[];
+      renderNotificationsB6();
+    }catch(err){
+      if(list) list.innerHTML=`<div class="notif-empty"><i data-lucide="circle-alert"></i><strong>Không tải được thông báo</strong><span>${esc(err.message||String(err))}</span></div>`;
+      lucide.createIcons();
+    }
+  }
+
+  function renderNotificationsB6(){
+    const list=document.getElementById('notificationList');
+    const summary=document.getElementById('notificationSummary');
+    const markAll=document.getElementById('markAllNotifications');
+
+    const rows=B6.notifications||[];
+    const unread=rows.filter(n=>!n.is_read).length;
+
+    if(summary) summary.textContent=unread?`${unread} thông báo chưa đọc`:'Không có thông báo mới';
+    if(markAll) markAll.disabled=unread===0;
+
+    if(list){
+      list.innerHTML=rows.length?rows.map(n=>{
+        const meta=notificationTypeMetaB6(n.type);
+        return `<div class="notif-item ${n.is_read?'':'unread'} b6-notification-item" data-id="${esc(n.notification_id)}"
+          data-ref-type="${esc(n.reference_type||'')}" data-ref-id="${esc(n.reference_id||'')}">
+          <div class="notif-dot ${meta[0]}"></div>
+          <div class="notif-item-content">
+            <strong>${esc(n.title||'Thông báo')}</strong>
+            <p>${esc(n.message||'')}</p>
+          </div>
+          <span class="notif-item-time">${esc(relativeTimeB6(n.created_at))}</span>
+        </div>`;
+      }).join(''):`<div class="notif-empty"><i data-lucide="bell-off"></i><strong>Chưa có thông báo</strong><span>Các nhắc việc mới sẽ xuất hiện tại đây.</span></div>`;
+    }
+
+    updateNotificationBadgeB6();
+    lucide.createIcons();
+  }
+
+  async function markNotificationReadB6(id){
+    const item=B6.notifications.find(n=>n.notification_id===id);
+    if(!item||item.is_read) return;
+    try{
+      await gasCall('apiB6MarkNotificationRead',id);
+      item.is_read=true;
+      renderNotificationsB6();
+    }catch(err){
+      showToast('Không thể cập nhật thông báo',err.message||String(err));
+    }
+  }
+
+  async function openNotificationReferenceB6(refType,refId){
+    if(!refType||!refId) return;
+
+    const pageMap={
+      TASK:'tasks',
+      DOCUMENT:'documents',
+      MEETING:'meetings',
+      CALENDAR:'calendar'
+    };
+
+    const page=pageMap[refType];
+    if(page){
+      document.querySelector(`.nav-item[data-page="${page}"]`)?.click();
+    }
+
+    setTimeout(()=>{
+      if(refType==='TASK') openB2Task(refId);
+      if(refType==='DOCUMENT') openB2Document(refId);
+      if(refType==='MEETING') openB3Meeting(refId);
+      if(refType==='CALENDAR') openB3Event(refId);
+    },80);
+  }
+
+  document.getElementById('markAllNotifications')?.addEventListener('click',async()=>{
+    try{
+      await gasCall('apiB6MarkAllNotificationsRead');
+      B6.notifications.forEach(n=>n.is_read=true);
+      renderNotificationsB6();
+      showToast('Đã cập nhật','Tất cả thông báo đã được đánh dấu đã đọc.');
+    }catch(err){
+      showToast('Không thể cập nhật',err.message||String(err));
+    }
+  });
+
+  document.addEventListener('click',async e=>{
+    const row=e.target.closest('.b6-notification-item');
+    if(!row) return;
+
+    await markNotificationReadB6(row.dataset.id);
+    notificationPanel?.classList.remove('show');
+    await openNotificationReferenceB6(row.dataset.refType,row.dataset.refId);
+  });
+
+  const actionLabelB6 = action => ({
+    CREATE:'Tạo mới',
+    UPDATE:'Cập nhật',
+    UPDATE_PROGRESS:'Cập nhật tiến độ',
+    UPDATE_AGENDA:'Cập nhật nội dung họp',
+    CREATE_FOLDER:'Tạo thư mục',
+    UPLOAD_FILE:'Tải tệp'
+  }[action] || action || 'Khác');
+
+  const entityLabelB6 = entity => ({
+    DOCUMENT:'Văn bản',
+    TASK:'Nhiệm vụ',
+    MEETING:'Cuộc họp',
+    CALENDAR:'Lịch công tác',
+    USER:'Người dùng',
+    DEPARTMENT:'Đơn vị',
+    REPOSITORY:'Kho tài liệu'
+  }[entity] || entity || 'Hệ thống');
+
+  const detailTextB6 = detail => {
+    if(!detail) return '—';
+    const vals=[];
+    if(detail.title) vals.push(detail.title);
+    if(detail.name) vals.push(detail.name);
+    if(detail.email) vals.push(detail.email);
+    if(detail.role) vals.push(`role: ${detail.role}`);
+    if(detail.status) vals.push(`status: ${detail.status}`);
+    if(detail.progress!==undefined) vals.push(`tiến độ: ${detail.progress}%`);
+    if(!vals.length){
+      const text=JSON.stringify(detail);
+      return text==='{}'?'—':text;
+    }
+    return vals.join(' · ');
+  };
+
+  async function loadActivityB6(){
+    const body=document.getElementById('activityTableBody');
+    if(!body) return;
+    body.innerHTML=`<tr><td colspan="5"><div class="admin-loading"><span class="backend-spinner"></span><span>Đang tải nhật ký...</span></div></td></tr>`;
+
+    try{
+      B6.activityLogs=await gasCall('apiB6GetActivityLogs',250)||[];
+      renderActivityB6();
+    }catch(err){
+      body.innerHTML=`<tr><td colspan="5"><div class="empty-data"><i data-lucide="shield-alert"></i><strong>Không tải được nhật ký</strong><span>${esc(err.message||String(err))}</span></div></td></tr>`;
+      lucide.createIcons();
+    }
+  }
+
+  function renderActivityB6(){
+    const body=document.getElementById('activityTableBody');
+    if(!body) return;
+
+    const q=(document.getElementById('activitySearch')?.value||'').trim().toLowerCase();
+    const rows=(B6.activityLogs||[]).filter(log=>{
+      if(!q) return true;
+      return [
+        log.actor_name,log.action,log.entity_type,log.entity_id,detailTextB6(log.detail)
+      ].some(v=>String(v||'').toLowerCase().includes(q));
+    });
+
+    body.innerHTML=rows.length?rows.map(log=>`
+      <tr>
+        <td>${formatDateTimeVN(log.created_at)}</td>
+        <td>
+          <div class="activity-actor">
+            <span class="avatar avatar-xs">${esc(initials(log.actor_name||'HT'))}</span>
+            <div><strong>${esc(log.actor_name||'Hệ thống')}</strong><small>${esc(log.user_id||'system')}</small></div>
+          </div>
+        </td>
+        <td><span class="activity-action ${esc(log.action||'')}">${esc(actionLabelB6(log.action))}</span></td>
+        <td><strong>${esc(entityLabelB6(log.entity_type))}</strong><small style="display:block;color:#94A3B8;font-size:7.5px;margin-top:3px">${esc(log.entity_id||'—')}</small></td>
+        <td><div class="activity-detail" title="${esc(detailTextB6(log.detail))}">${esc(detailTextB6(log.detail))}</div></td>
+      </tr>`).join(''):`<tr><td colspan="5"><div class="empty-data"><i data-lucide="history"></i><strong>Chưa có nhật ký phù hợp</strong><span>Thử thay đổi từ khóa tìm kiếm.</span></div></td></tr>`;
+
+    lucide.createIcons();
+  }
+
+  document.getElementById('activitySearch')?.addEventListener('input',renderActivityB6);
+  document.getElementById('activityRefreshBtn')?.addEventListener('click',loadActivityB6);
+
+  document.getElementById('activityRunReminderBtn')?.addEventListener('click',async()=>{
+    try{
+      const r=await gasCall('apiB6RunReminderScan');
+      await loadNotificationsB6();
+      showToast('Đã quét nhắc việc',`Tạo mới ${r.created||0} thông báo.`);
+    }catch(err){
+      showToast('Không thể quét',err.message||String(err));
+    }
+  });
+
+
+  // Advisory - C1 real AI
+  const advisoryPrompt = document.getElementById('advisoryPrompt');
+  const assistantThread = document.getElementById('assistantThread');
+  const sendAdvisory = document.getElementById('sendAdvisory');
+  const composerFiles = document.getElementById('composerFiles');
+
+  const taskLabelsC1 = {
+    GENERAL:'Tham mưu chung',
+    DRAFT:'Soạn văn bản',
+    SUMMARY:'Tóm tắt tài liệu',
+    REVIEW:'Rà soát dự thảo',
+    CONCLUSION:'Thông báo kết luận',
+    REPORT:'Tổng hợp báo cáo'
+  };
+
+  const clearAssistantEmpty = () => {
+    assistantThread?.querySelector('.assistant-empty')?.remove();
+  };
+
+  const addChat = (role, text, options={}) => {
+    if (!assistantThread) return null;
+    clearAssistantEmpty();
+
+    const wrap = document.createElement('div');
+    wrap.className = `chat-message ${role}`;
+    wrap.innerHTML = `
+      <div class="chat-avatar"><i data-lucide="${role === 'user' ? 'user' : 'sparkles'}"></i></div>
+      <div class="chat-bubble ${options.aiOutput?'ai-output':''}">${options.rawHtml ? text : esc(text)}
+        ${options.disclaimer?`<div class="ai-response-disclaimer">${esc(options.disclaimer)}</div>`:''}
+        ${options.actionsHtml||''}
+      </div>`;
+    assistantThread.appendChild(wrap);
+    assistantThread.scrollTop = assistantThread.scrollHeight;
+    lucide.createIcons();
+    return wrap;
+  };
+
+  function updateAssistantModeC1(){
+    const badge=document.getElementById('assistantModeBadge');
+    if(badge) badge.textContent=taskLabelsC1[C1.taskType]||'Tham mưu chung';
+  }
+
+  function renderComposerFilesC1(){
+    if(!composerFiles) return;
+    composerFiles.innerHTML=C1.selectedFiles.map(f=>`
+      <span class="composer-file c1-remove-file" data-id="${esc(f.id)}" title="Bấm để bỏ tài liệu">
+        <i data-lucide="file-text"></i> ${esc(f.name)}
+        <i data-lucide="x"></i>
+      </span>`).join('');
+    lucide.createIcons();
+  }
+
+  async function loadAiConfigC1(){
+    const status=document.getElementById('assistantConfigStatus');
+    try{
+      C1.config=await gasCall('apiC1GetAiConfig');
+      if(status){
+        const ok=C1.config?.provider&&C1.config?.model&&C1.config?.hasApiKey;
+        status.textContent=ok?`${C1.config.provider} · ${C1.config.model}`:'AI chưa được cấu hình';
+        status.className=`assistant-config-status ${ok?'ready':'error'}`;
+      }
+    }catch(err){
+      if(status){
+        status.textContent='Không đọc được cấu hình AI';
+        status.className='assistant-config-status error';
+      }
+    }
+  }
+
+  async function submitAdvisory() {
+    const text = advisoryPrompt?.value.trim();
+    if (!text) return;
+
+    addChat('user', text);
+    advisoryPrompt.value = '';
+
+    const thinking=addChat(
+      'assistant',
+      `<div class="ai-thinking"><span class="backend-spinner"></span><span>Đang phân tích tài liệu và tạo bản nháp...</span></div>`,
+      {rawHtml:true}
+    );
+
+    if(sendAdvisory){
+      sendAdvisory.disabled=true;
+      sendAdvisory.innerHTML='<span class="backend-spinner"></span> Đang xử lý';
+    }
+
+    try{
+      const result=await gasCall('apiC1RunAdvisory',{
+        prompt:text,
+        taskType:C1.taskType,
+        fileIds:C1.selectedFiles.map(f=>f.id)
+      });
+
+      thinking?.remove();
+
+      const outputId='c2_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+      C2.outputs[outputId]={
+        outputId,
+        text:result.output||'',
+        prompt:text,
+        taskType:C1.taskType,
+        files:[...C1.selectedFiles],
+        draftId:'',
+        sourceType:'',
+        sourceId:'',
+        driveUrl:'',
+        modelUsed:result.modelUsed||C1.config?.model||''
+      };
+
+      addChat(
+        'assistant',
+        result.output||'',
+        {
+          aiOutput:true,
+          disclaimer:result.disclaimer||'Bản nháp hỗ trợ — cần cán bộ kiểm tra trước khi sử dụng.',
+          actionsHtml:renderAiResultActionsC2(outputId)
+        }
+      );
+    }catch(err){
+      thinking?.remove();
+      addChat(
+        'assistant',
+        `Không thể xử lý yêu cầu: ${err.message||String(err)}`,
+        {
+          disclaimer:'Kiểm tra cấu hình AI/API key hoặc định dạng tài liệu.'
+        }
+      );
+    }finally{
+      if(sendAdvisory){
+        sendAdvisory.disabled=false;
+        sendAdvisory.innerHTML='<i data-lucide="send"></i> Gửi yêu cầu';
+        lucide.createIcons();
+      }
+    }
+  }
+
+  sendAdvisory?.addEventListener('click', submitAdvisory);
+  advisoryPrompt?.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submitAdvisory();
+    }
+  });
+
+  document.querySelectorAll('.advisory-shortcut').forEach(btn => btn.addEventListener('click', () => {
+    C1.taskType=btn.dataset.taskType||'GENERAL';
+    updateAssistantModeC1();
+
+    if (advisoryPrompt) {
+      advisoryPrompt.value = btn.dataset.prompt || '';
+      advisoryPrompt.focus();
+    }
+  }));
+
+  document.querySelector('.advisory-new-chat')?.addEventListener('click', () => {
+    if (assistantThread) {
+      assistantThread.innerHTML = `<div class="assistant-empty"><i data-lucide="messages-square"></i><strong>Chưa có nội dung trong phiên này</strong><span>Nhập yêu cầu phía dưới để bắt đầu.</span></div>`;
+    }
+    if (advisoryPrompt) advisoryPrompt.value = '';
+    C1.selectedFiles=[];
+    C1.taskType='GENERAL';
+    renderComposerFilesC1();
+    updateAssistantModeC1();
+    lucide.createIcons();
+  });
+
+  async function openAiFileModalC1(){
+    document.getElementById('aiFileModal')?.classList.add('show');
+    C1.fileHistory=[];
+    await loadAiFilesC1('');
+  }
+
+  async function loadAiFilesC1(folderId){
+    const browser=document.getElementById('aiFileBrowser');
+    if(!browser) return;
+
+    browser.innerHTML=`<div class="notif-loading"><span class="backend-spinner"></span><span>Đang đọc kho tài liệu...</span></div>`;
+
+    try{
+      const data=await gasCall('apiC1ListAiFiles',folderId||'');
+      C1.fileFolderId=data.folder.id;
+      C1.fileRootId=data.rootFolderId;
+      document.getElementById('aiFileFolderName').textContent=data.folder.name;
+
+      browser.innerHTML=[
+        ...data.folders.map(f=>`
+          <div class="ai-file-item folder c1-ai-folder" data-id="${esc(f.id)}">
+            <span class="ai-file-icon"><i data-lucide="folder"></i></span>
+            <div><strong>${esc(f.name)}</strong><small>Thư mục</small></div>
+            <i data-lucide="chevron-right"></i>
+          </div>`),
+        ...data.files.map(f=>{
+          const selected=C1.selectedFiles.some(x=>x.id===f.id);
+          return `<div class="ai-file-item c1-ai-file ${selected?'selected':''}" data-id="${esc(f.id)}"
+            data-name="${esc(f.name)}" data-mime="${esc(f.mimeType)}">
+            <span class="ai-file-icon"><i data-lucide="file-text"></i></span>
+            <div><strong>${esc(f.name)}</strong><small>${esc(f.mimeType||'Tệp')} · ${humanSize(f.size)}</small></div>
+            <span class="ai-file-check">${selected?'<i data-lucide="check"></i>':''}</span>
+          </div>`;
+        })
+      ].join('') || `<div class="notif-empty"><i data-lucide="folder-open"></i><strong>Thư mục trống</strong><span>Không có tài liệu ở đây.</span></div>`;
+
+      document.getElementById('aiSelectedCount').textContent=C1.selectedFiles.length;
+      lucide.createIcons();
+    }catch(err){
+      browser.innerHTML=`<div class="notif-empty"><i data-lucide="circle-alert"></i><strong>Không đọc được tài liệu</strong><span>${esc(err.message||String(err))}</span></div>`;
+      lucide.createIcons();
+    }
+  }
+
+  document.querySelector('.advisory-attach')?.addEventListener('click',openAiFileModalC1);
+  document.querySelector('.assistant-composer .icon-btn[title="Chọn từ kho tài liệu"]')?.addEventListener('click',openAiFileModalC1);
+
+  document.addEventListener('click',async e=>{
+    const folder=e.target.closest('.c1-ai-folder');
+    if(folder){
+      C1.fileHistory.push(C1.fileFolderId);
+      await loadAiFilesC1(folder.dataset.id);
+      return;
+    }
+
+    const file=e.target.closest('.c1-ai-file');
+    if(file){
+      const id=file.dataset.id;
+      const existing=C1.selectedFiles.findIndex(x=>x.id===id);
+      if(existing>=0){
+        C1.selectedFiles.splice(existing,1);
+      }else{
+        if(C1.selectedFiles.length>=4){
+          showToast('Đã đủ tài liệu','C1 cho phép tối đa 4 tài liệu mỗi yêu cầu.');
+          return;
+        }
+        C1.selectedFiles.push({
+          id,
+          name:file.dataset.name,
+          mimeType:file.dataset.mime
+        });
+      }
+      await loadAiFilesC1(C1.fileFolderId);
+      return;
+    }
+
+    const remove=e.target.closest('.c1-remove-file');
+    if(remove){
+      C1.selectedFiles=C1.selectedFiles.filter(x=>x.id!==remove.dataset.id);
+      renderComposerFilesC1();
+    }
+  });
+
+  document.getElementById('aiFileRootBtn')?.addEventListener('click',async()=>{
+    C1.fileHistory=[];
+    await loadAiFilesC1(C1.fileRootId||'');
+  });
+
+  document.getElementById('aiFileBackBtn')?.addEventListener('click',async()=>{
+    const prev=C1.fileHistory.pop();
+    if(prev) await loadAiFilesC1(prev);
+    else await loadAiFilesC1(C1.fileRootId||'');
+  });
+
+  document.getElementById('aiUseSelectedFiles')?.addEventListener('click',()=>{
+    document.getElementById('aiFileModal')?.classList.remove('show');
+    renderComposerFilesC1();
+  });
+
+  document.querySelectorAll('.ai-file-modal-close').forEach(btn=>btn.addEventListener('click',()=>{
+    document.getElementById('aiFileModal')?.classList.remove('show');
+  }));
+
+  document.getElementById('aiConfigBtn')?.addEventListener('click',async()=>{
+    await loadAiConfigC1();
+    document.getElementById('aiConfigProvider').value=C1.config?.provider||'GEMINI';
+    document.getElementById('aiConfigModel').value=C1.config?.model||'';
+    document.getElementById('aiConfigApiKey').value='';
+    document.getElementById('aiConfigModal')?.classList.add('show');
+  });
+
+  document.querySelectorAll('.ai-config-modal-close').forEach(btn=>btn.addEventListener('click',()=>{
+    document.getElementById('aiConfigModal')?.classList.remove('show');
+  }));
+
+  document.getElementById('saveAiConfig')?.addEventListener('click',async()=>{
+    const provider=document.getElementById('aiConfigProvider')?.value||'GEMINI';
+    const model=document.getElementById('aiConfigModel')?.value||'';
+    const key=document.getElementById('aiConfigApiKey')?.value||'';
+
+    try{
+      C1.config=await gasCall('apiC1SaveAiConfig',provider,key,model);
+      document.getElementById('aiConfigModal')?.classList.remove('show');
+      await loadAiConfigC1();
+      showToast('Đã lưu cấu hình AI','Trợ lý tham mưu đã sẵn sàng sử dụng.');
+    }catch(err){
+      showToast('Không thể lưu cấu hình',err.message||String(err));
+    }
+  });
+
+  updateAssistantModeC1();
+  loadAiConfigC1();
+
+
+  // =========================
+  // C2 - Save AI drafts / Export Google Docs / Link source
+  // =========================
+  const draftTypeLabelC2 = type => ({
+    GENERAL:'Tham mưu',
+    DRAFT:'Soạn văn bản',
+    SUMMARY:'Tóm tắt',
+    REVIEW:'Rà soát',
+    CONCLUSION:'Thông báo kết luận',
+    REPORT:'Báo cáo'
+  }[type] || type || 'Tham mưu');
+
+  function renderAiResultActionsC2(outputId){
+    const output=C2.outputs[outputId];
+    if(!output) return '';
+
+    return `<div class="ai-result-actions" data-output-id="${esc(outputId)}">
+      <button class="ai-result-action primary c2-save-draft" data-id="${esc(outputId)}">
+        <i data-lucide="save"></i> Lưu bản nháp
+      </button>
+      <button class="ai-result-action c2-export-doc" data-id="${esc(outputId)}">
+        <i data-lucide="file-output"></i> Xuất Google Docs
+      </button>
+      <button class="ai-result-action c2-link-source" data-id="${esc(outputId)}">
+        <i data-lucide="link-2"></i> Gắn vào hồ sơ
+      </button>
+      ${output.taskType==='CONCLUSION'?`
+        <button class="ai-result-action c2-create-task" data-id="${esc(outputId)}">
+          <i data-lucide="list-plus"></i> Tạo nhiệm vụ
+        </button>`:''}
+      <button class="ai-result-action c2-copy-output" data-id="${esc(outputId)}">
+        <i data-lucide="copy"></i> Sao chép
+      </button>
+      <div class="ai-result-status" id="c2Status_${esc(outputId)}">
+        ${output.modelUsed?`Model: <strong>${esc(output.modelUsed)}</strong>`:''}
+      </div>
+    </div>`;
+  }
+
+  function draftTitleC2(output){
+    const first=(output.text||'').split('\n').map(x=>x.trim()).find(Boolean)||'';
+    const clean=first.replace(/^#+\s*/,'').replace(/[*_`]/g,'').trim();
+    if(clean && clean.length<=130) return clean;
+    return `${draftTypeLabelC2(output.taskType)} - ${new Intl.DateTimeFormat('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date())}`;
+  }
+
+  function setOutputStatusC2(outputId,text){
+    const el=document.getElementById(`c2Status_${outputId}`);
+    if(el) el.innerHTML=text;
+  }
+
+  async function ensureSavedDraftC2(outputId){
+    const output=C2.outputs[outputId];
+    if(!output) throw new Error('Không tìm thấy kết quả AI.');
+
+    const saved=await gasCall('apiC2SaveDraft',{
+      draft_id:output.draftId||'',
+      draft_type:output.taskType,
+      title:draftTitleC2(output),
+      content:output.text,
+      source_type:output.sourceType||'',
+      source_id:output.sourceId||''
+    });
+
+    output.draftId=saved.draft_id;
+    output.sourceType=saved.source_type||'';
+    output.sourceId=saved.source_id||'';
+    output.driveUrl=saved.drive_url||output.driveUrl||'';
+
+    setOutputStatusC2(
+      outputId,
+      `Đã lưu bản nháp · phiên bản <strong>${saved.version}</strong>${saved.drive_url?' · <strong>đã xuất Docs</strong>':''}`
+    );
+
+    return saved;
+  }
+
+  async function exportOutputC2(outputId){
+    try{
+      const saved=await ensureSavedDraftC2(outputId);
+      setOutputStatusC2(outputId,'Đang tạo Google Docs...');
+      const exported=await gasCall('apiC2ExportDraftToGoogleDoc',saved.draft_id);
+      const output=C2.outputs[outputId];
+      output.driveUrl=exported.drive_url||'';
+
+      setOutputStatusC2(
+        outputId,
+        `Đã xuất Google Docs · <a href="${esc(exported.drive_url)}" target="_blank">Mở tài liệu</a>`
+      );
+
+      if(exported.drive_url) window.open(exported.drive_url,'_blank','noopener');
+    }catch(err){
+      showToast('Không thể xuất Google Docs',err.message||String(err));
+    }
+  }
+
+  function populateDraftLinkSourcesC2(){
+    const type=document.getElementById('draftLinkType')?.value||'DOCUMENT';
+    const select=document.getElementById('draftLinkSource');
+    if(!select) return;
+
+    if(type==='DOCUMENT'){
+      select.innerHTML=(B2.documents||[]).map(d=>
+        `<option value="${esc(d.document_id)}">${esc((d.document_no||'—')+' · '+d.title)}</option>`
+      ).join('') || '<option value="">Chưa có văn bản</option>';
+    }else{
+      select.innerHTML=(B2.meetings||[]).map(m=>
+        `<option value="${esc(m.meeting_id)}">${esc(formatDateVN(m.meeting_date)+' · '+m.title)}</option>`
+      ).join('') || '<option value="">Chưa có cuộc họp</option>';
+    }
+  }
+
+  async function openDraftLinkC2(outputId){
+    try{
+      await ensureSavedDraftC2(outputId);
+      C2.activeLinkOutputId=outputId;
+      populateDraftLinkSourcesC2();
+      document.getElementById('draftLinkModal')?.classList.add('show');
+      lucide.createIcons();
+    }catch(err){
+      showToast('Không thể lưu bản nháp',err.message||String(err));
+    }
+  }
+
+  async function saveDraftLinkC2(){
+    const output=C2.outputs[C2.activeLinkOutputId];
+    if(!output?.draftId) return;
+
+    const type=document.getElementById('draftLinkType')?.value||'DOCUMENT';
+    const sourceId=document.getElementById('draftLinkSource')?.value||'';
+    if(!sourceId){
+      showToast('Chưa chọn hồ sơ','Bạn cần chọn Văn bản hoặc Cuộc họp.');
+      return;
+    }
+
+    try{
+      const linked=await gasCall('apiC2LinkDraft',output.draftId,type,sourceId);
+      output.sourceType=linked.source_type||type;
+      output.sourceId=linked.source_id||sourceId;
+      document.getElementById('draftLinkModal')?.classList.remove('show');
+      setOutputStatusC2(C2.activeLinkOutputId,`Đã gắn vào hồ sơ <strong>${esc(type==='DOCUMENT'?'Văn bản':'Cuộc họp')}</strong>`);
+      showToast('Đã liên kết','Bản nháp đã được gắn vào hồ sơ.');
+    }catch(err){
+      showToast('Không thể liên kết',err.message||String(err));
+    }
+  }
+
+  async function createTaskFromOutputC2(outputId){
+    const output=C2.outputs[outputId];
+    if(!output) return;
+
+    try{
+      const saved=await ensureSavedDraftC2(outputId);
+      window.C2DraftTaskSource=saved.draft_id;
+      openModal('task');
+
+      setTimeout(()=>{
+        const fields=[...createForm.querySelectorAll('input,select,textarea')].filter(x=>x.type!=='file');
+        if(fields[0]) fields[0].value=`Thực hiện kết luận: ${draftTitleC2(output)}`.slice(0,180);
+        if(fields[5]) fields[5].value=output.text;
+      },30);
+    }catch(err){
+      showToast('Không thể tạo nhiệm vụ',err.message||String(err));
+    }
+  }
+
+  async function loadDraftHistoryC2(){
+    const list=document.getElementById('draftHistoryList');
+    if(!list) return;
+
+    list.innerHTML=`<div class="notif-loading"><span class="backend-spinner"></span><span>Đang tải bản nháp...</span></div>`;
+    document.getElementById('draftHistoryModal')?.classList.add('show');
+
+    try{
+      C2.history=await gasCall('apiC2ListDrafts')||[];
+
+      list.innerHTML=C2.history.length?C2.history.map(d=>`
+        <div class="draft-history-item c2-history-open" data-id="${esc(d.draft_id)}">
+          <span class="draft-history-icon"><i data-lucide="file-pen-line"></i></span>
+          <div class="draft-history-main">
+            <strong>${esc(d.title||'Bản nháp')}</strong>
+            <div class="draft-history-meta">
+              <span class="status ${d.status==='EXPORTED'?'status-success':'status-new'}">${d.status==='EXPORTED'?'Đã xuất Docs':'Bản nháp'}</span>
+              <small>${esc(draftTypeLabelC2(d.draft_type))} · v${d.version} · ${formatDateTimeVN(d.updated_at)}</small>
+            </div>
+          </div>
+          <div class="draft-history-actions">
+            ${d.drive_url?`<a class="icon-btn" href="${esc(d.drive_url)}" target="_blank" title="Mở Google Docs"><i data-lucide="external-link"></i></a>`:''}
+            <button class="icon-btn"><i data-lucide="chevron-right"></i></button>
+          </div>
+        </div>`).join(''):`<div class="notif-empty"><i data-lucide="file-clock"></i><strong>Chưa có bản nháp</strong><span>Kết quả AI sau khi lưu sẽ xuất hiện tại đây.</span></div>`;
+
+      lucide.createIcons();
+    }catch(err){
+      list.innerHTML=`<div class="notif-empty"><i data-lucide="circle-alert"></i><strong>Không tải được lịch sử</strong><span>${esc(err.message||String(err))}</span></div>`;
+      lucide.createIcons();
+    }
+  }
+
+  async function openHistoryDraftC2(draftId){
+    try{
+      const d=await gasCall('apiC2GetDraft',draftId);
+      document.getElementById('draftHistoryModal')?.classList.remove('show');
+
+      const outputId='history_'+d.draft_id;
+      C2.outputs[outputId]={
+        outputId,
+        text:d.content_html||'',
+        prompt:'',
+        taskType:d.draft_type||'GENERAL',
+        files:[],
+        draftId:d.draft_id,
+        sourceType:d.source_type||'',
+        sourceId:d.source_id||'',
+        driveUrl:d.drive_url||'',
+        modelUsed:''
+      };
+
+      addChat(
+        'assistant',
+        d.content_html||'',
+        {
+          aiOutput:true,
+          disclaimer:'Bản nháp đã lưu trong hệ thống — cần kiểm tra trước khi sử dụng.',
+          actionsHtml:renderAiResultActionsC2(outputId)
+        }
+      );
+
+      setOutputStatusC2(
+        outputId,
+        `Bản nháp v<strong>${d.version}</strong>${d.drive_url?` · <a href="${esc(d.drive_url)}" target="_blank">Mở Google Docs</a>`:''}`
+      );
+    }catch(err){
+      showToast('Không mở được bản nháp',err.message||String(err));
+    }
+  }
+
+  async function loadLinkedDraftsC2(sourceType,sourceId){
+    const box=document.getElementById('c2LinkedDraftsSource');
+    if(!box) return;
+
+    try{
+      const rows=await gasCall('apiC2ListDraftsForSource',sourceType,sourceId);
+      if(!document.body.contains(box)) return;
+
+      box.innerHTML=rows.length?rows.map(d=>`
+        <div class="linked-draft-row c2-linked-open" data-id="${esc(d.draft_id)}">
+          <span><i data-lucide="file-pen-line"></i></span>
+          <div>
+            <strong>${esc(d.title)}</strong>
+            <small>${esc(draftTypeLabelC2(d.draft_type))} · v${d.version} · ${formatDateTimeVN(d.updated_at)}</small>
+          </div>
+          <div class="linked-draft-actions">
+            ${d.drive_url?`<a class="icon-btn" href="${esc(d.drive_url)}" target="_blank"><i data-lucide="external-link"></i></a>`:''}
+            <button class="icon-btn"><i data-lucide="chevron-right"></i></button>
+          </div>
+        </div>`).join(''):`<div class="empty-data" style="min-height:75px"><strong>Chưa có bản nháp liên kết</strong><span>Từ Trợ lý tham mưu, dùng nút “Gắn vào hồ sơ”.</span></div>`;
+
+      lucide.createIcons();
+    }catch(err){
+      if(document.body.contains(box)){
+        box.innerHTML=`<span style="font-size:8px;color:#94A3B8">Không tải được bản nháp liên kết.</span>`;
+      }
+    }
+  }
+
+  document.getElementById('advisoryHistoryBtn')?.addEventListener('click',loadDraftHistoryC2);
+  document.querySelectorAll('.draft-history-close').forEach(btn=>btn.addEventListener('click',()=>{
+    document.getElementById('draftHistoryModal')?.classList.remove('show');
+  }));
+  document.querySelectorAll('.draft-link-close').forEach(btn=>btn.addEventListener('click',()=>{
+    document.getElementById('draftLinkModal')?.classList.remove('show');
+  }));
+  document.getElementById('draftLinkType')?.addEventListener('change',populateDraftLinkSourcesC2);
+  document.getElementById('saveDraftLink')?.addEventListener('click',saveDraftLinkC2);
+
+  document.addEventListener('click',async e=>{
+    const save=e.target.closest('.c2-save-draft');
+    if(save){
+      try{
+        await ensureSavedDraftC2(save.dataset.id);
+        showToast('Đã lưu bản nháp','Nội dung đã được lưu vào DRAFTS.');
+      }catch(err){showToast('Không thể lưu',err.message||String(err))}
+      return;
+    }
+
+    const exp=e.target.closest('.c2-export-doc');
+    if(exp){await exportOutputC2(exp.dataset.id);return;}
+
+    const link=e.target.closest('.c2-link-source');
+    if(link){await openDraftLinkC2(link.dataset.id);return;}
+
+    const task=e.target.closest('.c2-create-task');
+    if(task){await createTaskFromOutputC2(task.dataset.id);return;}
+
+    const copy=e.target.closest('.c2-copy-output');
+    if(copy){
+      const output=C2.outputs[copy.dataset.id];
+      if(output){
+        try{
+          await navigator.clipboard.writeText(output.text||'');
+          showToast('Đã sao chép','Nội dung bản nháp đã được sao chép.');
+        }catch(err){showToast('Không thể sao chép','Trình duyệt không cho phép truy cập clipboard.')}
+      }
+      return;
+    }
+
+    const history=e.target.closest('.c2-history-open');
+    if(history && !e.target.closest('a')){await openHistoryDraftC2(history.dataset.id);return;}
+
+    const linked=e.target.closest('.c2-linked-open');
+    if(linked && !e.target.closest('a')){
+      closeDrawer();
+      await openHistoryDraftC2(linked.dataset.id);
+    }
+  });
+
+
+
+  // Reports
+  document.querySelectorAll('.report-period .segment').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('.report-period .segment').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    showToast('Đã đổi kỳ báo cáo', `Đang xem dữ liệu theo ${btn.textContent.toLowerCase()}.`);
+  }));
+  document.querySelectorAll('.report-generate').forEach(btn => btn.addEventListener('click', async () => {
+    await loadReportB4();
+    showToast('Đã cập nhật báo cáo', 'Số liệu đã được tổng hợp lại từ dữ liệu thật.');
+  }));
+  document.getElementById('reportToTasks')?.addEventListener('click', () => {
+    document.querySelector('.nav-item[data-page="tasks"]')?.click();
+  });
+
+  // Repository
+  document.querySelectorAll('[data-repo-view]').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-repo-view]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const list = btn.dataset.repoView === 'list';
+    document.getElementById('repoGridView')?.classList.toggle('hidden-block', list);
+    document.getElementById('repoListView')?.classList.toggle('hidden-block', !list);
+    lucide.createIcons();
+  }));
+  bindSearch('repoSearch', '#repoFileGrid .file-card');
+
+  // Tool modal
+  const toolModal = document.getElementById('toolModal');
+  const toolModalTitle = document.getElementById('toolModalTitle');
+  const toolModalBody = document.getElementById('toolModalBody');
+  const runToolAction = document.getElementById('runToolAction');
+
+  const toolTitles = {
+    compare:'So sánh văn bản', ocr:'OCR tài liệu', summary:'Tóm tắt tài liệu', proofread:'Kiểm tra văn bản',
+    draft:'Soạn văn bản', speech:'Gợi ý bài phát biểu', report:'Tổng hợp báo cáo', voice:'Văn bản → giọng nói'
+  };
+
+  const toolBodies = {
+    compare: `<div class="tool-workspace"><label class="tool-drop"><i data-lucide="file-up"></i><strong>Văn bản gốc</strong><span>Chọn DOCX, PDF hoặc TXT</span></label><label class="tool-drop"><i data-lucide="file-up"></i><strong>Văn bản cần so sánh</strong><span>Chọn phiên bản mới</span></label><div class="tool-options"><label class="tool-option"><input type="checkbox" checked><div><strong>Đánh dấu nội dung thay đổi</strong><span>Làm nổi bật phần thêm, xóa và sửa</span></div></label><label class="tool-option"><input type="checkbox" checked><div><strong>Tạo bảng tổng hợp</strong><span>Liệt kê các khác biệt chính</span></div></label></div></div>`,
+    ocr: `<div class="tool-single-form"><label class="tool-drop"><i data-lucide="scan-text"></i><strong>Chọn ảnh hoặc PDF scan</strong><span>Hỗ trợ PNG, JPG, PDF</span></label><label class="tool-option"><input type="checkbox" checked><div><strong>Giữ xuống dòng cơ bản</strong><span>Phù hợp với văn bản hành chính</span></div></label></div>`,
+    summary: `<div class="tool-single-form"><label class="tool-drop"><i data-lucide="file-up"></i><strong>Chọn tài liệu cần tóm tắt</strong><span>PDF, DOCX hoặc TXT</span></label><textarea placeholder="Yêu cầu thêm, ví dụ: Tóm tắt thành 5 ý để báo cáo lãnh đạo..."></textarea></div>`,
+    proofread: `<div class="tool-single-form"><textarea placeholder="Dán nội dung văn bản cần kiểm tra vào đây..."></textarea><div class="tool-options"><label class="tool-option"><input type="checkbox" checked><div><strong>Chính tả & câu chữ</strong><span>Rà lỗi thường gặp</span></div></label><label class="tool-option"><input type="checkbox" checked><div><strong>Thông tin còn thiếu</strong><span>Nhắc các trường cần kiểm tra</span></div></label></div></div>`,
+    draft: `<div class="tool-single-form"><textarea placeholder="Mô tả văn bản cần soạn, ví dụ: Soạn dự thảo thông báo kết luận cuộc họp..."></textarea><label class="tool-option"><input type="checkbox" checked><div><strong>Sử dụng mẫu văn bản của đơn vị</strong><span>Sang bước B sẽ đọc mẫu từ Google Drive</span></div></label></div>`,
+    speech: `<div class="tool-single-form"><textarea placeholder="Nhập chủ đề, bối cảnh, đối tượng nghe và những ý chính cần nhấn mạnh..."></textarea></div>`,
+    report: `<div class="tool-single-form"><textarea placeholder="Mô tả loại báo cáo cần tổng hợp..."></textarea><label class="tool-option"><input type="checkbox" checked><div><strong>Lấy dữ liệu nhiệm vụ</strong><span>Tổng hợp tiến độ từ hệ thống</span></div></label></div>`,
+    voice: `<div class="tool-single-form"><textarea placeholder="Dán nội dung cần đọc hoặc chọn tài liệu..."></textarea><label class="tool-option"><input type="checkbox" checked><div><strong>Giọng đọc tiếng Việt</strong><span>Bản A4 chỉ mô phỏng giao diện</span></div></label></div>`
+  };
+
+  const openToolModal = type => {
+    toolModalTitle.textContent = toolTitles[type] || 'Công cụ';
+    toolModalBody.innerHTML = toolBodies[type] || '';
+    toolModal.classList.add('show');
+    lucide.createIcons();
+  };
+  const closeToolModal = () => toolModal.classList.remove('show');
+
+  document.querySelectorAll('.tool-launch').forEach(btn => btn.addEventListener('click', () => openToolModal(btn.dataset.tool)));
+  document.querySelectorAll('.close-tool-modal').forEach(btn => btn.addEventListener('click', closeToolModal));
+  toolModal?.addEventListener('click', e => { if (e.target === toolModal) closeToolModal(); });
+  runToolAction?.addEventListener('click', () => {
+    closeToolModal();
+    showToast('Đã chạy thử công cụ', 'Bản A4 đang mô phỏng giao diện. Chức năng thật sẽ được nối sau.');
+  });
+
+
+  globalSearch?.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && globalSearch.value.trim()) {
+      showToast('Tìm kiếm toàn hệ thống', `Đã nhận từ khóa: "${globalSearch.value.trim()}".`);
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault(); globalSearch?.focus();
+    }
+    if (e.key === 'Escape') {
+      quickMenu?.classList.remove('show');
+      notificationPanel?.classList.remove('show');
+      closeMobileSidebar();
+      closeDrawer();
+      closeModal();
+      document.getElementById('toolModal')?.classList.remove('show');
+    }
+  });
+});
+</script>
