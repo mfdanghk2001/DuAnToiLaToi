@@ -57,16 +57,19 @@ function apiUpdateTaskProgress(taskId, progress, status, note) {
 }
 
 function apiGetCategories(type) {
+  AuthService.requirePermission('dashboard.view');
   const all = RepositoryService.getAll('CATEGORIES');
   if (!type) return all;
   return all.filter(x => x.category_type === type && x.status === 'ACTIVE');
 }
 
 function apiGetDepartments() {
+  AuthService.requirePermission('dashboard.view');
   return RepositoryService.getAll('DEPARTMENTS').filter(x => x.status === 'ACTIVE');
 }
 
 function apiSystemHealth() {
+  AuthService.requirePermission('dashboard.view');
   const info = SystemConfig.getSystemInfo();
   return {
     ok: info.initialized,
