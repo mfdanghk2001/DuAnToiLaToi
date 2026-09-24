@@ -1,5 +1,19 @@
 const RepositoryService = (() => {
   const AUTH_USERS_CACHE_KEY = 'VPDU_AUTH_USERS_V1';
+  const ROW_CACHE_PREFIX = 'VPDU_ROWS_V1_';
+  const ROW_CACHE_TTL = {
+    DOCUMENTS:20,
+    TASKS:20,
+    CALENDAR:20,
+    MEETINGS:20,
+    DEPARTMENTS:60,
+    SETTINGS:300,
+    CATEGORIES:120
+  };
+
+  function rowCacheKey_(sheetName) {
+    return ROW_CACHE_PREFIX + sheetName;
+  }
 
   function getHeaders_(sheet) {
     const lastCol = sheet.getLastColumn();
@@ -19,11 +33,11 @@ const RepositoryService = (() => {
   }
 
   function invalidateSheetCaches_(sheetName) {
-    if (sheetName === 'USERS') {
-      try {
-        CacheService.getScriptCache().remove(AUTH_USERS_CACHE_KEY);
-      } catch (e) {}
-    }
+    try {
+      const cache = CacheService.getScriptCache();
+      cache.remove(rowCacheKey_(sheetName));
+      if (sheetName === 'USERS') cache.remove(AUTH_USERS_CACHE_KEY);
+    } catch (e) {}
   }
 
   function findRowNumber_(sheet, headers, idColumn, id) {
@@ -41,6 +55,14 @@ const RepositoryService = (() => {
   }
 
   function getAll(sheetName) {
+    const ttl = ROW_CACHE_TTL[sheetName] || 0;
+    if (ttl) {
+      try {
+        const cached = CacheService.getScriptCache().get(rowCacheKey_(sheetName));
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+
     const sh = SystemConfig.getSheet(sheetName);
     const lastRow = sh.getLastRow();
     const lastCol = sh.getLastColumn();
@@ -48,7 +70,18 @@ const RepositoryService = (() => {
 
     const headers = getHeaders_(sh);
     const values = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
-    return values.map(r => rowToObject_(headers, r));
+    const rows = values.map(r => rowToObject_(headers, r));
+
+    if (ttl) {
+      try {
+        const json = JSON.stringify(rows);
+        // CacheService giới hạn kích thước mỗi key; bỏ cache nếu dataset đã lớn.
+        if (json.length < 90000) {
+          CacheService.getScriptCache().put(rowCacheKey_(sheetName), json, ttl);
+        }
+      } catch (e) {}
+    }
+    return rows;
   }
 
   function findById(sheetName, idColumn, id) {
