@@ -137,18 +137,20 @@ const D2TaskService = (() => {
 
   function permissionFlags_(task) {
     const me = currentUser_();
+    const perms = me.permissions || [];
+    const has = permission => perms.includes('*') || perms.includes(permission);
     const collaborators = collaboratorIds_(task);
-    const fullUpdate = AuthService.hasPermission('tasks.update');
+    const fullUpdate = has('tasks.update');
     const ownUpdate =
-      AuthService.hasPermission('tasks.update_own') &&
+      has('tasks.update_own') &&
       (task.owner_user_id === me.userId || collaborators.includes(me.userId));
 
     return {
       canEdit:fullUpdate,
       canContribute:fullUpdate || ownUpdate,
-      canApprove:AuthService.hasPermission('tasks.approve'),
+      canApprove:has('tasks.approve'),
       canCancel:fullUpdate,
-      canCreate:AuthService.hasPermission('tasks.create')
+      canCreate:has('tasks.create')
     };
   }
 
