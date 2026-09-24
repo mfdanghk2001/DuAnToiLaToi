@@ -389,6 +389,33 @@ const F1CompleteService = (() => {
       users
     );
 
+    // Tương thích các hồ sơ B3 cũ: attachment từng được lưu trực tiếp
+    // ở minutes_file_id / conclusion_file_id trước khi có MEETING_FILES.
+    const knownFileIds = new Set(files.map(x => x.drive_file_id));
+    [
+      {id:meeting.minutes_file_id,kind:'MINUTES'},
+      {id:meeting.conclusion_file_id,kind:'CONCLUSION'}
+    ].forEach(legacy => {
+      if (!legacy.id || knownFileIds.has(legacy.id)) return;
+      try {
+        const file = DriveApp.getFileById(legacy.id);
+        files.push({
+          id:'legacy_' + legacy.id,
+          meeting_id:meetingId,
+          drive_file_id:legacy.id,
+          file_name:file.getName(),
+          mime_type:file.getMimeType(),
+          size:file.getSize(),
+          file_kind:legacy.kind,
+          uploaded_by:meeting.created_by || '',
+          uploader_name:users[meeting.created_by]?.full_name || '',
+          created_at:meeting.created_at || '',
+          url:file.getUrl(),
+          legacy:true
+        });
+      } catch (e) {}
+    });
+
     const relationIds = new Set(
       RepositoryService.getAll('MEETING_TASKS')
         .filter(x => x.meeting_id === meetingId)
