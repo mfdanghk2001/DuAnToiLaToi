@@ -83,25 +83,39 @@ document.addEventListener('DOMContentLoaded', () => {
   overlay?.addEventListener('click', closeMobileSidebar);
 
   document.querySelectorAll('.nav-item[data-page]').forEach(item => {
-    item.addEventListener('click', e => {
+    item.addEventListener('click', async e => {
       e.preventDefault();
       document.querySelectorAll('.nav-item[data-page]').forEach(i => i.classList.remove('active'));
       item.classList.add('active');
-      showPage(item.dataset.page);
+      const page=item.dataset.page;
+      showPage(page);
 
-      if (item.dataset.page === 'documents') {
-        loadDocumentsD1();
+      if (page === 'dashboard' && P1.dashboardDirty) {
+        await loadDashboardP1();
       }
-      if (item.dataset.page === 'tasks') {
-        loadTasksD2();
+      if (page === 'documents') {
+        await loadDocumentsD1();
       }
-      if (item.dataset.page === 'repository') {
+      if (page === 'tasks') {
+        await loadTasksD2();
+      }
+      if (page === 'calendar') {
+        await loadCalendarP1();
+      }
+      if (page === 'meetings') {
+        await loadMeetingsP1();
+      }
+      if (page === 'advisory' && !P1.aiConfigLoaded) {
+        P1.aiConfigLoaded=true;
+        loadAiConfigC1();
+      }
+      if (page === 'repository') {
         loadRepositoryB4(B4.repoFolderId || '');
       }
-      if (item.dataset.page === 'reports') {
+      if (page === 'reports') {
         loadReportB4();
       }
-      if (item.dataset.page === 'admin') {
+      if (page === 'admin') {
         loadAdminB5();
       }
     });
@@ -422,7 +436,9 @@ document.addEventListener('DOMContentLoaded', () => {
     list:null,
     current:null,
     editingId:'',
-    selectedFiles:[]
+    selectedFiles:[],
+    loadedAt:0,
+    loadedKey:''
   };
 
   const D2 = {
@@ -441,7 +457,17 @@ document.addEventListener('DOMContentLoaded', () => {
     editingId:'',
     selectedFiles:[],
     pendingSource:{type:'',id:''},
-    view:'list'
+    view:'list',
+    loadedAt:0,
+    loadedKey:''
+  };
+
+  const P1 = {
+    cacheMs:30000,
+    dashboardDirty:false,
+    calendarLoaded:false,
+    meetingsLoaded:false,
+    aiConfigLoaded:false
   };
 
   const gasCall = (fn, ...args) => new Promise((resolve, reject) => {
@@ -578,6 +604,64 @@ document.addEventListener('DOMContentLoaded', () => {
     renderUser(); renderDashboard(); renderDocuments(); renderTasks();
   };
 
+  function markDashboardDirtyP1(){
+    P1.dashboardDirty=true;
+  }
+
+  function invalidateDocumentsP1(){
+    D1.loadedAt=0;
+    D1.loadedKey='';
+    markDashboardDirtyP1();
+  }
+
+  function invalidateTasksP1(){
+    D2.loadedAt=0;
+    D2.loadedKey='';
+    markDashboardDirtyP1();
+  }
+
+  async function loadDashboardP1(){
+    try{
+      const data=await gasCall('apiP1Dashboard');
+      if(!data?.ok) throw new Error(data?.message||'Không tải được Dashboard.');
+      B2.dashboard=data.dashboard;
+      P1.dashboardDirty=false;
+      renderDashboard();
+      renderDocuments();
+      renderTasks();
+    }catch(err){
+      showToast('Không thể làm mới Dashboard',err.message||String(err));
+    }
+  }
+
+  async function loadCalendarP1(force=false){
+    if(P1.calendarLoaded&&!force){
+      renderCalendarB3();
+      return;
+    }
+    try{
+      B2.calendarEvents=await gasCall('apiListCalendarEvents')||[];
+      P1.calendarLoaded=true;
+      renderCalendarB3();
+    }catch(err){
+      showToast('Không tải được lịch công tác',err.message||String(err));
+    }
+  }
+
+  async function loadMeetingsP1(force=false){
+    if(P1.meetingsLoaded&&!force){
+      renderMeetingsB3();
+      return;
+    }
+    try{
+      B2.meetings=await gasCall('apiListMeetings')||[];
+      P1.meetingsLoaded=true;
+      renderMeetingsB3();
+    }catch(err){
+      showToast('Không tải được cuộc họp',err.message||String(err));
+    }
+  }
+
   const refreshB2 = async () => {
     const data=await gasCall('apiRefreshB2');
     if (!data?.ok) throw new Error(data?.message||'Không tải được dữ liệu.');
@@ -586,6 +670,8 @@ document.addEventListener('DOMContentLoaded', () => {
     B2.tasks=data.tasks||[];
     B2.calendarEvents=data.calendarEvents||[];
     B2.meetings=data.meetings||[];
+    P1.calendarLoaded=true;
+    P1.meetingsLoaded=true;
     renderAllB2();
     applyAccessB5();
     renderCalendarB3();
@@ -1268,10 +1354,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const box=document.getElementById('taskFullList');
     if(!box) return;
     if(resetPage) D2.filters.page=1;
+
+    const requestKey=JSON.stringify(D2.filters);
+    if(
+      D2.list &&
+      D2.loadedKey===requestKey &&
+      (Date.now()-D2.loadedAt)<P1.cacheMs
+    ){
+      renderTasksD2();
+      return;
+    }
+
     box.innerHTML='<div class="admin-loading"><span class="backend-spinner"></span><span>Đang tải nhiệm vụ...</span></div>';
     try{
       D2.list=await gasCall('apiD2ListTasks',D2.filters);
       D2.filters.page=D2.list.pagination.page;
+      D2.loadedAt=Date.now();
+      D2.loadedKey=JSON.stringify(D2.filters);
       renderTasksD2();
     }catch(err){
       box.innerHTML=`<div class="empty-data"><i data-lucide="circle-alert"></i><strong>Không tải được nhiệm vụ</strong><span>${esc(err.message||String(err))}</span></div>`;
@@ -1388,16 +1487,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if(D2.selectedFiles.length) await uploadTaskFilesD2(taskId,D2.selectedFiles);
 
+      const wasEditing=Boolean(D2.editingId);
       document.getElementById('d2TaskModal')?.classList.remove('show');
       clearPendingTaskSourceD2();
-      await refreshB2();
+      invalidateTasksP1();
       await loadTasksD2();
 
       showToast('Đã lưu nhiệm vụ',D2.selectedFiles.length
         ? `Đã lưu nhiệm vụ và ${D2.selectedFiles.length} tài liệu.`
         : 'Thông tin nhiệm vụ đã được cập nhật.');
 
-      if(D2.editingId) await openTaskD2(taskId);
+      if(wasEditing) await openTaskD2(taskId);
       D2.editingId='';
       D2.selectedFiles=[];
     }catch(err){
@@ -1549,7 +1649,7 @@ document.addEventListener('DOMContentLoaded', () => {
           result_note:document.getElementById('d2ProgressNote')?.value||'',
           note:'Cập nhật tiến độ từ hồ sơ nhiệm vụ'
         });
-        await refreshB2(); await loadTasksD2(); await openTaskD2(t.task_id);
+        invalidateTasksP1(); await loadTasksD2(); await openTaskD2(t.task_id);
         showToast('Đã cập nhật','Tiến độ nhiệm vụ đã được lưu.');
       }catch(err){showToast('Không thể cập nhật',err.message||String(err))}
     });
@@ -1558,7 +1658,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const note=prompt('Ghi chú khi trình duyệt (có thể để trống):')||'';
       try{
         await gasCall('apiD2SubmitTaskForApproval',t.task_id,note);
-        await refreshB2(); await loadTasksD2(); await openTaskD2(t.task_id);
+        invalidateTasksP1(); await loadTasksD2(); await openTaskD2(t.task_id);
         showToast('Đã trình duyệt','Nhiệm vụ đã chuyển sang Chờ duyệt.');
       }catch(err){showToast('Không thể trình duyệt',err.message||String(err))}
     });
@@ -1567,7 +1667,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const note=prompt('Ghi chú duyệt hoàn thành (có thể để trống):')||'';
       try{
         await gasCall('apiD2ApproveTask',t.task_id,'APPROVE',note);
-        await refreshB2(); await loadTasksD2(); await openTaskD2(t.task_id);
+        invalidateTasksP1(); await loadTasksD2(); await openTaskD2(t.task_id);
         showToast('Đã duyệt','Nhiệm vụ đã hoàn thành.');
       }catch(err){showToast('Không thể duyệt',err.message||String(err))}
     });
@@ -1577,7 +1677,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if(note===null) return;
       try{
         await gasCall('apiD2ApproveTask',t.task_id,'RETURN',note);
-        await refreshB2(); await loadTasksD2(); await openTaskD2(t.task_id);
+        invalidateTasksP1(); await loadTasksD2(); await openTaskD2(t.task_id);
         showToast('Đã trả lại','Nhiệm vụ được chuyển về Đang thực hiện.');
       }catch(err){showToast('Không thể trả lại',err.message||String(err))}
     });
@@ -1587,7 +1687,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const note=prompt('Lý do hủy (có thể để trống):')||'';
       try{
         await gasCall('apiD2CancelTask',t.task_id,note);
-        await refreshB2(); await loadTasksD2(); await openTaskD2(t.task_id);
+        invalidateTasksP1(); await loadTasksD2(); await openTaskD2(t.task_id);
         showToast('Đã hủy','Nhiệm vụ được đánh dấu Đã hủy.');
       }catch(err){showToast('Không thể hủy',err.message||String(err))}
     });
@@ -1595,7 +1695,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('d2ReopenTask')?.addEventListener('click',async()=>{
       try{
         await gasCall('apiD2ReopenTask',t.task_id,'Mở lại từ hồ sơ nhiệm vụ');
-        await refreshB2(); await loadTasksD2(); await openTaskD2(t.task_id);
+        invalidateTasksP1(); await loadTasksD2(); await openTaskD2(t.task_id);
         showToast('Đã mở lại','Nhiệm vụ chuyển về Đang thực hiện.');
       }catch(err){showToast('Không thể mở lại',err.message||String(err))}
     });
@@ -1627,7 +1727,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('taskCreateBtn')?.addEventListener('click',()=>openTaskModalD2());
-  document.getElementById('taskRefreshBtn')?.addEventListener('click',()=>loadTasksD2());
+  document.getElementById('taskRefreshBtn')?.addEventListener('click',()=>{D2.loadedAt=0;loadTasksD2();});
   document.querySelectorAll('.d2-task-modal-close').forEach(btn=>btn.addEventListener('click',closeTaskModalD2));
   document.getElementById('d2TaskModal')?.addEventListener('click',e=>{
     if(e.target.id==='d2TaskModal') closeTaskModalD2();
@@ -1656,7 +1756,6 @@ document.addEventListener('DOMContentLoaded', () => {
       await uploadTaskFilesD2(taskId,files);
       e.target.value='';
       await openTaskD2(taskId);
-      await loadTasksD2();
       showToast('Đã thêm tài liệu',`${files.length} tệp đã được tải lên.`);
     }catch(err){
       e.target.value='';
@@ -1790,12 +1889,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if(!body) return;
     if(resetPage) D1.filters.page=1;
 
+    const requestKey=JSON.stringify(D1.filters);
+    if(
+      D1.list &&
+      D1.loadedKey===requestKey &&
+      (Date.now()-D1.loadedAt)<P1.cacheMs
+    ){
+      renderDocumentsD1();
+      return;
+    }
+
     body.innerHTML=`<tr><td colspan="7"><div class="admin-loading"><span class="backend-spinner"></span><span>Đang tải hồ sơ văn bản...</span></div></td></tr>`;
 
     try{
       const data=await gasCall('apiD1ListDocuments',D1.filters);
       D1.list=data;
       D1.filters.page=data.pagination.page;
+      D1.loadedAt=Date.now();
+      D1.loadedKey=JSON.stringify(D1.filters);
       renderDocumentsD1();
     }catch(err){
       body.innerHTML=`<tr><td colspan="7"><div class="empty-data"><i data-lucide="circle-alert"></i><strong>Không tải được văn bản</strong><span>${esc(err.message||String(err))}</span></div></td></tr>`;
@@ -1993,8 +2104,9 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.innerHTML='<span class="backend-spinner"></span> Đang lưu...';
 
     try{
+      const editingId=D1.editingId;
       let saved;
-      if(D1.editingId){
+      if(editingId){
         saved=await gasCall('apiD1UpdateDocument',D1.editingId,payload);
       }else{
         saved=await gasCall('apiD1CreateDocument',payload);
@@ -2005,7 +2117,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       closeDocumentModalD1();
-      await refreshB2();
+      invalidateDocumentsP1();
       await loadDocumentsD1();
 
       showToast(
@@ -2015,7 +2127,7 @@ document.addEventListener('DOMContentLoaded', () => {
           : 'Thông tin văn bản đã được cập nhật.'
       );
 
-      if(D1.editingId) await openDocumentD1(saved.document_id);
+      if(editingId) await openDocumentD1(saved.document_id);
     }catch(err){
       showToast('Không thể lưu văn bản',err.message||String(err));
     }finally{
@@ -2230,7 +2342,7 @@ document.addEventListener('DOMContentLoaded', () => {
           due_date:document.getElementById('d1ProcessingDueDate')?.value||'',
           note:document.getElementById('d1ProcessingNote')?.value||''
         });
-        await refreshB2();
+        invalidateDocumentsP1();
         await loadDocumentsD1();
         await openDocumentD1(x.document_id);
         showToast('Đã cập nhật xử lý','Người xử lý, trạng thái và thời hạn đã được lưu.');
@@ -2259,7 +2371,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try{
         await gasCall('apiD1ArchiveDocument',x.document_id,'Lưu trữ từ giao diện hồ sơ.');
         closeDrawer();
-        await refreshB2();
+        invalidateDocumentsP1();
         await loadDocumentsD1(true);
         showToast('Đã lưu trữ','Văn bản đã được chuyển vào tab Lưu trữ.');
       }catch(err){showToast('Không thể lưu trữ',err.message||String(err))}
@@ -2307,9 +2419,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const files=validateFilesD1(e.target.files||[]);
       await uploadFilesD1(documentId,files);
       e.target.value='';
-      await refreshB2();
       await openDocumentD1(documentId);
-      await loadDocumentsD1();
       showToast('Đã thêm tài liệu',`${files.length} tệp đã được tải lên hồ sơ.`);
     }catch(err){
       e.target.value='';
@@ -2383,32 +2493,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const bootstrapB2 = async () => {
     try {
-      const data=await gasCall('apiBootstrapB2');
+      const data=await gasCall('apiP1Bootstrap');
       if (!data?.ok) throw new Error(data?.message||'Không thể khởi tạo dữ liệu.');
       B2.user=data.user;
       B2.users=data.users||[];
       B2.dashboard=data.dashboard;
-      B2.documents=data.documents||[];
-      B2.tasks=data.tasks||[];
-      B2.calendarEvents=data.calendarEvents||[];
-      B2.meetings=data.meetings||[];
+      B2.documents=[];
+      B2.tasks=[];
+      B2.calendarEvents=[];
+      B2.meetings=[];
       renderAllB2();
-
-      // C1.1 HOTFIX:
-      // bootstrap ban đầu phải áp dụng quyền sau khi đã lấy được B2.user.
-      // Nếu thiếu dòng này, nút "Cấu hình AI" giữ class access-hidden
-      // dù người đăng nhập là ADMIN.
       applyAccessB5();
-
-      renderCalendarB3();
-      renderMeetingsB3();
       hideBackendBanner();
 
-      // Đồng bộ badge thông báo + trạng thái cấu hình AI ngay khi mở web.
-      loadNotificationsB6();
-      loadAiConfigC1();
-      loadDocumentsD1();
-      loadTasksD2();
+      // P1: các module nặng chỉ tải khi người dùng thật sự mở.
+      // Thông báo được trì hoãn nhẹ để không tranh tài nguyên với bootstrap.
+      setTimeout(()=>loadNotificationsB6(),600);
     } catch(err) { showBackendError(err.message||String(err)); }
   };
 
