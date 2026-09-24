@@ -1689,7 +1689,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ['taskOwnerFilter','owner'],
     ['taskPriorityFilter','priority'],
     ['taskStatusFilter','status'],
-    ['taskSourceFilter','sourceType']
+    ['taskSourceFilter','sourceType'],
+    ['taskDueFilter','due']
   ].forEach(([id,key])=>{
     document.getElementById(id)?.addEventListener('change',e=>{
       D2.filters[key]=e.target.value;
@@ -1701,7 +1702,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('taskResetFilters')?.addEventListener('click',()=>{
     D2.filters={q:'',status:'ALL',owner:'ALL',priority:'ALL',sourceType:'ALL',due:'ALL',page:1,pageSize:10};
     const q=document.getElementById('taskSearch');if(q)q.value='';
-    ['taskOwnerFilter','taskPriorityFilter','taskStatusFilter','taskSourceFilter'].forEach(id=>{
+    ['taskOwnerFilter','taskPriorityFilter','taskStatusFilter','taskSourceFilter','taskDueFilter'].forEach(id=>{
       const el=document.getElementById(id);if(el)el.value='ALL';
     });
     loadTasksD2();
