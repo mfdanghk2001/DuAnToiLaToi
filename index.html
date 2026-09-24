@@ -250,13 +250,35 @@
             <span class="notification-count hidden-block" id="notificationCount">0</span>
           </button>
 
-          <div class="profile-chip">
-            <div class="avatar avatar-sm">—</div>
-            <div class="profile-text">
-              <strong>Đang tải...</strong>
-              <span>Tài khoản</span>
+          <div class="profile-menu-wrap" id="profileMenuWrap">
+            <button class="profile-chip" id="profileMenuToggle" type="button" aria-haspopup="menu" aria-expanded="false">
+              <div class="avatar avatar-sm">—</div>
+              <div class="profile-text">
+                <strong>Đang tải...</strong>
+                <span>Tài khoản</span>
+              </div>
+              <i data-lucide="chevron-down"></i>
+            </button>
+
+            <div class="profile-menu hidden-block" id="profileMenu" role="menu">
+              <div class="profile-menu-head">
+                <div class="avatar" id="profileMenuAvatar">—</div>
+                <div>
+                  <strong id="profileMenuName">Tài khoản</strong>
+                  <span id="profileMenuEmail">—</span>
+                  <small id="profileMenuRole">Người dùng</small>
+                </div>
+              </div>
+              <div class="profile-menu-divider"></div>
+              <button class="profile-menu-item" id="profileSwitchAccount" type="button" role="menuitem">
+                <i data-lucide="users-round"></i>
+                <span><strong>Đổi tài khoản Google</strong><small>Chọn tài khoản khác để đăng nhập hệ thống</small></span>
+              </button>
+              <button class="profile-menu-item danger" id="profileLogout" type="button" role="menuitem">
+                <i data-lucide="log-out"></i>
+                <span><strong>Đăng xuất Google</strong><small>Đăng xuất tài khoản Google trên trình duyệt này</small></span>
+              </button>
             </div>
-            <i data-lucide="chevron-down"></i>
           </div>
         </div>
       </header>
