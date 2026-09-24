@@ -65,51 +65,19 @@ const AuthService = (() => {
   }
 
   function getCurrentUser() {
+    // Password-auth mode: business APIs are authenticated only when apiDispatch()
+    // injects a validated application session into this execution.
+    // Never fall back to Google Session identity, otherwise a direct API call
+    // could bypass the app's username/password gateway.
     if (runtimeOverrideUser) return runtimeOverrideUser;
-    if (runtimeCurrentUser) return runtimeCurrentUser;
 
-    const system = SystemConfig.getSystemInfo();
-    if (!system.initialized) {
-      runtimeCurrentUser = {authenticated:false, email:getSessionEmail_(), role:'', permissions:[]};
-      return runtimeCurrentUser;
-    }
-
-    const email = getSessionEmail_();
-    if (!email) {
-      runtimeCurrentUser = {
-        authenticated:false,
-        email:'',
-        role:'',
-        permissions:[],
-        message:'Không xác định được email người truy cập. Hãy đăng nhập bằng tài khoản Google đã được cấp quyền và mở lại ứng dụng.'
-      };
-      return runtimeCurrentUser;
-    }
-
-    const users = listUsersCached();
-    const user = users.find(u => String(u.email).toLowerCase() === email && u.status === 'ACTIVE');
-
-    if (!user) {
-      runtimeCurrentUser = {
-        authenticated:false,
-        email,
-        role:'',
-        permissions:[],
-        message:'Tài khoản chưa được cấp quyền trong hệ thống.'
-      };
-      return runtimeCurrentUser;
-    }
-
-    runtimeCurrentUser = {
-      authenticated:true,
-      userId:user.user_id,
-      email:user.email,
-      fullName:user.full_name,
-      departmentId:user.department_id,
-      role:user.role,
-      permissions:ROLE_PERMISSIONS[user.role] || []
+    return {
+      authenticated:false,
+      email:'',
+      role:'',
+      permissions:[],
+      message:'Phiên đăng nhập ứng dụng không hợp lệ.'
     };
-    return runtimeCurrentUser;
   }
 
   function setRuntimeUser(user) {

@@ -15,9 +15,8 @@ function include(filename) {
  */
 function getBootstrapData() {
   return {
-    ok: true,
-    system: SystemConfig.getSystemInfo(),
-    user: AuthService.getCurrentUser(),
-    now: new Date().toISOString()
+    ok:true,
+    authenticated:false,
+    now:new Date().toISOString()
   };
 }
