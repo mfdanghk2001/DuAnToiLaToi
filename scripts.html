@@ -376,17 +376,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  document.querySelectorAll('.demo-action').forEach(btn => btn.addEventListener('click', e => {
-    e.stopPropagation();
-    showToast('Giao diện thử nghiệm', 'Nút này đã sẵn sàng; dữ liệu thật sẽ được nối ở bước B.');
-  }));
-
-  document.querySelectorAll('.tool-card').forEach(card => card.addEventListener('click', () => {
-    showToast(card.querySelector('strong')?.textContent || 'Công cụ', 'Module Công cụ sẽ được hoàn thiện ở bước A4.');
-  }));
-
   document.getElementById('btnViewCalendar')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="calendar"]')?.click());
   document.getElementById('btnNewDocument')?.addEventListener('click', () => openModal('document'));
+
+  document.getElementById('dashboardOpenCalendar')?.addEventListener('click',()=>document.querySelector('.nav-item[data-page="calendar"]')?.click());
+  document.querySelectorAll('[data-dashboard-tool]').forEach(btn=>btn.addEventListener('click',()=>{
+    const type=btn.dataset.dashboardTool;
+    if(type==='report'){
+      document.querySelector('.nav-item[data-page="reports"]')?.click();
+      return;
+    }
+    document.querySelector('.nav-item[data-page="tools"]')?.click();
+    setTimeout(()=>document.querySelector(`.tool-launch[data-tool="${type}"]`)?.click(),80);
+  }));
 
 
 
@@ -581,12 +583,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const d=B2.dashboard;
     if (!d) return;
     const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=String(v).padStart(2,'0')};
+
+    const hour=new Date().getHours();
+    const greeting=hour<11?'Chào buổi sáng':hour<14?'Chào buổi trưa':hour<18?'Chào buổi chiều':'Chào buổi tối';
+    const displayName=B2.user?.fullName||B2.user?.email||'';
+    const greetingEl=document.getElementById('dashboardGreeting');
+    if(greetingEl) greetingEl.textContent=`${greeting}${displayName?', '+displayName:''} 👋`;
+
+    const summary=document.getElementById('dashboardSummary');
+    if(summary){
+      const due=Number(d.stats.tasksToday||0);
+      const soon=Number(d.stats.dueSoon||0);
+      const overdue=Number(d.stats.overdue||0);
+      summary.innerHTML=`Hôm nay có <strong>${due} nhiệm vụ đến hạn</strong>, <span class="${overdue?'text-danger':''}">${overdue} nhiệm vụ quá hạn</span> và ${soon} nhiệm vụ sắp đến hạn trong 48 giờ.`;
+    }
     set('dashNewDocuments',d.stats.newDocuments);
     set('dashTasksToday',d.stats.tasksToday);
     set('dashDueSoon',d.stats.dueSoon);
     set('dashOverdue',d.stats.overdue);
     document.getElementById('navDocumentCount') && (document.getElementById('navDocumentCount').textContent=d.documents.total);
     document.getElementById('navTaskCount') && (document.getElementById('navTaskCount').textContent=d.tasks.total);
+
+    const setText=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v};
+    setText('dashNewDocumentsHint',`${d.documents.total||0} văn bản trong hệ thống`);
+    setText('dashTasksTodayHint','Nhiệm vụ đến hạn hôm nay');
+    setText('dashDueSoonHint','Trong 48 giờ tới');
+    setText('dashOverdueHint',d.stats.overdue?'Cần ưu tiên xử lý':'Không có việc quá hạn');
+
+    const taskTotal=Math.max(0,Number(d.tasks.total||0));
+    const done=Number(d.tasks.completed||0);
+    const doing=Math.max(0,Number(d.tasks.inProgress||0)+Number(d.tasks.waitingApproval||0)+Number(d.tasks.newCount||0));
+    const overdueCount=Number(d.tasks.overdue||0);
+    const pct=taskTotal?Math.round(done/taskTotal*100):0;
+    const donut=document.getElementById('dashboardProgressDonut');
+    if(donut) donut.style.setProperty('--value',pct);
+    setText('dashboardProgressPct',pct+'%');
+    setText('dashboardDoneCount',done);
+    setText('dashboardDoingCount',doing);
+    setText('dashboardOverdueCount',overdueCount);
 
     const taskBox=document.getElementById('dashboardTaskList');
     if (taskBox) {
@@ -668,6 +702,28 @@ document.addEventListener('DOMContentLoaded', () => {
       renderTasks();
     }catch(err){
       showToast('Không thể làm mới Dashboard',err.message||String(err));
+    }
+  }
+
+  async function loadDashboardAgendaF1(){
+    const box=document.getElementById('dashboardAgendaList');
+    if(!box) return;
+    const today=dateKeyLocal(new Date());
+    try{
+      const data=await gasCall('apiF1ListCalendar',{from:today,to:today});
+      const rows=(data?.items||[]).filter(x=>!x.status||x.status==='ACTIVE');
+      const dateLabel=document.querySelector('.agenda-panel .panel-head p');
+      if(dateLabel) dateLabel.textContent=new Intl.DateTimeFormat('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit'}).format(new Date());
+      box.innerHTML=rows.length?rows.map((e,i)=>`
+        <button class="agenda-item f1-dashboard-event b3-event-detail" data-id="${esc(e.event_id)}">
+          <div class="agenda-time">${esc(e.start_time||'—')}</div>
+          <div class="agenda-line ${i%3===1?'blue-line':i%3===2?'amber-line':'red-line'}"></div>
+          <div class="agenda-content"><strong>${esc(e.title)}</strong><span><i data-lucide="${e.location?'map-pin':'calendar-clock'}"></i> ${esc(e.location||calendarGroupLabelF1(e.calendar_group))}</span></div>
+        </button>`).join(''):`<div class="empty-data" style="min-height:180px"><i data-lucide="calendar-check"></i><strong>Hôm nay chưa có lịch</strong><span>Mở Lịch công tác để thêm lịch mới.</span></div>`;
+      lucide.createIcons();
+    }catch(err){
+      box.innerHTML=`<div class="empty-data" style="min-height:180px"><i data-lucide="circle-alert"></i><strong>Không tải được lịch hôm nay</strong><span>${esc(err.message||String(err))}</span></div>`;
+      lucide.createIcons();
     }
   }
 
@@ -2557,6 +2613,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // P1: các module nặng chỉ tải khi người dùng thật sự mở.
       // Thông báo được trì hoãn nhẹ để không tranh tài nguyên với bootstrap.
       setTimeout(()=>loadNotificationsB6(),600);
+      setTimeout(()=>loadDashboardAgendaF1(),900);
     } catch(err) { showBackendError(err.message||String(err)); }
   };
 
@@ -2902,7 +2959,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const page=item.dataset.page;
       let allowed=true;
       if(page==='admin') allowed=role==='ADMIN';
-      else if(page==='tools') allowed=role==='ADMIN'||role==='OFFICE'||hasPermissionB5('advisory.use');
+      else if(page==='tools') allowed=Boolean(B2.user?.authenticated);
       else if(pagePermission[page]) allowed=hasPermissionB5(pagePermission[page]);
       item.classList.toggle('access-hidden',!allowed);
     });
