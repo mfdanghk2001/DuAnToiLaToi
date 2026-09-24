@@ -1,6 +1,6 @@
 const AuthService = (() => {
   const USERS_CACHE_KEY = 'VPDU_AUTH_USERS_V1';
-  const USERS_CACHE_SECONDS = 60;
+  const USERS_CACHE_SECONDS = 300;
   let runtimeUsers = null;
   let runtimeCurrentUser = null;
   let runtimeOverrideUser = null;

@@ -315,8 +315,9 @@ const PasswordAuthService = (() => {
     const expires = new Date(expiresAt);
     if (isNaN(expires) || expires <= new Date()) return null;
 
-    const user = RepositoryService.findById('USERS','user_id',userId);
-    if (!user || user.status !== 'ACTIVE') return null;
+    const user = AuthService.listUsersCached()
+      .find(x => x.user_id === userId && x.status === 'ACTIVE');
+    if (!user) return null;
 
     return safeUser_(user);
   }

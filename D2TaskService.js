@@ -314,7 +314,7 @@ const D2TaskService = (() => {
     return {
       ok:true,
       items:all.slice(start,start+pageSize),
-      kanban:all.slice(0,300),
+      kanban:all.slice(0,filters.warm ? 80 : 300),
       stats,
       pagination:{
         page:safePage,
@@ -440,11 +440,7 @@ const D2TaskService = (() => {
 
     return {
       ok:true,
-      task:{
-        task_id:task.task_id,
-        status:task.status || 'NEW',
-        progress:Number(task.progress || 0)
-      }
+      task:enrich_(task,userMap_(),'',0,0)
     };
   }
 
@@ -509,11 +505,7 @@ const D2TaskService = (() => {
 
     return {
       ok:true,
-      task:{
-        task_id:taskId,
-        status:updated.status,
-        progress:Number(updated.progress || 0)
-      }
+      task:enrich_(updated,userMap_(),'',0,0)
     };
   }
 
