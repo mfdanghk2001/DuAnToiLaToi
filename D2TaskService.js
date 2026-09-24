@@ -44,7 +44,7 @@ const D2TaskService = (() => {
 
   function userMap_() {
     const map = {};
-    RepositoryService.getAll('USERS').forEach(u => {
+    AuthService.listUsersCached().forEach(u => {
       map[u.user_id] = {
         user_id:u.user_id,
         full_name:u.full_name || u.email || u.user_id,
@@ -67,7 +67,7 @@ const D2TaskService = (() => {
 
   function activeUser_(userId) {
     if (!userId) return null;
-    const u = RepositoryService.findById('USERS','user_id',userId);
+    const u = AuthService.listUsersCached().find(x => x.user_id === userId);
     if (!u || u.status !== 'ACTIVE') return null;
     return u;
   }
@@ -106,29 +106,24 @@ const D2TaskService = (() => {
     return task.status || 'NEW';
   }
 
-  function sourceMaps_() {
-    const docs = {};
-    RepositoryService.getAll('DOCUMENTS').forEach(x => {
-      docs[x.document_id] = [x.document_no, x.title].filter(Boolean).join(' · ');
-    });
+  function sourceTitleForTask_(task) {
+    if (!task.source_id) return '';
 
-    const meetings = {};
-    RepositoryService.getAll('MEETINGS').forEach(x => {
-      meetings[x.meeting_id] = x.title || x.meeting_id;
-    });
+    if (task.source_type === 'DOCUMENT') {
+      const x = RepositoryService.findById('DOCUMENTS','document_id',task.source_id);
+      return x ? [x.document_no,x.title].filter(Boolean).join(' · ') : 'Văn bản';
+    }
 
-    const drafts = {};
-    RepositoryService.getAll('DRAFTS').forEach(x => {
-      drafts[x.draft_id] = x.title || x.draft_id;
-    });
+    if (task.source_type === 'MEETING') {
+      const x = RepositoryService.findById('MEETINGS','meeting_id',task.source_id);
+      return x?.title || 'Cuộc họp';
+    }
 
-    return {docs,meetings,drafts};
-  }
+    if (task.source_type === 'DRAFT') {
+      const x = RepositoryService.findById('DRAFTS','draft_id',task.source_id);
+      return x?.title || 'Bản nháp';
+    }
 
-  function sourceTitle_(task, maps) {
-    if (task.source_type === 'DOCUMENT') return maps.docs[task.source_id] || 'Văn bản';
-    if (task.source_type === 'MEETING') return maps.meetings[task.source_id] || 'Cuộc họp';
-    if (task.source_type === 'DRAFT') return maps.drafts[task.source_id] || 'Bản nháp';
     return '';
   }
 
@@ -186,7 +181,7 @@ const D2TaskService = (() => {
     });
   }
 
-  function enrich_(task, users, sources, fileCounts, commentCounts) {
+  function enrich_(task, users, sourceTitle, fileCount, commentCount) {
     const collabIds = collaboratorIds_(task);
     return {
       ...task,
@@ -196,16 +191,15 @@ const D2TaskService = (() => {
       assigner_name:users[task.assigner_user_id]?.full_name || '',
       collaborator_ids:collabIds,
       collaborator_names:collabIds.map(id => users[id]?.full_name || id),
-      source_title:sourceTitle_(task,sources),
+      source_title:sourceTitle || '',
       source_ref:sourceUrl_(task),
-      file_count:Number(fileCounts[task.task_id] || 0),
-      comment_count:Number(commentCounts[task.task_id] || 0)
+      file_count:Number(fileCount || 0),
+      comment_count:Number(commentCount || 0)
     };
   }
 
   function list(filters) {
     AuthService.requirePermission('tasks.view');
-    ensureSupportSheet_();
 
     filters = filters || {};
     const q = clean_(filters.q).toLowerCase();
@@ -217,23 +211,13 @@ const D2TaskService = (() => {
     const page = Math.max(1,Number(filters.page || 1));
     const pageSize = Math.max(5,Math.min(Number(filters.pageSize || 10),50));
 
+    const started = Date.now();
     const users = userMap_();
-    const sources = sourceMaps_();
 
-    const fileCounts = {};
-    RepositoryService.getAll(FILE_SHEET).forEach(f => {
-      fileCounts[f.task_id] = (fileCounts[f.task_id] || 0) + 1;
-    });
-
-    const commentCounts = {};
-    RepositoryService.getAll('TASK_HISTORY')
-      .filter(h => h.action === 'COMMENT')
-      .forEach(h => {
-        commentCounts[h.task_id] = (commentCounts[h.task_id] || 0) + 1;
-      });
-
+    // P1: danh sách nhiệm vụ chỉ cần TASKS + user cache.
+    // File, lịch sử và hồ sơ nguồn chỉ đọc khi mở chi tiết.
     let all = RepositoryService.getAll('TASKS')
-      .map(t => enrich_(t,users,sources,fileCounts,commentCounts));
+      .map(t => enrich_(t,users,'',0,0));
 
     const now = new Date();
     const next48 = new Date(now.getTime() + 48*60*60*1000);
@@ -285,7 +269,7 @@ const D2TaskService = (() => {
         [
           t.title,t.description,t.owner_name,t.assigner_name,
           (t.collaborator_names || []).join(' '),
-          t.source_title,t.result_note
+          t.result_note,taskSourceLabelForSearch_(t.source_type)
         ].some(v => String(v || '').toLowerCase().includes(q))
       );
     }
@@ -332,8 +316,17 @@ const D2TaskService = (() => {
             department_id:u.department_id
           }))
           .sort((a,b) => a.full_name.localeCompare(b.full_name,'vi'))
-      }
+      },
+      server_ms:Date.now()-started
     };
+  }
+
+  function taskSourceLabelForSearch_(type) {
+    return ({
+      DOCUMENT:'văn bản',
+      MEETING:'cuộc họp',
+      DRAFT:'bản nháp'
+    })[type] || '';
   }
 
   function listHistory_(taskId, users) {
@@ -365,23 +358,26 @@ const D2TaskService = (() => {
     AuthService.requirePermission('tasks.view');
     ensureSupportSheet_();
 
+    const started = Date.now();
     const users = userMap_();
-    const sources = sourceMaps_();
     const task = getTask_(taskId);
-
     const fileRows = listFiles_(taskId,users);
     const history = listHistory_(taskId,users);
-    const fileCounts = {[taskId]:fileRows.length};
-    const commentCounts = {
-      [taskId]:history.filter(h => h.action === 'COMMENT').length
-    };
+    const sourceTitle = sourceTitleForTask_(task);
 
     return {
       ok:true,
-      task:enrich_(task,users,sources,fileCounts,commentCounts),
+      task:enrich_(
+        task,
+        users,
+        sourceTitle,
+        fileRows.length,
+        history.filter(h => h.action === 'COMMENT').length
+      ),
       files:fileRows,
       history,
-      permissions:permissionFlags_(task)
+      permissions:permissionFlags_(task),
+      server_ms:Date.now()-started
     };
   }
 
@@ -424,15 +420,14 @@ const D2TaskService = (() => {
       note:'Tạo nhiệm vụ'
     });
 
-    ActivityService.log('CREATE','TASK',task.task_id,{
-      title,
-      owner_user_id:ownerId,
-      collaborator_ids:uniqueCollaborators,
-      source_type:clean_(payload.source_type).toUpperCase(),
-      source_id:clean_(payload.source_id)
-    });
-
-    return get(task.task_id);
+    return {
+      ok:true,
+      task:{
+        task_id:task.task_id,
+        status:task.status || 'NEW',
+        progress:Number(task.progress || 0)
+      }
+    };
   }
 
   function update(taskId,payload) {
@@ -494,7 +489,14 @@ const D2TaskService = (() => {
       due_date:updated.due_date
     });
 
-    return get(taskId);
+    return {
+      ok:true,
+      task:{
+        task_id:taskId,
+        status:updated.status,
+        progress:Number(updated.progress || 0)
+      }
+    };
   }
 
   function updateProgress(taskId,payload) {
@@ -555,7 +557,7 @@ const D2TaskService = (() => {
       status:updated.status
     });
 
-    return get(taskId);
+    return {ok:true, task_id:taskId};
   }
 
   function submitForApproval(taskId,note) {
@@ -584,7 +586,7 @@ const D2TaskService = (() => {
 
     ActivityService.log('SUBMIT_APPROVAL','TASK',taskId,{});
 
-    return get(taskId);
+    return {ok:true, task_id:taskId};
   }
 
   function approve(taskId,action,note) {
@@ -641,7 +643,7 @@ const D2TaskService = (() => {
       ActivityService.log('RETURN','TASK',taskId,{note:clean_(note)});
     }
 
-    return get(taskId);
+    return {ok:true, task_id:taskId};
   }
 
   function cancel(taskId,note) {
@@ -667,7 +669,7 @@ const D2TaskService = (() => {
     });
 
     ActivityService.log('CANCEL','TASK',taskId,{note:clean_(note)});
-    return get(taskId);
+    return {ok:true, task_id:taskId};
   }
 
   function reopen(taskId,note) {
@@ -700,7 +702,7 @@ const D2TaskService = (() => {
     });
 
     ActivityService.log('REOPEN','TASK',taskId,{});
-    return get(taskId);
+    return {ok:true, task_id:taskId};
   }
 
   function addComment(taskId,note) {
@@ -723,7 +725,7 @@ const D2TaskService = (() => {
     });
 
     ActivityService.log('COMMENT','TASK',taskId,{note:text});
-    return get(taskId);
+    return {ok:true, task_id:taskId};
   }
 
   function ensureTaskFolder_(taskId,taskTitle) {
@@ -783,7 +785,7 @@ const D2TaskService = (() => {
       driveFileId:saved.fileId
     });
 
-    return get(taskId);
+    return {ok:true, task_id:taskId};
   }
 
   return {

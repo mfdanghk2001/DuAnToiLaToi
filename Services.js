@@ -21,8 +21,7 @@ const UserService = (() => {
   function listActive() {
     const me = AuthService.getCurrentUser();
     if (!me.authenticated) throw new Error('Chưa đăng nhập.');
-    return RepositoryService.getAll('USERS')
-      .filter(x => x.status === 'ACTIVE')
+    return AuthService.listActiveUsersCached()
       .map(x => ({
         user_id:x.user_id,
         email:x.email,
