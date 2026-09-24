@@ -630,6 +630,35 @@ const F1CompleteService = (() => {
     });
   }
 
+  function updateMeetingMemberStatus(meetingId,memberId,status,note) {
+    requirePerm_('meetings.update');
+    prepareMeetings_();
+
+    status = clean_(status || 'INVITED').toUpperCase();
+    if (!['INVITED','PRESENT','ABSENT','EXCUSED'].includes(status)) {
+      throw new Error('Trạng thái tham dự không hợp lệ.');
+    }
+
+    return withLock_(() => {
+      const member = RepositoryService.findById('MEETING_MEMBERS','id',memberId);
+      if (!member || member.meeting_id !== meetingId) {
+        throw new Error('Không tìm thấy thành viên cuộc họp.');
+      }
+
+      const updated = RepositoryService.updateById('MEETING_MEMBERS','id',memberId,{
+        attendance_status:status,
+        note:note === undefined ? member.note : clean_(note)
+      });
+
+      ActivityService.log('UPDATE_MEMBER','MEETING',meetingId,{
+        member_id:memberId,
+        attendance_status:status
+      });
+
+      return {ok:true,member:updated};
+    });
+  }
+
   function addMeetingFile(meetingId,file,kind) {
     requirePerm_('meetings.update');
     prepareMeetings_();
@@ -1317,6 +1346,7 @@ const F1CompleteService = (() => {
     createMeeting,
     updateMeeting,
     saveMeetingNotes,
+    updateMeetingMemberStatus,
     addMeetingFile,
     repositoryList,
     repositoryCreateFolder,
