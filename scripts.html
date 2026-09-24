@@ -4421,7 +4421,7 @@ document.addEventListener('DOMContentLoaded', () => {
     drawerBody.innerHTML=`
       <div class="detail-summary"><span class="status status-progress">${esc(calendarTypeLabelF1(e.event_type))}</span><h3>${esc(e.title)}</h3><p>${esc(e.description||'Chưa có ghi chú.')}</p></div>
       <div class="d1-drawer-actions">
-        ${canEdit?`<button class="btn btn-secondary btn-sm" id="f1EditCalendar"><i data-lucide="pencil"></i> Cập nhật</button><button class="btn btn-light btn-sm" id="f1CancelCalendar"><i data-lucide="calendar-x"></i> Hủy lịch</button>`:''}
+        ${canEdit&&!e.meeting_id?`<button class="btn btn-secondary btn-sm" id="f1EditCalendar"><i data-lucide="pencil"></i> Cập nhật</button><button class="btn btn-light btn-sm" id="f1CancelCalendar"><i data-lucide="calendar-x"></i> Hủy lịch</button>`:''}
       </div>
       <div class="detail-grid">
         <div class="detail-field"><span>Ngày</span><strong>${formatDateVN(e.event_date)}</strong></div>
