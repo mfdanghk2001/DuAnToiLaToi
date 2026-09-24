@@ -2411,4 +2411,207 @@ html,body{max-width:100%;overflow-x:clip}
   .filter-select{flex:1 1 150px;max-width:none}
 }
 
+
+/* =========================
+   D2 - COMPLETE TASK MODULE
+   ========================= */
+.d2-task-panel{overflow:hidden}
+.d2-task-toolbar{
+  gap:7px;
+  flex-wrap:wrap;
+}
+.d2-task-toolbar .task-search{
+  flex:1 1 320px;
+  min-width:250px;
+}
+.d2-stat-filter{
+  appearance:none;
+  width:100%;
+  border:1px solid #E5E7EB;
+  text-align:left;
+  cursor:pointer;
+}
+.d2-stat-filter:hover{
+  transform:translateY(-1px);
+  border-color:#CBD5E1;
+  box-shadow:0 8px 20px rgba(15,23,42,.06);
+}
+.d2-task-row{cursor:pointer}
+.d2-task-row:hover{background:#FBFCFE}
+.d2-task-overdue{background:#FFFBFB}
+.d2-task-overdue:hover{background:#FFF7F7}
+.d2-task-modal-card{width:min(900px,96vw)}
+.d2-task-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.d2-collaborator-picker{
+  max-height:190px;
+  overflow:auto;
+  border:1px solid #E2E8F0;
+  border-radius:11px;
+  padding:6px;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:5px;
+  background:#FAFBFC;
+}
+.d2-collaborator-option{
+  min-width:0;
+  display:grid;
+  grid-template-columns:18px 30px minmax(0,1fr);
+  gap:7px;
+  align-items:center;
+  border:1px solid transparent;
+  border-radius:9px;
+  padding:6px;
+  background:#fff;
+  cursor:pointer;
+}
+.d2-collaborator-option:hover{border-color:#E2E8F0}
+.d2-collaborator-option input{accent-color:#B91C1C}
+.d2-collaborator-option>span:last-child{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:1px
+}
+.d2-collaborator-option strong{
+  font-size:8px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.d2-collaborator-option small{font-size:7px;color:#94A3B8}
+.d2-source-preview:empty{display:none}
+.d2-source-card{
+  min-height:54px;
+  border:1px solid #DBEAFE;
+  background:#EFF6FF;
+  color:#1E3A8A;
+  border-radius:11px;
+  display:grid;
+  grid-template-columns:32px minmax(0,1fr);
+  gap:8px;
+  align-items:center;
+  padding:8px 10px;
+}
+.d2-source-card>svg{width:16px;height:16px}
+.d2-source-card>div{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:3px
+}
+.d2-source-card strong{font-size:8px}
+.d2-source-card span{
+  font-size:7.5px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.d2-kanban-board{
+  grid-template-columns:repeat(5,minmax(210px,1fr));
+  min-width:1120px;
+}
+.d2-kanban-stack{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.d2-kanban-empty{
+  min-height:80px;
+  border:1px dashed #E2E8F0;
+  border-radius:10px;
+  color:#94A3B8;
+  display:grid;
+  place-items:center;
+  font-size:8px;
+  background:#FAFBFC;
+}
+.d2-progress-editor{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:8px;
+  align-items:center;
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid #F1F5F9;
+}
+.d2-progress-editor input[type="range"]{
+  width:100%;
+  accent-color:#B91C1C;
+}
+.d2-progress-editor>strong{
+  min-width:42px;
+  color:#B91C1C;
+  font-size:10px;
+  text-align:right;
+}
+.d2-progress-editor textarea{
+  grid-column:1/-1;
+  width:100%;
+  min-height:65px;
+  border:1px solid #DCE3EA;
+  border-radius:10px;
+  padding:8px 9px;
+  resize:vertical;
+  outline:0;
+  font-size:8.5px;
+  line-height:1.5;
+}
+.d2-progress-editor .btn{
+  grid-column:2;
+  justify-self:end
+}
+.d2-result-note{
+  margin-top:10px;
+  border:1px solid #DCFCE7;
+  background:#F0FDF4;
+  border-radius:10px;
+  padding:9px;
+}
+.d2-result-note strong{font-size:8px;color:#166534}
+.d2-result-note p{font-size:8px;color:#475569;line-height:1.5;margin:4px 0 0;white-space:pre-wrap}
+.d2-source-open{
+  width:100%;
+  min-height:54px;
+  border:1px solid #E2E8F0;
+  border-radius:10px;
+  background:#fff;
+  display:grid;
+  grid-template-columns:28px minmax(0,1fr) 22px;
+  gap:8px;
+  align-items:center;
+  text-align:left;
+  color:#334155;
+  padding:8px 9px;
+}
+.d2-source-open:hover{background:#F8FAFC}
+.d2-source-open>svg{width:15px;height:15px;color:#64748B}
+.d2-source-open>div{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:3px
+}
+.d2-source-open strong{font-size:8.5px}
+.d2-source-open span{
+  font-size:7.5px;
+  color:#94A3B8;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.d2-empty-small{
+  padding:10px;
+  color:#94A3B8;
+  font-size:8px;
+  text-align:center;
+}
+
+@media(max-width:900px){
+  .d2-collaborator-picker{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .d2-task-form-grid{grid-template-columns:1fr}
+}
+
 </style>
