@@ -491,11 +491,17 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const P1 = {
-    cacheMs:30000,
+    cacheMs:120000,
     dashboardDirty:false,
     calendarLoaded:false,
     meetingsLoaded:false,
     aiConfigLoaded:false
+  };
+
+  const P2 = {
+    prefetchPromise:null,
+    prefetched:false,
+    syncEl:null
   };
 
   const F1 = {
@@ -519,6 +525,38 @@ document.addEventListener('DOMContentLoaded', () => {
     activeTool:''
   };
 
+  function defaultD1Key_(){
+    return JSON.stringify({
+      q:'',direction:'ALL',status:'ALL',year:'ALL',issuer:'ALL',field:'ALL',page:1,pageSize:10
+    });
+  }
+
+  function defaultD2Key_(){
+    return JSON.stringify({
+      q:'',status:'ALL',owner:'ALL',priority:'ALL',sourceType:'ALL',due:'ALL',page:1,pageSize:10
+    });
+  }
+
+  function ensureSyncIndicatorP2_(){
+    if(P2.syncEl) return P2.syncEl;
+    const el=document.createElement('div');
+    el.className='p2-sync-indicator';
+    el.id='p2SyncIndicator';
+    document.body.appendChild(el);
+    P2.syncEl=el;
+    return el;
+  }
+
+  function showSyncP2_(text,state='loading',autoHide=0){
+    const el=ensureSyncIndicatorP2_();
+    el.className='p2-sync-indicator show'+(state==='success'?' success':state==='error'?' error':'');
+    el.innerHTML=state==='loading'
+      ? '<span class="backend-spinner"></span><span>'+esc(text)+'</span>'
+      : '<i data-lucide="'+(state==='success'?'circle-check-big':'circle-alert')+'"></i><span>'+esc(text)+'</span>';
+    lucide.createIcons();
+    if(autoHide) setTimeout(()=>el.classList.remove('show'),autoHide);
+  }
+
   const gasCall = (fn, ...args) => new Promise((resolve, reject) => {
     if (!window.google || !google.script || !google.script.run) {
       reject(new Error('Không tìm thấy môi trường Google Apps Script.'));
@@ -529,6 +567,36 @@ document.addEventListener('DOMContentLoaded', () => {
       .withFailureHandler(err => reject(new Error(err?.message || String(err))));
     runner[fn](...args);
   });
+
+  async function startP2Prefetch_(){
+    if(P2.prefetchPromise) return P2.prefetchPromise;
+
+    P2.prefetchPromise=gasCall('apiP2Prefetch')
+      .then(data=>{
+        if(!data?.ok) return data;
+
+        if(data.documents){
+          D1.list=data.documents;
+          D1.filters.page=data.documents.pagination?.page||1;
+          D1.loadedAt=Date.now();
+          D1.loadedKey=defaultD1Key_();
+        }
+
+        if(data.tasks){
+          D2.list=data.tasks;
+          D2.filters.page=data.tasks.pagination?.page||1;
+          D2.loadedAt=Date.now();
+          D2.loadedKey=defaultD2Key_();
+        }
+
+        P2.prefetched=true;
+        return data;
+      })
+      .catch(()=>null)
+      .finally(()=>{ P2.prefetchPromise=null; });
+
+    return P2.prefetchPromise;
+  }
 
   const esc = value => String(value ?? '')
     .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
