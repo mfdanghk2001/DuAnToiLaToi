@@ -1027,10 +1027,11 @@ const F1CompleteService = (() => {
       from = new Date(anchor.getFullYear(),q*3,1);
       to = new Date(anchor.getFullYear(),q*3+3,0,23,59,59,999);
     } else if (period === 'CUSTOM') {
-      from = new Date(filters.dateFrom);
-      to = new Date(filters.dateTo);
+      from = new Date(String(filters.dateFrom || '') + 'T00:00:00');
+      to = new Date(String(filters.dateTo || '') + 'T23:59:59');
       if (isNaN(from) || isNaN(to)) throw new Error('Khoảng thời gian tùy chỉnh không hợp lệ.');
-      to.setHours(23,59,59,999);
+      if (from > to) throw new Error('Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.');
+      to.setMilliseconds(999);
     } else {
       from = new Date(anchor.getFullYear(),anchor.getMonth(),1);
       to = new Date(anchor.getFullYear(),anchor.getMonth()+1,0,23,59,59,999);
