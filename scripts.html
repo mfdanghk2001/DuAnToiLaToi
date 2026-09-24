@@ -394,6 +394,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('dashboardAllTasks')?.addEventListener('click',()=>document.querySelector('.nav-item[data-page="tasks"]')?.click());
   document.getElementById('dashboardAllDocuments')?.addEventListener('click',()=>document.querySelector('.nav-item[data-page="documents"]')?.click());
   document.getElementById('dashboardAllTools')?.addEventListener('click',()=>document.querySelector('.nav-item[data-page="tools"]')?.click());
+  document.getElementById('dashboardAddCalendar')?.addEventListener('click',()=>openCalendarModalF1(null,dateKeyLocal(new Date())));
+  document.querySelectorAll('#page-dashboard .stat-card').forEach((card,i)=>card.addEventListener('click',()=>{
+    const page=i===0?'documents':'tasks';
+    document.querySelector(`.nav-item[data-page="${page}"]`)?.click();
+  }));
 
 
 
