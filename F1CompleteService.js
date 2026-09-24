@@ -346,11 +346,18 @@ const F1CompleteService = (() => {
     const files = RepositoryService.getAll(MEETING_FILES_SHEET);
     const links = RepositoryService.getAll('MEETING_TASKS');
 
+    const memberCount = {};
+    const fileCount = {};
+    const taskCount = {};
+    members.forEach(x => memberCount[x.meeting_id] = (memberCount[x.meeting_id] || 0) + 1);
+    files.forEach(x => fileCount[x.meeting_id] = (fileCount[x.meeting_id] || 0) + 1);
+    links.forEach(x => taskCount[x.meeting_id] = (taskCount[x.meeting_id] || 0) + 1);
+
     let meetings = RepositoryService.getAll('MEETINGS').map(m => ({
       ...m,
-      member_count:members.filter(x => x.meeting_id === m.meeting_id).length,
-      file_count:files.filter(x => x.meeting_id === m.meeting_id).length,
-      task_count:links.filter(x => x.meeting_id === m.meeting_id).length,
+      member_count:memberCount[m.meeting_id] || 0,
+      file_count:fileCount[m.meeting_id] || 0,
+      task_count:taskCount[m.meeting_id] || 0,
       folder_url:m.drive_folder_id
         ? ('https://drive.google.com/drive/folders/' + m.drive_folder_id)
         : ''
