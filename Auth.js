@@ -69,7 +69,7 @@ const AuthService = (() => {
         email:'',
         role:'',
         permissions:[],
-        message:'Không lấy được email người dùng trong chế độ triển khai hiện tại.'
+        message:'Không xác định được email người truy cập. Hãy đăng nhập bằng tài khoản Google đã được cấp quyền và mở lại ứng dụng.'
       };
     }
 
