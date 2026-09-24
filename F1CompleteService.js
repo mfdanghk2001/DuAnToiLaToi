@@ -227,6 +227,9 @@ const F1CompleteService = (() => {
     return withLock_(() => {
       const current = RepositoryService.findById('CALENDAR','event_id',eventId);
       if (!current) throw new Error('Không tìm thấy lịch công tác.');
+      if (current.meeting_id) {
+        throw new Error('Lịch này được đồng bộ từ cuộc họp. Hãy cập nhật trong hồ sơ Cuộc họp.');
+      }
 
       const title = clean_(payload.title !== undefined ? payload.title : current.title);
       const eventDate = clean_(payload.event_date !== undefined ? payload.event_date : current.event_date);
@@ -266,6 +269,9 @@ const F1CompleteService = (() => {
     return withLock_(() => {
       const current = RepositoryService.findById('CALENDAR','event_id',eventId);
       if (!current) throw new Error('Không tìm thấy lịch công tác.');
+      if (current.meeting_id) {
+        throw new Error('Lịch này được đồng bộ từ cuộc họp. Hãy hủy hoặc cập nhật trong hồ sơ Cuộc họp.');
+      }
       const updated = RepositoryService.updateById('CALENDAR','event_id',eventId,{
         status:'CANCELLED',
         updated_at:new Date(),
@@ -879,6 +885,15 @@ const F1CompleteService = (() => {
     prepareRepo_();
     const me = me_();
 
+    itemType = clean_(itemType).toLowerCase();
+    if (itemType === 'folder') {
+      if (!folderInsideRoot_(itemId)) throw new Error('Thư mục không hợp lệ.');
+    } else if (itemType === 'file') {
+      if (!fileInsideRoot_(itemId)) throw new Error('Tệp không hợp lệ.');
+    } else {
+      throw new Error('Loại tài liệu không hợp lệ.');
+    }
+
     const rows = RepositoryService.getAll(REPO_META_SHEET);
     const existing = rows.find(x => x.item_id === itemId);
     const patch = {
@@ -1058,7 +1073,9 @@ const F1CompleteService = (() => {
       const key = Utilities.formatDate(d,TZ,'yyyy-MM');
       const mt = allTasks.filter(t => {
         const dt = taskDate(t);
-        return !isNaN(dt) && Utilities.formatDate(dt,TZ,'yyyy-MM') === key;
+        const inMonth = !isNaN(dt) && Utilities.formatDate(dt,TZ,'yyyy-MM') === key;
+        const inDepartment = dept === 'ALL' || users[t.owner_user_id]?.department_id === dept;
+        return inMonth && inDepartment;
       });
       months.push({
         key,
