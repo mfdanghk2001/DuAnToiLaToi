@@ -2947,6 +2947,10 @@ document.addEventListener('DOMContentLoaded', () => {
     switchGoogleAccount_();
   });
   document.getElementById('profileLogout')?.addEventListener('click',logoutGoogle_);
+  document.getElementById('sidebarLogout')?.addEventListener('click',e=>{
+    e.preventDefault();
+    logoutGoogle_();
+  });
   document.addEventListener('click',e=>{
     if(!e.target.closest('#profileMenuWrap')) closeProfileMenu_();
   });
