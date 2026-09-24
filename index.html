@@ -587,30 +587,67 @@
             <div>
               <p class="eyebrow">THEO DÕI CÔNG VIỆC</p>
               <h1>Nhiệm vụ</h1>
-              <p>Giao việc, theo dõi tiến độ, cảnh báo thời hạn và tổng hợp kết quả thực hiện.</p>
+              <p>Giao việc, phối hợp, theo dõi tiến độ, trình duyệt và kiểm soát thời hạn thực hiện.</p>
             </div>
             <div class="module-actions">
-              <button class="btn btn-secondary demo-action"><i data-lucide="download"></i> Xuất báo cáo</button>
-              <button class="btn btn-primary open-create-modal" data-type="task"><i data-lucide="list-plus"></i> Giao nhiệm vụ</button>
+              <button class="btn btn-secondary" id="taskRefreshBtn"><i data-lucide="refresh-cw"></i> Làm mới</button>
+              <button class="btn btn-primary" id="taskCreateBtn"><i data-lucide="list-plus"></i> Giao nhiệm vụ</button>
             </div>
           </section>
 
           <section class="mini-stat-grid">
-            <div class="mini-stat"><span class="mini-stat-icon slate"><i data-lucide="circle-dashed"></i></span><div><strong id="taskNewCount">0</strong><span>Chưa xử lý</span></div></div>
-            <div class="mini-stat"><span class="mini-stat-icon blue"><i data-lucide="loader-circle"></i></span><div><strong id="taskProgressCount">0</strong><span>Đang thực hiện</span></div></div>
-            <div class="mini-stat"><span class="mini-stat-icon purple"><i data-lucide="badge-check"></i></span><div><strong id="taskWaitingCount">0</strong><span>Chờ duyệt</span></div></div>
-            <div class="mini-stat"><span class="mini-stat-icon red"><i data-lucide="circle-alert"></i></span><div><strong id="taskOverdueCount">0</strong><span>Quá hạn</span></div></div>
+            <button class="mini-stat d2-stat-filter" data-task-status="NEW">
+              <span class="mini-stat-icon slate"><i data-lucide="circle-dashed"></i></span>
+              <div><strong id="taskNewCount">0</strong><span>Chưa xử lý</span></div>
+            </button>
+            <button class="mini-stat d2-stat-filter" data-task-status="IN_PROGRESS">
+              <span class="mini-stat-icon blue"><i data-lucide="loader-circle"></i></span>
+              <div><strong id="taskProgressCount">0</strong><span>Đang thực hiện</span></div>
+            </button>
+            <button class="mini-stat d2-stat-filter" data-task-status="WAITING_APPROVAL">
+              <span class="mini-stat-icon purple"><i data-lucide="badge-check"></i></span>
+              <div><strong id="taskWaitingCount">0</strong><span>Chờ duyệt</span></div>
+            </button>
+            <button class="mini-stat d2-stat-filter" data-task-status="OVERDUE">
+              <span class="mini-stat-icon red"><i data-lucide="circle-alert"></i></span>
+              <div><strong id="taskOverdueCount">0</strong><span>Quá hạn</span></div>
+            </button>
           </section>
 
-          <section class="panel module-panel">
-            <div class="task-toolbar">
+          <section class="panel module-panel d2-task-panel">
+            <div class="task-toolbar d2-task-toolbar">
               <div class="filter-search task-search">
                 <i data-lucide="search"></i>
-                <input type="text" id="taskSearch" placeholder="Tìm nhiệm vụ...">
+                <input type="text" id="taskSearch" placeholder="Tìm nhiệm vụ, người phụ trách, nguồn công việc...">
               </div>
-              <div class="toolbar-spacer"></div>
-              <button class="filter-chip"><i data-lucide="user-round"></i> Người phụ trách <i data-lucide="chevron-down"></i></button>
-              <button class="filter-chip"><i data-lucide="flag"></i> Mức độ <i data-lucide="chevron-down"></i></button>
+
+              <select class="filter-select" id="taskOwnerFilter">
+                <option value="ALL">Tất cả người phụ trách</option>
+              </select>
+              <select class="filter-select" id="taskPriorityFilter">
+                <option value="ALL">Tất cả mức độ</option>
+                <option value="URGENT">Khẩn</option>
+                <option value="HIGH">Cao</option>
+                <option value="NORMAL">Bình thường</option>
+              </select>
+              <select class="filter-select" id="taskStatusFilter">
+                <option value="ALL">Tất cả trạng thái</option>
+                <option value="NEW">Chưa xử lý</option>
+                <option value="IN_PROGRESS">Đang thực hiện</option>
+                <option value="WAITING_APPROVAL">Chờ duyệt</option>
+                <option value="COMPLETED">Hoàn thành</option>
+                <option value="OVERDUE">Quá hạn</option>
+                <option value="CANCELLED">Đã hủy</option>
+              </select>
+              <select class="filter-select" id="taskSourceFilter">
+                <option value="ALL">Tất cả nguồn</option>
+                <option value="DOCUMENT">Văn bản</option>
+                <option value="MEETING">Cuộc họp</option>
+                <option value="DRAFT">Bản nháp</option>
+              </select>
+
+              <button class="filter-chip" id="taskResetFilters"><i data-lucide="rotate-ccw"></i> Đặt lại</button>
+
               <div class="view-switch">
                 <button class="view-btn active" data-task-view="list" title="Danh sách"><i data-lucide="list"></i></button>
                 <button class="view-btn" data-task-view="kanban" title="Kanban"><i data-lucide="columns-3"></i></button>
@@ -618,110 +655,15 @@
             </div>
 
             <div id="taskListView">
-              <div class="task-full-list" id="taskFullList">
-                <article class="task-full-row task-detail-trigger">
-                  <button class="task-check"><i data-lucide="circle"></i></button>
-                  <div class="priority-bar high"></div>
-                  <div class="task-full-main">
-                    <div class="task-full-title">
-                      <strong>Hoàn thiện dự thảo báo cáo công tác tháng 9</strong>
-                      <span class="status status-progress">Đang thực hiện</span>
-                    </div>
-                    <p>Tổng hợp số liệu, hoàn thiện nội dung và trình lãnh đạo xem xét trước 16:30.</p>
-                    <div class="task-full-meta">
-                      <span><i data-lucide="user"></i> Nguyễn Văn A</span>
-                      <span class="urgent"><i data-lucide="alarm-clock"></i> Hôm nay · 16:30</span>
-                      <span><i data-lucide="paperclip"></i> 3 tài liệu</span>
-                      <span class="tag">Báo cáo</span>
-                    </div>
-                  </div>
-                  <div class="progress-cell"><div class="tiny-progress"><span style="width:72%"></span></div><small>72%</small></div>
-                  <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
-                </article>
-
-                <article class="task-full-row task-detail-trigger">
-                  <button class="task-check"><i data-lucide="circle"></i></button>
-                  <div class="priority-bar medium"></div>
-                  <div class="task-full-main">
-                    <div class="task-full-title">
-                      <strong>Chuẩn bị tài liệu họp Ban Thường vụ</strong>
-                      <span class="status status-warning">Sắp đến hạn</span>
-                    </div>
-                    <p>Rà soát chương trình, thành phần, hồ sơ và tài liệu phục vụ cuộc họp.</p>
-                    <div class="task-full-meta">
-                      <span><i data-lucide="user"></i> Văn phòng</span>
-                      <span><i data-lucide="alarm-clock"></i> 18/09/2026 · 08:00</span>
-                      <span><i data-lucide="paperclip"></i> 5 tài liệu</span>
-                      <span class="tag">Cuộc họp</span>
-                    </div>
-                  </div>
-                  <div class="progress-cell"><div class="tiny-progress"><span style="width:45%"></span></div><small>45%</small></div>
-                  <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
-                </article>
-
-                <article class="task-full-row task-detail-trigger">
-                  <button class="task-check"><i data-lucide="circle"></i></button>
-                  <div class="priority-bar normal"></div>
-                  <div class="task-full-main">
-                    <div class="task-full-title">
-                      <strong>Tổng hợp báo cáo của các chi bộ trực thuộc</strong>
-                      <span class="status status-new">Chưa xử lý</span>
-                    </div>
-                    <p>Theo dõi tiến độ gửi báo cáo và tổng hợp các nội dung nổi bật.</p>
-                    <div class="task-full-meta">
-                      <span><i data-lucide="user"></i> Nguyễn Thị A</span>
-                      <span><i data-lucide="alarm-clock"></i> 20/09/2026</span>
-                      <span><i data-lucide="paperclip"></i> 1 tài liệu</span>
-                      <span class="tag">Tổng hợp</span>
-                    </div>
-                  </div>
-                  <div class="progress-cell"><div class="tiny-progress"><span style="width:10%"></span></div><small>10%</small></div>
-                  <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
-                </article>
-
-                <article class="task-full-row task-detail-trigger">
-                  <button class="task-check"><i data-lucide="circle"></i></button>
-                  <div class="priority-bar overdue"></div>
-                  <div class="task-full-main">
-                    <div class="task-full-title">
-                      <strong>Rà soát danh sách nhiệm vụ quý III</strong>
-                      <span class="status status-danger">Quá hạn</span>
-                    </div>
-                    <p>Kiểm tra các đầu việc chưa hoàn thành và cập nhật nguyên nhân, hướng xử lý.</p>
-                    <div class="task-full-meta">
-                      <span><i data-lucide="user"></i> Trần Văn B</span>
-                      <span class="urgent"><i data-lucide="alarm-clock"></i> Quá hạn 1 ngày</span>
-                      <span><i data-lucide="paperclip"></i> 2 tài liệu</span>
-                      <span class="tag">Theo dõi</span>
-                    </div>
-                  </div>
-                  <div class="progress-cell"><div class="tiny-progress danger-progress"><span style="width:60%"></span></div><small>60%</small></div>
-                  <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
-                </article>
+              <div class="task-full-list" id="taskFullList"></div>
+              <div class="table-footer document-pagination">
+                <span id="taskResultText">Hiển thị 0 nhiệm vụ</span>
+                <div class="pagination" id="taskPagination"></div>
               </div>
             </div>
 
             <div id="taskKanbanView" class="hidden-block">
-              <div class="kanban-board">
-                <div class="kanban-column">
-                  <div class="kanban-head"><span><i data-lucide="circle-dashed"></i> Chưa xử lý</span><strong>3</strong></div>
-                  <div class="kanban-card task-detail-trigger"><span class="kanban-priority blue-bg"></span><h3>Tổng hợp báo cáo các chi bộ</h3><p>Hạn 20/09/2026</p><div><span class="avatar avatar-xs">NA</span><span class="tag">Tổng hợp</span></div></div>
-                  <div class="kanban-card task-detail-trigger"><span class="kanban-priority blue-bg"></span><h3>Chuẩn bị dự thảo kế hoạch tháng 10</h3><p>Hạn 23/09/2026</p><div><span class="avatar avatar-xs blue-avatar">VB</span><span class="tag">Kế hoạch</span></div></div>
-                </div>
-                <div class="kanban-column">
-                  <div class="kanban-head"><span><i data-lucide="loader-circle"></i> Đang thực hiện</span><strong>5</strong></div>
-                  <div class="kanban-card task-detail-trigger"><span class="kanban-priority red-bg"></span><h3>Hoàn thiện báo cáo tháng 9</h3><p>Hôm nay · 16:30</p><div><span class="avatar avatar-xs green-avatar">VA</span><span class="tag">Báo cáo</span></div></div>
-                  <div class="kanban-card task-detail-trigger"><span class="kanban-priority amber-bg"></span><h3>Chuẩn bị tài liệu họp BTV</h3><p>18/09/2026 · 08:00</p><div><span class="avatar avatar-xs blue-avatar">VP</span><span class="tag">Cuộc họp</span></div></div>
-                </div>
-                <div class="kanban-column">
-                  <div class="kanban-head"><span><i data-lucide="badge-check"></i> Chờ duyệt</span><strong>2</strong></div>
-                  <div class="kanban-card task-detail-trigger"><span class="kanban-priority purple-bg"></span><h3>Dự thảo thông báo kết luận</h3><p>Đã trình lúc 10:45</p><div><span class="avatar avatar-xs purple-avatar">TC</span><span class="tag">Dự thảo</span></div></div>
-                </div>
-                <div class="kanban-column danger-column">
-                  <div class="kanban-head"><span><i data-lucide="circle-alert"></i> Quá hạn</span><strong>1</strong></div>
-                  <div class="kanban-card task-detail-trigger"><span class="kanban-priority dark-red-bg"></span><h3>Rà soát nhiệm vụ quý III</h3><p class="danger-text">Quá hạn 1 ngày</p><div><span class="avatar avatar-xs amber-avatar">TB</span><span class="tag">Theo dõi</span></div></div>
-                </div>
-              </div>
+              <div class="kanban-board d2-kanban-board" id="taskKanbanBoard"></div>
             </div>
           </section>
         </div>
@@ -1451,6 +1393,80 @@
 
 
 
+
+  <!-- D2 TASK CREATE / EDIT -->
+  <div class="modal-overlay" id="d2TaskModal">
+    <div class="app-modal d2-task-modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="drawer-eyebrow">QUẢN LÝ NHIỆM VỤ</span>
+          <h2 id="d2TaskModalTitle">Giao nhiệm vụ</h2>
+        </div>
+        <button class="icon-btn d2-task-modal-close"><i data-lucide="x"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-grid d2-task-form-grid">
+          <label class="form-field form-span-2">
+            <span>Tên nhiệm vụ <b>*</b></span>
+            <input id="d2TaskTitle" type="text" placeholder="Nhập nội dung công việc cần thực hiện...">
+          </label>
+
+          <label class="form-field">
+            <span>Người chủ trì <b>*</b></span>
+            <select id="d2TaskOwner"></select>
+          </label>
+
+          <label class="form-field">
+            <span>Mức độ ưu tiên</span>
+            <select id="d2TaskPriority">
+              <option value="NORMAL">Bình thường</option>
+              <option value="HIGH">Cao</option>
+              <option value="URGENT">Khẩn</option>
+            </select>
+          </label>
+
+          <label class="form-field">
+            <span>Ngày bắt đầu</span>
+            <input id="d2TaskStartDate" type="date">
+          </label>
+
+          <label class="form-field">
+            <span>Hạn hoàn thành</span>
+            <input id="d2TaskDueDate" type="datetime-local">
+          </label>
+
+          <div class="form-field form-span-2">
+            <span>Người phối hợp</span>
+            <div id="d2TaskCollaborators" class="d2-collaborator-picker"></div>
+          </div>
+
+          <label class="form-field form-span-2">
+            <span>Mô tả / yêu cầu kết quả</span>
+            <textarea id="d2TaskDescription" rows="4" placeholder="Mô tả đầu việc, sản phẩm cần hoàn thành, lưu ý khi thực hiện..."></textarea>
+          </label>
+
+          <div class="d2-source-preview form-span-2" id="d2TaskSourcePreview"></div>
+
+          <label class="upload-zone form-span-2">
+            <input id="d2TaskFiles" type="file" multiple>
+            <i data-lucide="paperclip"></i>
+            <strong>Đính kèm tài liệu</strong>
+            <span>Tối đa 5 tệp/lần · tối đa 20 MB/tệp</span>
+          </label>
+
+          <div class="d1-selected-files form-span-2" id="d2SelectedTaskFiles"></div>
+        </div>
+      </div>
+
+      <div class="modal-foot">
+        <button class="btn btn-secondary d2-task-modal-close">Hủy</button>
+        <button class="btn btn-primary" id="d2SaveTask"><i data-lucide="save"></i> Lưu nhiệm vụ</button>
+      </div>
+    </div>
+  </div>
+
+  <input id="d2AddTaskFileInput" type="file" multiple hidden>
 
   <!-- D1 DOCUMENT CREATE / EDIT -->
   <div class="modal-overlay" id="d1DocumentModal">
