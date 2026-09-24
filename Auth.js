@@ -1,4 +1,7 @@
 const AuthService = (() => {
+  const USERS_CACHE_KEY = 'VPDU_AUTH_USERS_V1';
+  const USERS_CACHE_SECONDS = 60;
+
   const ROLE_PERMISSIONS = {
     ADMIN: ['*'],
     LEADER: [
@@ -28,6 +31,32 @@ const AuthService = (() => {
     ).toLowerCase();
   }
 
+  function listUsersCached() {
+    const cache = CacheService.getScriptCache();
+    const hit = cache.get(USERS_CACHE_KEY);
+    if (hit) {
+      try {
+        return JSON.parse(hit);
+      } catch (e) {}
+    }
+
+    const users = RepositoryService.getAll('USERS');
+    try {
+      cache.put(USERS_CACHE_KEY, JSON.stringify(users), USERS_CACHE_SECONDS);
+    } catch (e) {}
+    return users;
+  }
+
+  function listActiveUsersCached() {
+    return listUsersCached().filter(u => u.status === 'ACTIVE');
+  }
+
+  function clearCache() {
+    try {
+      CacheService.getScriptCache().remove(USERS_CACHE_KEY);
+    } catch (e) {}
+  }
+
   function getCurrentUser() {
     const system = SystemConfig.getSystemInfo();
     if (!system.initialized) {
@@ -45,7 +74,7 @@ const AuthService = (() => {
       };
     }
 
-    const users = RepositoryService.getAll('USERS');
+    const users = listUsersCached();
     const user = users.find(u => String(u.email).toLowerCase() === email && u.status === 'ACTIVE');
 
     if (!user) {
@@ -83,5 +112,13 @@ const AuthService = (() => {
     return true;
   }
 
-  return {getCurrentUser, hasPermission, requirePermission, ROLE_PERMISSIONS};
+  return {
+    getCurrentUser,
+    hasPermission,
+    requirePermission,
+    listUsersCached,
+    listActiveUsersCached,
+    clearCache,
+    ROLE_PERMISSIONS
+  };
 })();
