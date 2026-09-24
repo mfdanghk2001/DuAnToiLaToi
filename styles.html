@@ -3786,4 +3786,248 @@ button.nav-item{
   line-height:1.45
 }
 
+
+/* =========================
+   FINAL UI POLISH — TUY PHONG
+   ========================= */
+.access-card{
+  width:min(800px,94vw);
+}
+.access-flag-stage{
+  width:min(620px,78vw);
+  margin:18px auto 12px;
+  display:grid;
+  place-items:center;
+}
+.access-flag-frame{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/9;
+  overflow:hidden;
+  border-radius:20px;
+  background:#8F0C12;
+  box-shadow:
+    0 22px 46px rgba(106,13,19,.22),
+    0 0 0 1px rgba(255,255,255,.7);
+  transform:translateY(8px) scale(.985);
+  opacity:0;
+  animation:accessFlagIn .65s cubic-bezier(.2,.8,.2,1) .12s forwards;
+}
+.access-flag-image{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+  transform:scale(1.035);
+  animation:accessFlagDrift 6s ease-in-out infinite alternate;
+}
+.access-flag-shine{
+  position:absolute;
+  inset:-25%;
+  pointer-events:none;
+  background:linear-gradient(115deg,transparent 36%,rgba(255,255,255,.18) 49%,transparent 62%);
+  transform:translateX(-65%);
+  animation:accessFlagShine 4.8s ease-in-out 1s infinite;
+}
+@keyframes accessFlagIn{
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes accessFlagDrift{
+  0%{transform:scale(1.035) translate3d(-.5%,0,0)}
+  100%{transform:scale(1.07) translate3d(.7%,-.6%,0)}
+}
+@keyframes accessFlagShine{
+  0%,58%{transform:translateX(-70%);opacity:0}
+  68%{opacity:.8}
+  82%,100%{transform:translateX(70%);opacity:0}
+}
+
+/* Brand */
+.access-mini-brand{font-size:12px!important;letter-spacing:.09em}
+.brand-title{font-size:13px!important}
+.brand-subtitle{font-size:12px!important;line-height:1.25;white-space:normal}
+.brand-text{min-width:0;max-width:170px}
+
+/* Font-size pass: raise legibility without blowing up layout */
+body,
+button,
+input,
+select,
+textarea{
+  font-size:13px;
+}
+.nav-item,
+.nav-label,
+.btn,
+.text-btn,
+.segment,
+.module-tab,
+.filter-chip,
+.status,
+.badge,
+.toolbar button,
+.pagination button,
+.profile-text strong,
+.sidebar-user-info strong{
+  font-size:13px!important;
+}
+input,
+select,
+textarea,
+.form-field input,
+.form-field select,
+.form-field textarea{
+  font-size:13px!important;
+}
+.form-field>span,
+label>span,
+.table-wrap th,
+table th{
+  font-size:12px!important;
+}
+table td,
+.detail-field strong,
+.detail-summary p,
+.card p,
+.card span,
+.list-row,
+.admin-user-cell strong{
+  font-size:12px;
+}
+small,
+.form-field small,
+.detail-field span,
+.profile-text span,
+.sidebar-user-info span,
+.admin-user-cell small,
+.permission-name small,
+.permission-role-head small{
+  font-size:11px!important;
+}
+.page-header h1,
+.module-header h1,
+.dashboard-title,
+.access-copy h1{
+  font-size:30px!important;
+}
+.page-header p,
+.module-header p,
+.access-copy>p:last-child{
+  font-size:13px!important;
+}
+.access-login-field>span{font-size:12px!important}
+.access-login-field input{font-size:13px!important;min-height:46px}
+.access-login-submit{font-size:13px!important;min-height:47px}
+.access-step strong{font-size:12px!important}
+.access-step small{font-size:10px!important}
+.access-footnote{font-size:10px!important}
+.access-security-pill{font-size:11px!important}
+.access-kicker{font-size:11px!important}
+
+/* =========================
+   GLOBAL BUSY / SAVE FEEDBACK
+   ========================= */
+.global-busy{
+  position:fixed;
+  top:14px;
+  left:50%;
+  transform:translate(-50%,-12px);
+  z-index:25000;
+  min-width:230px;
+  max-width:min(520px,calc(100vw - 28px));
+  min-height:44px;
+  padding:0 14px;
+  border:1px solid rgba(226,232,240,.95);
+  border-radius:14px;
+  background:rgba(255,255,255,.97);
+  box-shadow:0 16px 42px rgba(15,23,42,.16);
+  display:flex;
+  align-items:center;
+  gap:10px;
+  color:#334155;
+  font-size:12px;
+  font-weight:700;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:.18s ease;
+}
+.global-busy.show{
+  opacity:1;
+  visibility:visible;
+  transform:translate(-50%,0);
+}
+.global-busy-spinner{
+  width:20px;
+  height:20px;
+  border:3px solid #F0D6D7;
+  border-top-color:#B91C1C;
+  border-radius:50%;
+  animation:globalBusySpin .72s linear infinite;
+  flex:0 0 auto;
+}
+.global-busy.success .global-busy-spinner{
+  border:0;
+  animation:none;
+}
+.global-busy.success .global-busy-spinner::before{
+  content:'✓';
+  display:grid;
+  place-items:center;
+  width:20px;height:20px;
+  border-radius:50%;
+  background:#E9F7ED;
+  color:#15803D;
+  font-size:13px;
+}
+.global-busy.error .global-busy-spinner{
+  border:0;
+  animation:none;
+}
+.global-busy.error .global-busy-spinner::before{
+  content:'!';
+  display:grid;
+  place-items:center;
+  width:20px;height:20px;
+  border-radius:50%;
+  background:#FDEBEC;
+  color:#B91C1C;
+  font-size:13px;
+}
+.global-busy-progress{
+  position:absolute;
+  left:0;right:0;bottom:0;
+  height:3px;
+  border-radius:0 0 14px 14px;
+  overflow:hidden;
+  background:#F8EAEA;
+}
+.global-busy-progress::after{
+  content:'';
+  display:block;
+  width:42%;
+  height:100%;
+  background:linear-gradient(90deg,#9F151C,#D63C43,#F1B93A);
+  animation:globalBusyBar 1.05s ease-in-out infinite;
+}
+.global-busy.success .global-busy-progress,
+.global-busy.error .global-busy-progress{display:none}
+@keyframes globalBusySpin{to{transform:rotate(360deg)}}
+@keyframes globalBusyBar{
+  0%{transform:translateX(-120%)}
+  100%{transform:translateX(340%)}
+}
+
+button:disabled,
+.btn:disabled{
+  cursor:wait!important;
+}
+
+@media(max-width:720px){
+  .access-flag-stage{width:100%;margin-top:14px}
+  .access-flag-frame{border-radius:15px}
+  .page-header h1,.module-header h1,.dashboard-title,.access-copy h1{font-size:24px!important}
+  .global-busy{top:8px}
+}
+
 </style>
