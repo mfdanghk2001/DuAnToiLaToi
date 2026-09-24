@@ -150,9 +150,15 @@ const RepositoryService = (() => {
     const headers = getHeaders_(sh);
     const row = headers.map(h => data[h] !== undefined ? data[h] : '');
 
-    // setValues nhanh và ổn định hơn appendRow khi ghi thường xuyên.
-    const rowNumber = Math.max(2, sh.getLastRow() + 1);
-    sh.getRange(rowNumber, 1, 1, row.length).setValues([row]);
+    // setValues nhanh hơn appendRow; lock ngắn giữ an toàn khi nhiều người ghi cùng lúc.
+    const lock = LockService.getScriptLock();
+    lock.waitLock(5000);
+    try {
+      const rowNumber = Math.max(2, sh.getLastRow() + 1);
+      sh.getRange(rowNumber, 1, 1, row.length).setValues([row]);
+    } finally {
+      lock.releaseLock();
+    }
 
     if (runtimeRows[sheetName]) {
       runtimeRows[sheetName].push(rowToObject_(headers, row));
