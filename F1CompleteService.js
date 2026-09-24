@@ -946,7 +946,8 @@ const F1CompleteService = (() => {
     const taskDate = t => new Date(t.created_at || t.start_date || t.due_date || 0);
     const docDate = d => new Date(d.received_date || d.issued_date || d.created_at || 0);
 
-    let tasks = RepositoryService.getAll('TASKS')
+    const allTasks = RepositoryService.getAll('TASKS');
+    let tasks = allTasks
       .filter(t => {
         const d = taskDate(t);
         return !isNaN(d) && d >= range.from && d <= range.to;
@@ -996,7 +997,7 @@ const F1CompleteService = (() => {
     for (let i=5;i>=0;i--) {
       const d = new Date(range.to.getFullYear(),range.to.getMonth()-i,1);
       const key = Utilities.formatDate(d,TZ,'yyyy-MM');
-      const mt = RepositoryService.getAll('TASKS').filter(t => {
+      const mt = allTasks.filter(t => {
         const dt = taskDate(t);
         return !isNaN(dt) && Utilities.formatDate(dt,TZ,'yyyy-MM') === key;
       });
