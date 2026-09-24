@@ -4585,7 +4585,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="detail-field"><span>Địa điểm</span><strong>${esc(m.location||'—')}</strong></div>
         </div>
         <div class="detail-section"><div class="detail-section-head"><h4>Thành phần</h4><span class="status status-new">${data.members.length}</span></div>
-          <div class="f1-member-list">${data.members.length?data.members.map(x=>`<div><span class="avatar avatar-xs">${esc(initials(x.user_name||x.display_name||'?'))}</span><strong>${esc(x.user_name||x.display_name||'Thành viên')}</strong><small>${esc(x.attendance_status||'INVITED')}</small></div>`).join(''):'<div class="d1-empty-small">Chưa có thành phần.</div>'}</div>
+          <div class="f1-member-list">${data.members.length?data.members.map(x=>`<div><span class="avatar avatar-xs">${esc(initials(x.user_name||x.display_name||'?'))}</span><strong>${esc(x.user_name||x.display_name||'Thành viên')}</strong>${p.canEdit?`<select class="f1-attendance-select" data-member-id="${esc(x.id)}"><option value="INVITED" ${x.attendance_status==='INVITED'?'selected':''}>Đã mời</option><option value="PRESENT" ${x.attendance_status==='PRESENT'?'selected':''}>Có mặt</option><option value="ABSENT" ${x.attendance_status==='ABSENT'?'selected':''}>Vắng</option><option value="EXCUSED" ${x.attendance_status==='EXCUSED'?'selected':''}>Có phép</option></select>`:`<small>${esc(({INVITED:'Đã mời',PRESENT:'Có mặt',ABSENT:'Vắng',EXCUSED:'Có phép'})[x.attendance_status]||x.attendance_status||'Đã mời')}</small>`}</div>`).join(''):'<div class="d1-empty-small">Chưa có thành phần.</div>'}</div>
         </div>
         <div class="detail-section"><div class="detail-section-head"><h4>Tài liệu cuộc họp</h4>${p.canEdit?`<div class="f1-inline-actions"><button class="text-btn f1-meeting-add-file" data-kind="MATERIAL">Tài liệu</button><button class="text-btn f1-meeting-add-file" data-kind="MINUTES">Biên bản</button><button class="text-btn f1-meeting-add-file" data-kind="CONCLUSION">Kết luận</button></div>`:''}</div>
           <div class="d1-file-list">${data.files.length?data.files.map(x=>`<div class="d1-file-row"><span class="d1-file-icon"><i data-lucide="file-text"></i></span><div><strong>${esc(x.file_name)}</strong><small>${esc(x.file_kind)} · ${humanSize(x.size)} · ${formatDateTimeVN(x.created_at)}</small></div><a class="icon-btn" href="${esc(x.url)}" target="_blank"><i data-lucide="external-link"></i></a></div>`).join(''):'<div class="d1-empty-small">Chưa có tài liệu.</div>'}</div>
@@ -4609,6 +4609,18 @@ document.addEventListener('DOMContentLoaded', () => {
           if(desc&&!desc.value) desc.value=m.conclusion_text||m.agenda||'';
         },30);
       });
+      document.querySelectorAll('.f1-attendance-select').forEach(sel=>sel.addEventListener('change',async()=>{
+        const previous=data.members.find(x=>x.id===sel.dataset.memberId)?.attendance_status||'INVITED';
+        sel.disabled=true;
+        try{
+          await gasCall('apiF1UpdateMeetingMemberStatus',m.meeting_id,sel.dataset.memberId,sel.value,'');
+          showToast('Đã cập nhật điểm danh','Trạng thái tham dự đã được lưu.');
+        }catch(err){
+          sel.value=previous;
+          showToast('Không thể cập nhật',err.message||String(err));
+        }finally{sel.disabled=false}
+      }));
+
       document.querySelectorAll('.f1-meeting-add-file').forEach(btn=>btn.addEventListener('click',()=>{
         const input=document.getElementById('f1MeetingFileInput');
         input.dataset.meetingId=m.meeting_id;input.dataset.kind=btn.dataset.kind;input.click();
