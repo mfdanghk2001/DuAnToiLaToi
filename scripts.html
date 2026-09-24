@@ -4966,8 +4966,18 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if(type==='report'){
+      if(!hasPermissionB5('reports.view')){
+        showToast('Không có quyền','Tài khoản này chưa được cấp quyền xem Báo cáo.');
+        return;
+      }
       closeToolModal();document.querySelector('.nav-item[data-page="reports"]')?.click();return;
     }
+
+    if(['ocr','summary','draft','speech'].includes(type) && !hasPermissionB5('advisory.use')){
+      showToast('Không có quyền','Công cụ này cần quyền sử dụng Trợ lý tham mưu.');
+      return;
+    }
+
     const prompt=document.getElementById('toolPrompt')?.value?.trim()||'';
     const defaults={
       ocr:'Hãy trích xuất nguyên văn nội dung từ ảnh hoặc PDF scan tôi đính kèm, giữ bố cục xuống dòng cơ bản và không tự bổ sung nội dung.',
