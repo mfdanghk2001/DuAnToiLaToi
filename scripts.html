@@ -575,14 +575,14 @@ document.addEventListener('DOMContentLoaded', () => {
       .then(data=>{
         if(!data?.ok) return data;
 
-        if(data.documents){
+        if(data.documents && JSON.stringify(D1.filters)===defaultD1Key_()){
           D1.list=data.documents;
           D1.filters.page=data.documents.pagination?.page||1;
           D1.loadedAt=Date.now();
           D1.loadedKey=defaultD1Key_();
         }
 
-        if(data.tasks){
+        if(data.tasks && JSON.stringify(D2.filters)===defaultD2Key_()){
           D2.list=data.tasks;
           D2.filters.page=data.tasks.pagination?.page||1;
           D2.loadedAt=Date.now();
