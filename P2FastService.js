@@ -10,6 +10,7 @@ const P2FastService = (() => {
       ok:true,
       documents:null,
       tasks:null,
+      todayCalendar:null,
       server_ms:0
     };
 
@@ -41,6 +42,14 @@ const P2FastService = (() => {
         due:'ALL',
         page:1,
         pageSize:10
+      });
+    }
+
+    if (has('calendar.view')) {
+      const today = Utilities.formatDate(new Date(),'Asia/Ho_Chi_Minh','yyyy-MM-dd');
+      result.todayCalendar = F1CompleteService.calendarList({
+        from:today,
+        to:today
       });
     }
 
