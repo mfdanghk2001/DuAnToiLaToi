@@ -245,7 +245,6 @@ const D1DocumentService = (() => {
 
   function list(filters) {
     AuthService.requirePermission('documents.view');
-    ensureSupportSheets_();
 
     filters = filters || {};
     const q = clean_(filters.q).toLowerCase();
@@ -458,10 +457,8 @@ const D1DocumentService = (() => {
 
     RepositoryService.append('DOCUMENTS',data);
 
-    // Tạo folder hồ sơ ngay từ đầu.
-    const folderId = ensureDocumentFolder_(data);
-    data.drive_folder_id = folderId;
-
+    // P1: tạo thư mục Drive theo nhu cầu khi có file đính kèm.
+    // Tránh một lần gọi Drive + một lần update Sheet cho văn bản chưa có file.
     addHistory_(data.document_id,'CREATE',{
       title:data.title,
       document_no:data.document_no,
