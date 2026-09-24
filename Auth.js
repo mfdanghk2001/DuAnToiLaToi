@@ -3,6 +3,7 @@ const AuthService = (() => {
   const USERS_CACHE_SECONDS = 60;
   let runtimeUsers = null;
   let runtimeCurrentUser = null;
+  let runtimeOverrideUser = null;
 
   const ROLE_PERMISSIONS = {
     ADMIN: ['*'],
@@ -64,6 +65,7 @@ const AuthService = (() => {
   }
 
   function getCurrentUser() {
+    if (runtimeOverrideUser) return runtimeOverrideUser;
     if (runtimeCurrentUser) return runtimeCurrentUser;
 
     const system = SystemConfig.getSystemInfo();
@@ -110,6 +112,15 @@ const AuthService = (() => {
     return runtimeCurrentUser;
   }
 
+  function setRuntimeUser(user) {
+    runtimeOverrideUser = user || null;
+    if (user) runtimeCurrentUser = user;
+  }
+
+  function clearRuntimeUser() {
+    runtimeOverrideUser = null;
+  }
+
   function hasPermission(permission) {
     const user = getCurrentUser();
     if (!user.authenticated) return false;
@@ -126,6 +137,8 @@ const AuthService = (() => {
 
   return {
     getCurrentUser,
+    setRuntimeUser,
+    clearRuntimeUser,
     hasPermission,
     requirePermission,
     listUsersCached,

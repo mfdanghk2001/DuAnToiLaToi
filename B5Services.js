@@ -68,9 +68,21 @@ const B5AdminService = (() => {
     const users = AuthService.listUsersCached()
       .sort((a,b) => String(a.full_name || a.email).localeCompare(String(b.full_name || b.email), 'vi'))
       .map(u => ({
-        ...u,
-        department_name: deptMap[u.department_id] || '',
-        is_current_user: u.user_id === me.userId
+        user_id:u.user_id,
+        email:u.email,
+        full_name:u.full_name,
+        department_id:u.department_id,
+        department_name:deptMap[u.department_id] || '',
+        role:u.role,
+        status:u.status,
+        phone:u.phone,
+        avatar_url:u.avatar_url,
+        last_login_at:u.last_login_at,
+        created_at:u.created_at,
+        updated_at:u.updated_at,
+        has_password:Boolean(u.password_hash && u.password_salt),
+        password_changed_at:u.password_changed_at || '',
+        is_current_user:u.user_id === me.userId
       }));
 
     return {
@@ -126,6 +138,11 @@ const B5AdminService = (() => {
     };
 
     RepositoryService.append('USERS', data);
+
+    if (payload.password) {
+      PasswordAuthService.setUserPassword(data.user_id,payload.password);
+    }
+
     ActivityService.log('CREATE','USER',data.user_id,{
       email,
       role,
@@ -190,6 +207,10 @@ const B5AdminService = (() => {
     const updated = RepositoryService.updateById(
       'USERS','user_id',userId,patch
     );
+
+    if (payload.password) {
+      PasswordAuthService.setUserPassword(userId,payload.password);
+    }
 
     ActivityService.log('UPDATE','USER',userId,{
       role,

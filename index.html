@@ -82,13 +82,13 @@
       <div class="access-copy">
         <p class="access-kicker">CỔNG TRUY CẬP NỘI BỘ</p>
         <h1 id="accessTitle">Đăng nhập hệ thống</h1>
-        <p id="accessMessage">Đang xác minh tài khoản Google đã đăng nhập và kiểm tra quyền truy cập…</p>
+        <p id="accessMessage">Đăng nhập bằng tài khoản nội bộ đã được quản trị viên cấp.</p>
       </div>
 
       <div class="access-steps" id="accessSteps">
         <div class="access-step active" data-access-step="identity">
           <span><i data-lucide="user-round-check"></i></span>
-          <div><strong>Tài khoản</strong><small>Xác minh Google</small></div>
+          <div><strong>Tài khoản</strong><small>Email nội bộ</small></div>
         </div>
         <div class="access-step" data-access-step="permission">
           <span><i data-lucide="shield-check"></i></span>
@@ -99,6 +99,31 @@
           <div><strong>Dữ liệu</strong><small>Khởi tạo không gian</small></div>
         </div>
       </div>
+
+      <form class="access-login-form" id="accessLoginForm" autocomplete="on">
+        <label class="access-login-field">
+          <span><i data-lucide="mail"></i> Tài khoản</span>
+          <input id="accessLoginEmail" type="email" inputmode="email" autocomplete="username" placeholder="email@donvi.vn" required>
+        </label>
+
+        <label class="access-login-field">
+          <span><i data-lucide="lock-keyhole"></i> Mật khẩu</span>
+          <div class="access-password-wrap">
+            <input id="accessLoginPassword" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu" required>
+            <button type="button" class="access-password-toggle" id="accessPasswordToggle" aria-label="Hiện mật khẩu"><i data-lucide="eye"></i></button>
+          </div>
+        </label>
+
+        <div class="access-login-error hidden-block" id="accessLoginError">
+          <i data-lucide="circle-alert"></i>
+          <span></span>
+        </div>
+
+        <button class="access-login-submit" id="accessLoginSubmit" type="submit">
+          <span>Đăng nhập hệ thống</span>
+          <i data-lucide="arrow-right"></i>
+        </button>
+      </form>
 
       <div class="access-identity hidden-block" id="accessIdentity">
         <span class="access-user-avatar" id="accessUserAvatar">—</span>
@@ -119,8 +144,7 @@
       </div>
 
       <div class="access-actions hidden-block" id="accessActions">
-        <button class="btn btn-secondary" id="accessRetryBtn"><i data-lucide="refresh-cw"></i> Thử lại</button>
-        <button class="btn btn-primary" id="accessSwitchAccountBtn"><i data-lucide="log-in"></i> Chọn tài khoản Google khác</button>
+        <button class="btn btn-secondary" id="accessRetryBtn"><i data-lucide="arrow-left"></i> Quay lại đăng nhập</button>
       </div>
 
       <div class="access-loading-line" id="accessLoadingLine">
@@ -128,7 +152,7 @@
       </div>
 
       <p class="access-footnote">
-        Hệ thống sử dụng tài khoản Google đã đăng nhập để xác định người dùng và quyền truy cập.
+        Mật khẩu chỉ được xử lý trên máy chủ, không lưu dạng rõ trong Google Sheets. Phiên đăng nhập tự hết hạn sau 8 giờ.
       </p>
     </section>
   </div>
@@ -276,11 +300,11 @@
               <div class="profile-menu-divider"></div>
               <button class="profile-menu-item" id="profileSwitchAccount" type="button" role="menuitem">
                 <i data-lucide="users-round"></i>
-                <span><strong>Đổi tài khoản Google</strong><small>Chọn tài khoản khác để đăng nhập hệ thống</small></span>
+                <span><strong>Đổi tài khoản</strong><small>Đăng xuất tài khoản hiện tại và đăng nhập tài khoản khác</small></span>
               </button>
               <button class="profile-menu-item danger" id="profileLogout" type="button" role="menuitem">
                 <i data-lucide="log-out"></i>
-                <span><strong>Đăng xuất khỏi hệ thống</strong><small>Thoát phiên làm việc và chọn tài khoản Google khác</small></span>
+                <span><strong>Đăng xuất khỏi hệ thống</strong><small>Kết thúc phiên đăng nhập hiện tại</small></span>
               </button>
             </div>
           </div>
@@ -1795,6 +1819,14 @@
           <label class="form-field">
             <span>Số điện thoại</span>
             <input id="adminUserPhone" type="text" placeholder="09xx xxx xxx">
+          </label>
+          <label class="form-field form-span-2">
+            <span>Mật khẩu</span>
+            <div class="admin-password-field">
+              <input id="adminUserPassword" type="password" autocomplete="new-password" placeholder="Tối thiểu 8 ký tự, gồm chữ và số">
+              <button class="icon-btn" type="button" id="adminUserPasswordToggle" title="Hiện/ẩn mật khẩu"><i data-lucide="eye"></i></button>
+            </div>
+            <small id="adminUserPasswordHint">Khi tạo mới: nhập mật khẩu cho tài khoản. Khi chỉnh sửa: để trống nếu không muốn đổi.</small>
           </label>
         </div>
         <div class="admin-role-hint" id="adminRoleHint"></div>

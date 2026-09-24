@@ -557,7 +557,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if(autoHide) setTimeout(()=>el.classList.remove('show'),autoHide);
   }
 
-  const gasCall = (fn, ...args) => new Promise((resolve, reject) => {
+  const SESSION_KEY = 'VPDU_SESSION_TOKEN';
+
+  const authDirectCall = (fn, ...args) => new Promise((resolve, reject) => {
     if (!window.google || !google.script || !google.script.run) {
       reject(new Error('Không tìm thấy môi trường Google Apps Script.'));
       return;
@@ -566,6 +568,26 @@ document.addEventListener('DOMContentLoaded', () => {
       .withSuccessHandler(resolve)
       .withFailureHandler(err => reject(new Error(err?.message || String(err))));
     runner[fn](...args);
+  });
+
+  const gasCall = (fn, ...args) => new Promise((resolve, reject) => {
+    if (!window.google || !google.script || !google.script.run) {
+      reject(new Error('Không tìm thấy môi trường Google Apps Script.'));
+      return;
+    }
+
+    const token=sessionStorage.getItem(SESSION_KEY)||'';
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(err => {
+        const message=err?.message||String(err);
+        if(/Phiên đăng nhập|SESSION_EXPIRED/i.test(message)){
+          sessionStorage.removeItem(SESSION_KEY);
+          setTimeout(()=>showLoginGateway_('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'),0);
+        }
+        reject(new Error(message));
+      })
+      .apiDispatch(fn,args,token);
   });
 
   async function startP2Prefetch_(){
@@ -665,26 +687,47 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function resetAccessGateway_(){
+  function setLoginError_(message){
+    const box=document.getElementById('accessLoginError');
+    const span=box?.querySelector('span');
+    if(!box) return;
+    if(message){
+      if(span) span.textContent=message;
+      box.classList.remove('hidden-block');
+    }else{
+      box.classList.add('hidden-block');
+      if(span) span.textContent='';
+    }
+  }
+
+  function showLoginGateway_(message=''){
     const gateway=document.getElementById('accessGateway');
     if(!gateway) return;
+
     gateway.removeAttribute('hidden');
-    gateway.classList.remove('access-denied','access-error','access-exit');
+    gateway.classList.remove('access-denied','access-error','access-exit','access-authenticating','access-logged-in');
     document.body.classList.add('access-pending');
     document.body.classList.remove('access-ready');
     document.getElementById('appShell')?.setAttribute('aria-hidden','true');
+
+    document.getElementById('accessLoginForm')?.classList.remove('hidden-block');
     document.getElementById('accessIdentity')?.classList.add('hidden-block');
     document.getElementById('accessStateCard')?.classList.add('hidden-block');
     document.getElementById('accessActions')?.classList.add('hidden-block');
-    document.getElementById('accessLoadingLine')?.classList.remove('hidden-block');
+    document.getElementById('accessLoadingLine')?.classList.add('hidden-block');
+
     const title=document.getElementById('accessTitle');
     const msg=document.getElementById('accessMessage');
-    const icon=document.getElementById('accessStateIcon');
-    if(icon) icon.innerHTML='<i data-lucide="shield-alert"></i>';
     if(title) title.textContent='Đăng nhập hệ thống';
-    if(msg) msg.textContent='Đang xác minh tài khoản Google đã đăng nhập và kiểm tra quyền truy cập…';
+    if(msg) msg.textContent='Sử dụng email và mật khẩu nội bộ được quản trị viên cấp.';
+    setLoginError_(message);
     setAccessStep_('identity',[]);
     lucide.createIcons();
+    setTimeout(()=>document.getElementById('accessLoginEmail')?.focus(),80);
+  }
+
+  function resetAccessGateway_(){
+    showLoginGateway_('');
   }
 
   function accessRoleLabel_(role){
@@ -710,6 +753,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function finishAccessGateway_(user){
+    document.getElementById('accessLoginForm')?.classList.add('hidden-block');
+    document.getElementById('accessGateway')?.classList.add('access-logged-in');
     showAccessIdentity_(user);
     setAccessStep_('', ['identity','permission','workspace']);
     const title=document.getElementById('accessTitle');
@@ -798,53 +843,23 @@ document.addEventListener('DOMContentLoaded', () => {
     B2.user=null;B2.users=[];B2.dashboard=null;
   }
 
-  function setLoggedOutGateway_(){
-    const gateway=document.getElementById('accessGateway');
-    gateway?.removeAttribute('hidden');
-    gateway?.classList.remove('access-exit','access-denied','access-error');
-    document.body.classList.add('access-pending');
-    document.body.classList.remove('access-ready');
-    document.getElementById('appShell')?.setAttribute('aria-hidden','true');
-
-    document.getElementById('accessIdentity')?.classList.add('hidden-block');
-    document.getElementById('accessLoadingLine')?.classList.add('hidden-block');
-    document.getElementById('accessStateCard')?.classList.remove('hidden-block');
-    document.getElementById('accessActions')?.classList.remove('hidden-block');
-
-    const title=document.getElementById('accessTitle');
-    const msg=document.getElementById('accessMessage');
-    const stateTitle=document.getElementById('accessStateTitle');
-    const stateMsg=document.getElementById('accessStateMessage');
-    const stateEmail=document.getElementById('accessStateEmail');
-    const retry=document.getElementById('accessRetryBtn');
-    const switchBtn=document.getElementById('accessSwitchAccountBtn');
-
-    if(title) title.textContent='Đã đăng xuất khỏi ứng dụng';
-    if(msg) msg.textContent='Phiên làm việc trong Văn phòng Đảng ủy số đã được đóng.';
-    if(stateTitle) stateTitle.textContent='Đổi tài khoản Google an toàn';
-    if(stateMsg) stateMsg.textContent='Apps Script có thể lỗi 404 khi trình duyệt đang đăng nhập nhiều tài khoản Google. Hãy mở Google ở tab mới, chuyển hoặc đăng xuất tài khoản tại đó, rồi quay lại đây và xác minh lại.';
-    if(stateEmail) stateEmail.textContent='Mẹo: nếu vẫn bị nhầm tài khoản, hãy mở Web App trong cửa sổ ẩn danh với đúng một tài khoản Google.';
-    if(retry) retry.innerHTML='<i data-lucide="refresh-cw"></i> Xác minh lại';
-    if(switchBtn) switchBtn.innerHTML='<i data-lucide="external-link"></i> Mở Google để đổi tài khoản';
-
-    setAccessStep_('identity',[]);
-    lucide.createIcons();
-  }
-
-  function openGoogleAccountPage_(){
-    window.open('https://www.google.com/','_blank','noopener');
-  }
-
-  function logoutGoogle_(){
+  async function logoutApp_(){
     closeProfileMenu_();
+    const token=sessionStorage.getItem(SESSION_KEY)||'';
+    sessionStorage.removeItem(SESSION_KEY);
     clearClientSessionP2_();
-    setLoggedOutGateway_();
+
+    try{
+      if(token) await authDirectCall('apiPasswordLogout',token);
+    }catch(e){}
+
+    showLoginGateway_('Bạn đã đăng xuất khỏi hệ thống.');
+    const pass=document.getElementById('accessLoginPassword');
+    if(pass) pass.value='';
   }
 
-  function switchGoogleAccount_(){
-    closeProfileMenu_();
-    setLoggedOutGateway_();
-    openGoogleAccountPage_();
+  function switchAppAccount_(){
+    logoutApp_();
   }
 
   const renderUser = () => {
@@ -2928,25 +2943,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const bootstrapB2 = async () => {
     if(accessBootstrapRunning) return;
+
+    const token=sessionStorage.getItem(SESSION_KEY)||'';
+    if(!token){
+      showLoginGateway_('');
+      return;
+    }
+
     accessBootstrapRunning=true;
-    resetAccessGateway_();
-    setAccessStep_('identity',[]);
+    const gateway=document.getElementById('accessGateway');
+    gateway?.classList.add('access-authenticating');
+    document.getElementById('accessLoginForm')?.classList.add('hidden-block');
+    document.getElementById('accessLoadingLine')?.classList.remove('hidden-block');
+    setAccessStep_('permission',['identity']);
 
     try {
       const data=await gasCall('apiP1Bootstrap');
 
       if(!data?.ok){
-        if(data?.error==='UNAUTHORIZED'){
-          showAccessDenied_(data);
-          return;
-        }
-        showAccessError_(data?.message||'Không thể khởi tạo dữ liệu.');
+        sessionStorage.removeItem(SESSION_KEY);
+        showLoginGateway_(data?.message||'Không thể đăng nhập.');
         return;
       }
 
-      setAccessStep_('permission',['identity']);
       showAccessIdentity_(data.user);
-
       B2.user=data.user;
       B2.users=data.users||[];
       B2.dashboard=data.dashboard;
@@ -2959,7 +2979,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       setAccessStep_('workspace',['identity','permission']);
       hideBackendBanner();
-
       setTimeout(()=>loadNotificationsB6(),600);
       startP2Prefetch_();
       setTimeout(()=>{
@@ -2968,9 +2987,56 @@ document.addEventListener('DOMContentLoaded', () => {
       },3500);
       finishAccessGateway_(data.user);
     } catch(err) {
-      showAccessError_(err.message||String(err));
+      sessionStorage.removeItem(SESSION_KEY);
+      showLoginGateway_(err.message||'Phiên đăng nhập không hợp lệ.');
     } finally {
       accessBootstrapRunning=false;
+      gateway?.classList.remove('access-authenticating');
+    }
+  };
+
+  async function submitPasswordLogin_(){
+    const email=document.getElementById('accessLoginEmail')?.value.trim()||'';
+    const password=document.getElementById('accessLoginPassword')?.value||'';
+    const btn=document.getElementById('accessLoginSubmit');
+    const gateway=document.getElementById('accessGateway');
+
+    if(!email||!password){
+      setLoginError_('Vui lòng nhập đầy đủ tài khoản và mật khẩu.');
+      return;
+    }
+
+    setLoginError_('');
+    gateway?.classList.add('access-authenticating');
+    document.getElementById('accessLoadingLine')?.classList.remove('hidden-block');
+    setAccessStep_('permission',['identity']);
+    if(btn){
+      btn.disabled=true;
+      btn.innerHTML='<span class="backend-spinner"></span><span>Đang đăng nhập…</span>';
+    }
+
+    try{
+      const result=await authDirectCall('apiPasswordLogin',email,password);
+      if(!result?.ok){
+        setAccessStep_('identity',[]);
+        setLoginError_(result?.message||'Đăng nhập không thành công.');
+        return;
+      }
+
+      sessionStorage.setItem(SESSION_KEY,result.token);
+      showAccessIdentity_(result.user);
+      await bootstrapB2();
+    }catch(err){
+      setAccessStep_('identity',[]);
+      setLoginError_(err.message||String(err));
+    }finally{
+      gateway?.classList.remove('access-authenticating');
+      document.getElementById('accessLoadingLine')?.classList.add('hidden-block');
+      if(btn){
+        btn.disabled=false;
+        btn.innerHTML='<span>Đăng nhập hệ thống</span><i data-lucide="arrow-right"></i>';
+        lucide.createIcons();
+      }
     }
   };
 
@@ -2982,15 +3048,11 @@ document.addEventListener('DOMContentLoaded', () => {
     e.stopPropagation();
     document.getElementById('profileMenuToggle')?.click();
   });
-  document.getElementById('profileSwitchAccount')?.addEventListener('click',()=>{
-    closeProfileMenu_();
-    clearClientSessionP2_();
-    switchGoogleAccount_();
-  });
-  document.getElementById('profileLogout')?.addEventListener('click',logoutGoogle_);
+  document.getElementById('profileSwitchAccount')?.addEventListener('click',switchAppAccount_);
+  document.getElementById('profileLogout')?.addEventListener('click',logoutApp_);
   document.getElementById('sidebarLogout')?.addEventListener('click',e=>{
     e.preventDefault();
-    logoutGoogle_();
+    logoutApp_();
   });
   document.addEventListener('click',e=>{
     if(!e.target.closest('#profileMenuWrap')) closeProfileMenu_();
@@ -2999,8 +3061,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if(e.key==='Escape') closeProfileMenu_();
   });
 
-  document.getElementById('accessRetryBtn')?.addEventListener('click',()=>window.location.reload());
-  document.getElementById('accessSwitchAccountBtn')?.addEventListener('click',switchGoogleAccount_);
+  document.getElementById('accessLoginForm')?.addEventListener('submit',e=>{
+    e.preventDefault();
+    submitPasswordLogin_();
+  });
+  document.getElementById('accessPasswordToggle')?.addEventListener('click',()=>{
+    const input=document.getElementById('accessLoginPassword');
+    const btn=document.getElementById('accessPasswordToggle');
+    if(!input||!btn) return;
+    const show=input.type==='password';
+    input.type=show?'text':'password';
+    btn.innerHTML='<i data-lucide="'+(show?'eye-off':'eye')+'"></i>';
+    lucide.createIcons();
+  });
+  document.getElementById('accessRetryBtn')?.addEventListener('click',()=>showLoginGateway_(''));
 
   bootstrapB2();
 
@@ -3463,7 +3537,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="avatar avatar-xs">${esc(initials(u.full_name||u.email))}</span>
             <div>
               <strong>${esc(u.full_name||'Chưa đặt tên')}${u.is_current_user?'<span class="admin-current-badge">Bạn</span>':''}</strong>
-              <small>${esc(u.email)}</small>
+              <small>${esc(u.email)} · ${u.has_password?'Đã có mật khẩu':'Chưa có mật khẩu'}</small>
             </div>
           </div>
         </td>
@@ -3643,6 +3717,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('adminUserRole').value=user?.role||'STAFF';
     document.getElementById('adminUserStatus').value=user?.status||'ACTIVE';
     document.getElementById('adminUserPhone').value=user?.phone||'';
+    const password=document.getElementById('adminUserPassword');
+    if(password) password.value='';
+    const passwordHint=document.getElementById('adminUserPasswordHint');
+    if(passwordHint){
+      passwordHint.textContent=user
+        ? (user.has_password
+            ? 'Tài khoản đã có mật khẩu. Để trống nếu không muốn đổi.'
+            : 'Tài khoản chưa có mật khẩu. Hãy đặt mật khẩu để người dùng đăng nhập.')
+        : 'Nhập mật khẩu ban đầu cho tài khoản mới.';
+    }
     updateAdminRoleHintB5();
 
     modal.classList.add('show');
@@ -3667,7 +3751,8 @@ document.addEventListener('DOMContentLoaded', () => {
       department_id:document.getElementById('adminUserDepartment')?.value||'',
       role:document.getElementById('adminUserRole')?.value||'STAFF',
       status:document.getElementById('adminUserStatus')?.value||'ACTIVE',
-      phone:document.getElementById('adminUserPhone')?.value||''
+      phone:document.getElementById('adminUserPhone')?.value||'',
+      password:document.getElementById('adminUserPassword')?.value||''
     };
 
     const btn=document.getElementById('adminSaveUser');
@@ -3768,6 +3853,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('adminDepartmentModal')?.addEventListener('click',e=>{if(e.target.id==='adminDepartmentModal')closeAdminDepartmentModalB5()});
 
   document.getElementById('adminSaveUser')?.addEventListener('click',saveAdminUserB5);
+  document.getElementById('adminUserPasswordToggle')?.addEventListener('click',()=>{
+    const input=document.getElementById('adminUserPassword');
+    const btn=document.getElementById('adminUserPasswordToggle');
+    if(!input||!btn) return;
+    const show=input.type==='password';
+    input.type=show?'text':'password';
+    btn.innerHTML='<i data-lucide="'+(show?'eye-off':'eye')+'"></i>';
+    lucide.createIcons();
+  });
   document.getElementById('adminSaveDepartment')?.addEventListener('click',saveAdminDepartmentB5);
   document.getElementById('adminUserRole')?.addEventListener('change',updateAdminRoleHintB5);
 
