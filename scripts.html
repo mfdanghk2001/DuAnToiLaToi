@@ -581,6 +581,135 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const hideBackendBanner = () => document.getElementById('backendBanner')?.classList.add('hidden');
 
+  const ACCESS_GATEWAY_MIN_MS = 1900;
+  const accessGatewayStartedAt = Date.now();
+  let accessBootstrapRunning = false;
+
+  function setAccessStep_(step,doneSteps=[]){
+    document.querySelectorAll('[data-access-step]').forEach(el=>{
+      const key=el.dataset.accessStep;
+      el.classList.toggle('active',key===step);
+      el.classList.toggle('done',doneSteps.includes(key));
+    });
+  }
+
+  function resetAccessGateway_(){
+    const gateway=document.getElementById('accessGateway');
+    if(!gateway) return;
+    gateway.removeAttribute('hidden');
+    gateway.classList.remove('access-denied','access-error','access-exit');
+    document.body.classList.add('access-pending');
+    document.body.classList.remove('access-ready');
+    document.getElementById('appShell')?.setAttribute('aria-hidden','true');
+    document.getElementById('accessIdentity')?.classList.add('hidden-block');
+    document.getElementById('accessStateCard')?.classList.add('hidden-block');
+    document.getElementById('accessActions')?.classList.add('hidden-block');
+    document.getElementById('accessLoadingLine')?.classList.remove('hidden-block');
+    const title=document.getElementById('accessTitle');
+    const msg=document.getElementById('accessMessage');
+    const icon=document.getElementById('accessStateIcon');
+    if(icon) icon.innerHTML='<i data-lucide="shield-alert"></i>';
+    if(title) title.textContent='Đăng nhập hệ thống';
+    if(msg) msg.textContent='Đang xác minh tài khoản Google đã đăng nhập và kiểm tra quyền truy cập…';
+    setAccessStep_('identity',[]);
+    lucide.createIcons();
+  }
+
+  function accessRoleLabel_(role){
+    return ({
+      ADMIN:'Quản trị hệ thống',
+      LEADER:'Lãnh đạo',
+      OFFICE:'Văn phòng',
+      STAFF:'Cán bộ / Chuyên viên'
+    })[role] || role || 'Người dùng';
+  }
+
+  function showAccessIdentity_(user){
+    const box=document.getElementById('accessIdentity');
+    if(!box||!user) return;
+    const name=user.fullName||user.email||'Người dùng';
+    const avatar=document.getElementById('accessUserAvatar');
+    const userNameEl=document.getElementById('accessUserName');
+    const meta=document.getElementById('accessUserMeta');
+    if(avatar) avatar.textContent=initials(name);
+    if(userNameEl) userNameEl.textContent=name;
+    if(meta) meta.textContent=[user.email,accessRoleLabel_(user.role)].filter(Boolean).join(' · ');
+    box.classList.remove('hidden-block');
+  }
+
+  function finishAccessGateway_(user){
+    showAccessIdentity_(user);
+    setAccessStep_('', ['identity','permission','workspace']);
+    const title=document.getElementById('accessTitle');
+    const msg=document.getElementById('accessMessage');
+    if(title) title.textContent='Xác minh thành công';
+    if(msg) msg.textContent='Đang mở không gian làm việc theo quyền của tài khoản này…';
+
+    const elapsed=Date.now()-accessGatewayStartedAt;
+    const wait=Math.max(0,ACCESS_GATEWAY_MIN_MS-elapsed);
+    setTimeout(()=>{
+      const gateway=document.getElementById('accessGateway');
+      document.body.classList.remove('access-pending');
+      document.body.classList.add('access-ready');
+      document.getElementById('appShell')?.setAttribute('aria-hidden','false');
+      gateway?.classList.add('access-exit');
+      setTimeout(()=>gateway?.setAttribute('hidden',''),620);
+    },wait);
+  }
+
+  function showAccessDenied_(data){
+    const gateway=document.getElementById('accessGateway');
+    const user=data?.user||{};
+    const email=user.email||'Không xác định được email';
+    gateway?.classList.add('access-denied');
+    document.getElementById('accessIdentity')?.classList.add('hidden-block');
+    document.getElementById('accessLoadingLine')?.classList.add('hidden-block');
+    document.getElementById('accessStateCard')?.classList.remove('hidden-block');
+    document.getElementById('accessActions')?.classList.remove('hidden-block');
+
+    const title=document.getElementById('accessTitle');
+    const msg=document.getElementById('accessMessage');
+    const stateTitle=document.getElementById('accessStateTitle');
+    const stateMsg=document.getElementById('accessStateMessage');
+    const stateEmail=document.getElementById('accessStateEmail');
+    if(title) title.textContent='Không có quyền truy cập';
+    if(msg) msg.textContent='Tài khoản Google hiện tại chưa được phép sử dụng hệ thống.';
+    if(stateTitle) stateTitle.textContent='Tài khoản chưa được cấp quyền';
+    if(stateMsg) stateMsg.textContent=data?.message||'Hãy liên hệ quản trị viên để được thêm vào danh sách người dùng hoặc kích hoạt lại tài khoản.';
+    if(stateEmail) stateEmail.textContent='Tài khoản hiện tại: '+email;
+    setAccessStep_('permission',['identity']);
+    lucide.createIcons();
+  }
+
+  function showAccessError_(message){
+    const gateway=document.getElementById('accessGateway');
+    gateway?.classList.add('access-error');
+    document.getElementById('accessIdentity')?.classList.add('hidden-block');
+    document.getElementById('accessLoadingLine')?.classList.add('hidden-block');
+    document.getElementById('accessStateCard')?.classList.remove('hidden-block');
+    document.getElementById('accessActions')?.classList.remove('hidden-block');
+
+    const title=document.getElementById('accessTitle');
+    const msg=document.getElementById('accessMessage');
+    const stateTitle=document.getElementById('accessStateTitle');
+    const stateMsg=document.getElementById('accessStateMessage');
+    const stateEmail=document.getElementById('accessStateEmail');
+    const icon=document.getElementById('accessStateIcon');
+    if(title) title.textContent='Không thể khởi tạo hệ thống';
+    if(msg) msg.textContent='Kết nối hoặc cấu hình hệ thống đang có vấn đề.';
+    if(stateTitle) stateTitle.textContent='Không thể hoàn tất đăng nhập';
+    if(stateMsg) stateMsg.textContent=message||'Vui lòng thử lại sau.';
+    if(stateEmail) stateEmail.textContent='Nếu lỗi tiếp tục xuất hiện, hãy báo quản trị viên.';
+    if(icon) icon.innerHTML='<i data-lucide="triangle-alert"></i>';
+    setAccessStep_('workspace',['identity']);
+    lucide.createIcons();
+  }
+
+  function switchGoogleAccount_(){
+    const continueUrl=encodeURIComponent(window.location.href);
+    window.location.href='https://accounts.google.com/AccountChooser?continue='+continueUrl;
+  }
+
   const renderUser = () => {
     if (!B2.user) return;
     const name=B2.user.fullName || B2.user.email || 'Người dùng';
@@ -2615,9 +2744,26 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   const bootstrapB2 = async () => {
+    if(accessBootstrapRunning) return;
+    accessBootstrapRunning=true;
+    resetAccessGateway_();
+    setAccessStep_('identity',[]);
+
     try {
       const data=await gasCall('apiP1Bootstrap');
-      if (!data?.ok) throw new Error(data?.message||'Không thể khởi tạo dữ liệu.');
+
+      if(!data?.ok){
+        if(data?.error==='UNAUTHORIZED'){
+          showAccessDenied_(data);
+          return;
+        }
+        showAccessError_(data?.message||'Không thể khởi tạo dữ liệu.');
+        return;
+      }
+
+      setAccessStep_('permission',['identity']);
+      showAccessIdentity_(data.user);
+
       B2.user=data.user;
       B2.users=data.users||[];
       B2.dashboard=data.dashboard;
@@ -2627,14 +2773,22 @@ document.addEventListener('DOMContentLoaded', () => {
       B2.meetings=[];
       renderAllB2();
       applyAccessB5();
+
+      setAccessStep_('workspace',['identity','permission']);
       hideBackendBanner();
 
-      // P1: các module nặng chỉ tải khi người dùng thật sự mở.
-      // Thông báo được trì hoãn nhẹ để không tranh tài nguyên với bootstrap.
       setTimeout(()=>loadNotificationsB6(),600);
       setTimeout(()=>loadDashboardAgendaF1(),900);
-    } catch(err) { showBackendError(err.message||String(err)); }
+      finishAccessGateway_(data.user);
+    } catch(err) {
+      showAccessError_(err.message||String(err));
+    } finally {
+      accessBootstrapRunning=false;
+    }
   };
+
+  document.getElementById('accessRetryBtn')?.addEventListener('click',()=>bootstrapB2());
+  document.getElementById('accessSwitchAccountBtn')?.addEventListener('click',switchGoogleAccount_);
 
   bootstrapB2();
 
