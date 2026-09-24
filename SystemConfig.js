@@ -3,6 +3,14 @@ const SystemConfig = (() => {
   const PROP_ROOT_FOLDER_ID = 'VPDU_ROOT_FOLDER_ID';
   const PROP_INITIALIZED_AT = 'VPDU_INITIALIZED_AT';
 
+  // Runtime cache: một lần google.script.run chỉ mở Spreadsheet đúng một lần.
+  // Đây là tối ưu quan trọng vì trước đây mỗi getSheet() đều openById lại.
+  let runtimeProps = null;
+  let runtimeDbId = null;
+  let runtimeRootFolderId = null;
+  let runtimeDb = null;
+  const runtimeSheets = {};
+
   const SHEETS = {
     USERS: [
       'user_id','email','full_name','department_id','role','status',
@@ -80,27 +88,46 @@ const SystemConfig = (() => {
   ];
 
   function props() {
-    return PropertiesService.getScriptProperties();
+    if (!runtimeProps) runtimeProps = PropertiesService.getScriptProperties();
+    return runtimeProps;
   }
 
   function getDbId() {
-    return props().getProperty(PROP_DB_ID) || '';
+    if (runtimeDbId === null) {
+      runtimeDbId = props().getProperty(PROP_DB_ID) || '';
+    }
+    return runtimeDbId;
   }
 
   function getRootFolderId() {
-    return props().getProperty(PROP_ROOT_FOLDER_ID) || '';
+    if (runtimeRootFolderId === null) {
+      runtimeRootFolderId = props().getProperty(PROP_ROOT_FOLDER_ID) || '';
+    }
+    return runtimeRootFolderId;
   }
 
   function getDb() {
+    if (runtimeDb) return runtimeDb;
     const id = getDbId();
     if (!id) throw new Error('Hệ thống chưa được khởi tạo. Hãy chạy setupSystem() một lần.');
-    return SpreadsheetApp.openById(id);
+    runtimeDb = SpreadsheetApp.openById(id);
+    return runtimeDb;
   }
 
   function getSheet(name) {
+    if (runtimeSheets[name]) return runtimeSheets[name];
     const sh = getDb().getSheetByName(name);
     if (!sh) throw new Error('Không tìm thấy sheet: ' + name);
+    runtimeSheets[name] = sh;
     return sh;
+  }
+
+  function clearRuntimeCache() {
+    runtimeDbId = null;
+    runtimeRootFolderId = null;
+    runtimeDb = null;
+    runtimeProps = null;
+    Object.keys(runtimeSheets).forEach(k => delete runtimeSheets[k]);
   }
 
   function getSystemInfo() {
@@ -115,6 +142,6 @@ const SystemConfig = (() => {
   return {
     PROP_DB_ID, PROP_ROOT_FOLDER_ID, PROP_INITIALIZED_AT,
     SHEETS, ROOT_FOLDER_NAME, DRIVE_FOLDERS,
-    props, getDbId, getRootFolderId, getDb, getSheet, getSystemInfo
+    props, getDbId, getRootFolderId, getDb, getSheet, getSystemInfo, clearRuntimeCache
   };
 })();

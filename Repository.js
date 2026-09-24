@@ -1,6 +1,10 @@
 const RepositoryService = (() => {
   const AUTH_USERS_CACHE_KEY = 'VPDU_AUTH_USERS_V1';
   const ROW_CACHE_PREFIX = 'VPDU_ROWS_V1_';
+  const runtimeHeaders = {};
+  const runtimeRows = {};
+  const runtimeIdRows = {};
+
   const ROW_CACHE_TTL = {
     DOCUMENTS:20,
     TASKS:20,
@@ -24,9 +28,13 @@ const RepositoryService = (() => {
   }
 
   function getHeaders_(sheet) {
+    const name = sheet.getName();
+    if (runtimeHeaders[name]) return runtimeHeaders[name];
     const lastCol = sheet.getLastColumn();
     if (!lastCol) return [];
-    return sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    runtimeHeaders[name] = headers;
+    return headers;
   }
 
   function rowToObject_(headers, row) {
@@ -40,34 +48,61 @@ const RepositoryService = (() => {
     return v;
   }
 
-  function invalidateSheetCaches_(sheetName) {
+  function invalidateSheetCaches_(sheetName, keepRuntimeRows) {
     try {
       const cache = CacheService.getScriptCache();
       cache.remove(rowCacheKey_(sheetName));
       if (sheetName === 'USERS') cache.remove(AUTH_USERS_CACHE_KEY);
     } catch (e) {}
+
+    if (!keepRuntimeRows) delete runtimeRows[sheetName];
+    delete runtimeIdRows[sheetName];
   }
 
   function findRowNumber_(sheet, headers, idColumn, id) {
+    const sheetName = sheet.getName();
     const idIndex = headers.indexOf(idColumn);
     if (idIndex < 0) throw new Error('Không tìm thấy cột ID: ' + idColumn);
 
-    const lastRow = sheet.getLastRow();
-    if (lastRow <= 1) return -1;
+    runtimeIdRows[sheetName] = runtimeIdRows[sheetName] || {};
+    const cacheKey = idColumn;
+    if (!runtimeIdRows[sheetName][cacheKey]) {
+      const map = {};
 
-    // Chỉ đọc đúng cột ID thay vì đọc toàn bộ sheet.
-    const ids = sheet.getRange(2, idIndex + 1, lastRow - 1, 1).getDisplayValues();
-    const target = String(id);
-    const pos = ids.findIndex(row => String(row[0]) === target);
-    return pos < 0 ? -1 : pos + 2;
+      // Nếu getAll() đã chạy trong request này, thứ tự mảng chính là thứ tự hàng.
+      // Không cần quét lại cột ID.
+      if (runtimeRows[sheetName]) {
+        runtimeRows[sheetName].forEach((obj, i) => {
+          const key = String(obj[idColumn] == null ? '' : obj[idColumn]);
+          if (key) map[key] = i + 2;
+        });
+      } else {
+        const lastRow = sheet.getLastRow();
+        if (lastRow > 1) {
+          const ids = sheet.getRange(2, idIndex + 1, lastRow - 1, 1).getDisplayValues();
+          ids.forEach((row, i) => {
+            const key = String(row[0]);
+            if (key) map[key] = i + 2;
+          });
+        }
+      }
+      runtimeIdRows[sheetName][cacheKey] = map;
+    }
+
+    return runtimeIdRows[sheetName][cacheKey][String(id)] || -1;
   }
 
   function getAll(sheetName) {
+    if (runtimeRows[sheetName]) return runtimeRows[sheetName].slice();
+
     const ttl = ROW_CACHE_TTL[sheetName] || 0;
     if (ttl) {
       try {
         const cached = CacheService.getScriptCache().get(rowCacheKey_(sheetName));
-        if (cached) return JSON.parse(cached);
+        if (cached) {
+          runtimeRows[sheetName] = JSON.parse(cached);
+          return runtimeRows[sheetName].slice();
+        }
       } catch (e) {}
     }
 
@@ -79,6 +114,7 @@ const RepositoryService = (() => {
     const headers = getHeaders_(sh);
     const values = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
     const rows = values.map(r => rowToObject_(headers, r));
+    runtimeRows[sheetName] = rows;
 
     if (ttl) {
       try {
@@ -89,10 +125,17 @@ const RepositoryService = (() => {
         }
       } catch (e) {}
     }
-    return rows;
+    return rows.slice();
   }
 
   function findById(sheetName, idColumn, id) {
+    if (runtimeRows[sheetName]) {
+      const hit = runtimeRows[sheetName].find(
+        x => String(x[idColumn]) === String(id)
+      );
+      if (hit) return hit;
+    }
+
     const sh = SystemConfig.getSheet(sheetName);
     const headers = getHeaders_(sh);
     const rowNumber = findRowNumber_(sh, headers, idColumn, id);
@@ -106,8 +149,16 @@ const RepositoryService = (() => {
     const sh = SystemConfig.getSheet(sheetName);
     const headers = getHeaders_(sh);
     const row = headers.map(h => data[h] !== undefined ? data[h] : '');
-    sh.appendRow(row);
-    invalidateSheetCaches_(sheetName);
+
+    // setValues nhanh hơn appendRow. Các workflow cần transaction nhiều bước
+    // đã tự giữ ScriptLock ở tầng service để tránh nested-lock.
+    const rowNumber = Math.max(2, sh.getLastRow() + 1);
+    sh.getRange(rowNumber, 1, 1, row.length).setValues([row]);
+
+    if (runtimeRows[sheetName]) {
+      runtimeRows[sheetName].push(rowToObject_(headers, row));
+    }
+    invalidateSheetCaches_(sheetName, true);
     return data;
   }
 
@@ -127,8 +178,14 @@ const RepositoryService = (() => {
     });
 
     sh.getRange(rowNumber, 1, 1, headers.length).setValues([row]);
-    invalidateSheetCaches_(sheetName);
-    return rowToObject_(headers, row);
+
+    const updated = rowToObject_(headers, row);
+    if (runtimeRows[sheetName]) {
+      const idx = runtimeRows[sheetName].findIndex(x => String(x[idColumn]) === String(id));
+      if (idx >= 0) runtimeRows[sheetName][idx] = updated;
+    }
+    invalidateSheetCaches_(sheetName, true);
+    return updated;
   }
 
 
@@ -163,7 +220,8 @@ const RepositoryService = (() => {
 
     if (changed) {
       sh.getRange(2,1,data.length,headers.length).setValues(data);
-      invalidateSheetCaches_(sheetName);
+      runtimeRows[sheetName] = data.map(row => rowToObject_(headers,row));
+      invalidateSheetCaches_(sheetName, true);
     }
     return {updated:changed};
   }

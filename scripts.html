@@ -491,11 +491,17 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const P1 = {
-    cacheMs:30000,
+    cacheMs:120000,
     dashboardDirty:false,
     calendarLoaded:false,
     meetingsLoaded:false,
     aiConfigLoaded:false
+  };
+
+  const P2 = {
+    prefetchPromise:null,
+    prefetched:false,
+    syncEl:null
   };
 
   const F1 = {
@@ -519,6 +525,38 @@ document.addEventListener('DOMContentLoaded', () => {
     activeTool:''
   };
 
+  function defaultD1Key_(){
+    return JSON.stringify({
+      q:'',direction:'ALL',status:'ALL',year:'ALL',issuer:'ALL',field:'ALL',page:1,pageSize:10
+    });
+  }
+
+  function defaultD2Key_(){
+    return JSON.stringify({
+      q:'',status:'ALL',owner:'ALL',priority:'ALL',sourceType:'ALL',due:'ALL',page:1,pageSize:10
+    });
+  }
+
+  function ensureSyncIndicatorP2_(){
+    if(P2.syncEl) return P2.syncEl;
+    const el=document.createElement('div');
+    el.className='p2-sync-indicator';
+    el.id='p2SyncIndicator';
+    document.body.appendChild(el);
+    P2.syncEl=el;
+    return el;
+  }
+
+  function showSyncP2_(text,state='loading',autoHide=0){
+    const el=ensureSyncIndicatorP2_();
+    el.className='p2-sync-indicator show'+(state==='success'?' success':state==='error'?' error':'');
+    el.innerHTML=state==='loading'
+      ? '<span class="backend-spinner"></span><span>'+esc(text)+'</span>'
+      : '<i data-lucide="'+(state==='success'?'circle-check-big':'circle-alert')+'"></i><span>'+esc(text)+'</span>';
+    lucide.createIcons();
+    if(autoHide) setTimeout(()=>el.classList.remove('show'),autoHide);
+  }
+
   const gasCall = (fn, ...args) => new Promise((resolve, reject) => {
     if (!window.google || !google.script || !google.script.run) {
       reject(new Error('Không tìm thấy môi trường Google Apps Script.'));
@@ -529,6 +567,40 @@ document.addEventListener('DOMContentLoaded', () => {
       .withFailureHandler(err => reject(new Error(err?.message || String(err))));
     runner[fn](...args);
   });
+
+  async function startP2Prefetch_(){
+    if(P2.prefetchPromise) return P2.prefetchPromise;
+
+    P2.prefetchPromise=gasCall('apiP2Prefetch')
+      .then(data=>{
+        if(!data?.ok) return data;
+
+        if(data.documents && JSON.stringify(D1.filters)===defaultD1Key_()){
+          D1.list=data.documents;
+          D1.filters.page=data.documents.pagination?.page||1;
+          D1.loadedAt=Date.now();
+          D1.loadedKey=defaultD1Key_();
+        }
+
+        if(data.tasks && JSON.stringify(D2.filters)===defaultD2Key_()){
+          D2.list=data.tasks;
+          D2.filters.page=data.tasks.pagination?.page||1;
+          D2.loadedAt=Date.now();
+          D2.loadedKey=defaultD2Key_();
+        }
+
+        if(data.todayCalendar?.items){
+          loadDashboardAgendaF1(data.todayCalendar.items);
+        }
+
+        P2.prefetched=true;
+        return data;
+      })
+      .catch(()=>null)
+      .finally(()=>{ P2.prefetchPromise=null; });
+
+    return P2.prefetchPromise;
+  }
 
   const esc = value => String(value ?? '')
     .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
@@ -705,6 +777,46 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
   }
 
+  function closeProfileMenu_(){
+    document.getElementById('profileMenu')?.classList.add('hidden-block');
+    document.getElementById('profileMenuToggle')?.setAttribute('aria-expanded','false');
+  }
+
+  function toggleProfileMenu_(){
+    const menu=document.getElementById('profileMenu');
+    const toggle=document.getElementById('profileMenuToggle');
+    if(!menu||!toggle) return;
+    const open=menu.classList.contains('hidden-block');
+    menu.classList.toggle('hidden-block',!open);
+    toggle.setAttribute('aria-expanded',open?'true':'false');
+  }
+
+  function clearClientSessionP2_(){
+    D1.list=null;D1.current=null;D1.loadedAt=0;D1.loadedKey='';
+    D2.list=null;D2.current=null;D2.loadedAt=0;D2.loadedKey='';
+    P2.prefetchPromise=null;P2.prefetched=false;
+    B2.user=null;B2.users=[];B2.dashboard=null;
+  }
+
+  function logoutGoogle_(){
+    closeProfileMenu_();
+    clearClientSessionP2_();
+
+    const gateway=document.getElementById('accessGateway');
+    gateway?.removeAttribute('hidden');
+    gateway?.classList.remove('access-exit','access-denied','access-error');
+    document.body.classList.add('access-pending');
+    document.body.classList.remove('access-ready');
+
+    const title=document.getElementById('accessTitle');
+    const msg=document.getElementById('accessMessage');
+    if(title) title.textContent='Đang đăng xuất';
+    if(msg) msg.textContent='Đang kết thúc phiên Google và đưa bạn về màn chọn tài khoản…';
+
+    const back=encodeURIComponent(window.location.href);
+    window.location.href='https://accounts.google.com/Logout?continue='+back;
+  }
+
   function switchGoogleAccount_(){
     const continueUrl=encodeURIComponent(window.location.href);
     window.location.href='https://accounts.google.com/AccountChooser?continue='+continueUrl;
@@ -716,6 +828,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.profile-text strong,.sidebar-user-info strong').forEach(el=>el.textContent=name);
     document.querySelectorAll('.profile-text span,.sidebar-user-info span').forEach(el=>el.textContent=B2.user.role || 'Người dùng');
     document.querySelectorAll('.profile-chip .avatar,.sidebar-user .avatar').forEach(el=>el.textContent=initials(name));
+
+    const menuAvatar=document.getElementById('profileMenuAvatar');
+    const menuName=document.getElementById('profileMenuName');
+    const menuEmail=document.getElementById('profileMenuEmail');
+    const menuRole=document.getElementById('profileMenuRole');
+    if(menuAvatar) menuAvatar.textContent=initials(name);
+    if(menuName) menuName.textContent=name;
+    if(menuEmail) menuEmail.textContent=B2.user.email||'';
+    if(menuRole) menuRole.textContent=accessRoleLabel_(B2.user.role);
   };
 
   const renderDashboard = () => {
@@ -844,13 +965,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function loadDashboardAgendaF1(){
+  async function loadDashboardAgendaF1(prefetchedRows=null){
     const box=document.getElementById('dashboardAgendaList');
     if(!box) return;
     const today=dateKeyLocal(new Date());
     try{
-      const data=await gasCall('apiF1ListCalendar',{from:today,to:today});
-      const rows=(data?.items||[]).filter(x=>!x.status||x.status==='ACTIVE');
+      let rows;
+      if(Array.isArray(prefetchedRows)){
+        rows=prefetchedRows.filter(x=>!x.status||x.status==='ACTIVE');
+      }else{
+        const data=await gasCall('apiF1ListCalendar',{from:today,to:today});
+        rows=(data?.items||[]).filter(x=>!x.status||x.status==='ACTIVE');
+      }
       const dateLabel=document.getElementById('dashboardAgendaDate');
       if(dateLabel) dateLabel.textContent=new Intl.DateTimeFormat('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit'}).format(new Date());
       box.innerHTML=rows.length?rows.map((e,i)=>`
@@ -1610,6 +1736,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     box.innerHTML='<div class="admin-loading"><span class="backend-spinner"></span><span>Đang tải nhiệm vụ...</span></div>';
     try{
+      if(requestKey===defaultD2Key_() && P2.prefetchPromise){
+        await P2.prefetchPromise;
+        if(D2.list && D2.loadedKey===defaultD2Key_()){
+          renderTasksD2();
+          return;
+        }
+      }
+
       D2.list=await gasCall('apiD2ListTasks',D2.filters);
       D2.filters.page=D2.list.pagination.page;
       D2.loadedAt=Date.now();
@@ -1719,26 +1853,32 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const btn=document.getElementById('d2SaveTask');
+    const modal=document.getElementById('d2TaskModal');
+    const editingIdBefore=D2.editingId;
     btn.disabled=true;
     btn.innerHTML='<span class="backend-spinner"></span> Đang lưu...';
 
+    // Phản hồi UI ngay; ghi Sheets/Drive tiếp tục đồng bộ nền.
+    modal?.classList.remove('show');
+    showSyncP2_(editingIdBefore?'Đang cập nhật nhiệm vụ…':'Đang lưu nhiệm vụ…');
+
     try{
-      const result=D2.editingId
-        ? await gasCall('apiD2UpdateTask',D2.editingId,payload)
+      const result=editingIdBefore
+        ? await gasCall('apiD2UpdateTask',editingIdBefore,payload)
         : await gasCall('apiD2CreateTask',payload);
       const taskId=result.task.task_id;
 
       if(D2.selectedFiles.length) await uploadTaskFilesD2(taskId,D2.selectedFiles);
 
-      const wasEditing=Boolean(D2.editingId);
+      const wasEditing=Boolean(editingIdBefore);
       const uploadedCount=D2.selectedFiles.length;
-      document.getElementById('d2TaskModal')?.classList.remove('show');
       clearPendingTaskSourceD2();
       invalidateTasksP1();
 
       showToast('Đã lưu nhiệm vụ',uploadedCount
         ? `Đã lưu nhiệm vụ và ${uploadedCount} tài liệu.`
         : 'Thông tin nhiệm vụ đã được cập nhật.');
+      showSyncP2_('Nhiệm vụ đã đồng bộ','success',1400);
 
       // Làm mới nền, không bắt người dùng chờ thêm một vòng đọc Sheets.
       loadTasksD2();
@@ -1746,6 +1886,8 @@ document.addEventListener('DOMContentLoaded', () => {
       D2.editingId='';
       D2.selectedFiles=[];
     }catch(err){
+      modal?.classList.add('show');
+      showSyncP2_('Đồng bộ thất bại','error',2200);
       showToast('Không thể lưu nhiệm vụ',err.message||String(err));
     }finally{
       btn.disabled=false;
@@ -2153,6 +2295,14 @@ document.addEventListener('DOMContentLoaded', () => {
     body.innerHTML=`<tr><td colspan="7"><div class="admin-loading"><span class="backend-spinner"></span><span>Đang tải hồ sơ văn bản...</span></div></td></tr>`;
 
     try{
+      if(requestKey===defaultD1Key_() && P2.prefetchPromise){
+        await P2.prefetchPromise;
+        if(D1.list && D1.loadedKey===defaultD1Key_()){
+          renderDocumentsD1();
+          return;
+        }
+      }
+
       const data=await gasCall('apiD1ListDocuments',D1.filters);
       D1.list=data;
       D1.filters.page=data.pagination.page;
@@ -2351,11 +2501,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const btn=document.getElementById('d1SaveDocument');
+    const modal=document.getElementById('d1DocumentModal');
+    const editingId=D1.editingId;
     btn.disabled=true;
     btn.innerHTML='<span class="backend-spinner"></span> Đang lưu...';
 
+    modal?.classList.remove('show');
+    showSyncP2_(editingId?'Đang cập nhật văn bản…':'Đang lưu văn bản…');
+
     try{
-      const editingId=D1.editingId;
       let saved;
       if(editingId){
         saved=await gasCall('apiD1UpdateDocument',D1.editingId,payload);
@@ -2368,6 +2522,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const uploadedCount=D1.selectedFiles.length;
+      // closeDocumentModalD1() còn dọn editingId/files sau khi server xác nhận.
       closeDocumentModalD1();
       invalidateDocumentsP1();
 
@@ -2377,11 +2532,14 @@ document.addEventListener('DOMContentLoaded', () => {
           ? `Đã lưu hồ sơ và ${uploadedCount} tài liệu lên Google Drive.`
           : 'Thông tin văn bản đã được cập nhật.'
       );
+      showSyncP2_('Văn bản đã đồng bộ','success',1400);
 
       // Refresh nền để thao tác lưu kết thúc ngay sau khi server xác nhận.
       loadDocumentsD1();
       if(editingId) setTimeout(()=>openDocumentD1(saved.document_id),30);
     }catch(err){
+      modal?.classList.add('show');
+      showSyncP2_('Đồng bộ thất bại','error',2200);
       showToast('Không thể lưu văn bản',err.message||String(err));
     }finally{
       btn.disabled=false;
@@ -2778,7 +2936,11 @@ document.addEventListener('DOMContentLoaded', () => {
       hideBackendBanner();
 
       setTimeout(()=>loadNotificationsB6(),600);
-      setTimeout(()=>loadDashboardAgendaF1(),900);
+      startP2Prefetch_();
+      setTimeout(()=>{
+        const box=document.getElementById('dashboardAgendaList');
+        if(box?.querySelector('.backend-spinner')) loadDashboardAgendaF1();
+      },3500);
       finishAccessGateway_(data.user);
     } catch(err) {
       showAccessError_(err.message||String(err));
@@ -2786,6 +2948,31 @@ document.addEventListener('DOMContentLoaded', () => {
       accessBootstrapRunning=false;
     }
   };
+
+  document.getElementById('profileMenuToggle')?.addEventListener('click',e=>{
+    e.stopPropagation();
+    toggleProfileMenu_();
+  });
+  document.querySelector('.sidebar-user')?.addEventListener('click',e=>{
+    e.stopPropagation();
+    document.getElementById('profileMenuToggle')?.click();
+  });
+  document.getElementById('profileSwitchAccount')?.addEventListener('click',()=>{
+    closeProfileMenu_();
+    clearClientSessionP2_();
+    switchGoogleAccount_();
+  });
+  document.getElementById('profileLogout')?.addEventListener('click',logoutGoogle_);
+  document.getElementById('sidebarLogout')?.addEventListener('click',e=>{
+    e.preventDefault();
+    logoutGoogle_();
+  });
+  document.addEventListener('click',e=>{
+    if(!e.target.closest('#profileMenuWrap')) closeProfileMenu_();
+  });
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape') closeProfileMenu_();
+  });
 
   document.getElementById('accessRetryBtn')?.addEventListener('click',()=>bootstrapB2());
   document.getElementById('accessSwitchAccountBtn')?.addEventListener('click',switchGoogleAccount_);
