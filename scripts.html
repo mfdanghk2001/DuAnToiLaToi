@@ -37,10 +37,11 @@ document.addEventListener('DOMContentLoaded', () => {
     reports: 'Báo cáo & thống kê',
     repository: 'Kho tài liệu',
     tools: 'Công cụ hỗ trợ',
-    admin: 'Quản trị hệ thống'
+    admin: 'Quản trị hệ thống',
+    help: 'Trợ giúp'
   };
 
-  const pageIds = ['dashboard','documents','tasks','calendar','meetings','advisory','reports','repository','tools','admin'];
+  const pageIds = ['dashboard','documents','tasks','calendar','meetings','advisory','reports','repository','tools','admin','help'];
 
   const formatToday = () => {
     if (!todayLabel) return;
@@ -390,6 +391,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(()=>document.querySelector(`.tool-launch[data-tool="${type}"]`)?.click(),80);
   }));
 
+  document.getElementById('dashboardAllTasks')?.addEventListener('click',()=>document.querySelector('.nav-item[data-page="tasks"]')?.click());
+  document.getElementById('dashboardAllDocuments')?.addEventListener('click',()=>document.querySelector('.nav-item[data-page="documents"]')?.click());
+  document.getElementById('dashboardAllTools')?.addEventListener('click',()=>document.querySelector('.nav-item[data-page="tools"]')?.click());
+
 
 
   // =========================
@@ -712,7 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try{
       const data=await gasCall('apiF1ListCalendar',{from:today,to:today});
       const rows=(data?.items||[]).filter(x=>!x.status||x.status==='ACTIVE');
-      const dateLabel=document.querySelector('.agenda-panel .panel-head p');
+      const dateLabel=document.getElementById('dashboardAgendaDate');
       if(dateLabel) dateLabel.textContent=new Intl.DateTimeFormat('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit'}).format(new Date());
       box.innerHTML=rows.length?rows.map((e,i)=>`
         <button class="agenda-item f1-dashboard-event b3-event-detail" data-id="${esc(e.event_id)}">
