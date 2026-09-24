@@ -504,6 +504,32 @@ document.addEventListener('DOMContentLoaded', () => {
     syncEl:null
   };
 
+  const P3 = {
+    readCache:new Map(),
+    inflight:new Map(),
+    activeRequests:0,
+    busyTimer:null,
+    busyEl:null
+  };
+
+  const P3_READ_TTL = {
+    apiP2Prefetch:90000,
+    apiD1ListDocuments:45000,
+    apiD1GetDocument:30000,
+    apiD2ListTasks:45000,
+    apiD2GetTask:30000,
+    apiF1ListCalendar:45000,
+    apiF1ListMeetings:45000,
+    apiF1GetMeeting:30000,
+    apiF1ListRepository:30000,
+    apiF1RecentRepository:45000,
+    apiF1FavoriteRepositoryItems:45000,
+    apiF1GetReport:30000,
+    apiB5GetAdminData:30000,
+    apiB6GetNotifications:15000,
+    apiB6GetActivityLogs:15000
+  };
+
   const F1 = {
     calendarView:'week',
     calendarEditingId:'',
