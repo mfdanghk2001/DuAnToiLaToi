@@ -1,7 +1,7 @@
 function doGet() {
   const template = HtmlService.createTemplateFromFile('index');
   return template.evaluate()
-    .setTitle('Văn phòng Đảng ủy số')
+    .setTitle('Văn phòng Đảng ủy Tuy Phong')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
