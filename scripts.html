@@ -972,19 +972,20 @@ document.addEventListener('DOMContentLoaded', () => {
     B2.user=null;B2.users=[];B2.dashboard=null;
   }
 
-  async function logoutApp_(){
+  function logoutApp_(){
     closeProfileMenu_();
     const token=sessionStorage.getItem(SESSION_KEY)||'';
     sessionStorage.removeItem(SESSION_KEY);
     clearClientSessionP2_();
 
-    try{
-      if(token) await authDirectCall('apiPasswordLogout',token);
-    }catch(e){}
-
+    // Trả UI về login ngay; revoke session trên server chạy nền.
     showLoginGateway_('Bạn đã đăng xuất khỏi hệ thống.');
     const pass=document.getElementById('accessLoginPassword');
     if(pass) pass.value='';
+
+    if(token){
+      authDirectCall('apiPasswordLogout',token).catch(()=>{});
+    }
   }
 
   function switchAppAccount_(){
