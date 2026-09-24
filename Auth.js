@@ -24,11 +24,10 @@ const AuthService = (() => {
   };
 
   function getSessionEmail_() {
-    return (
-      Session.getActiveUser().getEmail() ||
-      Session.getEffectiveUser().getEmail() ||
-      ''
-    ).toLowerCase();
+    // SECURITY: chỉ dùng danh tính người đang truy cập.
+    // Không fallback sang EffectiveUser vì web app chạy dưới tài khoản deployer;
+    // fallback đó có thể khiến khách truy cập bị nhận nhầm thành tài khoản deploy.
+    return String(Session.getActiveUser().getEmail() || '').toLowerCase();
   }
 
   function listUsersCached() {
