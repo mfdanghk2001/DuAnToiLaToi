@@ -784,6 +784,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.profile-text strong,.sidebar-user-info strong').forEach(el=>el.textContent=name);
     document.querySelectorAll('.profile-text span,.sidebar-user-info span').forEach(el=>el.textContent=B2.user.role || 'Người dùng');
     document.querySelectorAll('.profile-chip .avatar,.sidebar-user .avatar').forEach(el=>el.textContent=initials(name));
+
+    const menuAvatar=document.getElementById('profileMenuAvatar');
+    const menuName=document.getElementById('profileMenuName');
+    const menuEmail=document.getElementById('profileMenuEmail');
+    const menuRole=document.getElementById('profileMenuRole');
+    if(menuAvatar) menuAvatar.textContent=initials(name);
+    if(menuName) menuName.textContent=name;
+    if(menuEmail) menuEmail.textContent=B2.user.email||'';
+    if(menuRole) menuRole.textContent=accessRoleLabel_(B2.user.role);
   };
 
   const renderDashboard = () => {
@@ -1678,6 +1687,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     box.innerHTML='<div class="admin-loading"><span class="backend-spinner"></span><span>Đang tải nhiệm vụ...</span></div>';
     try{
+      if(requestKey===defaultD2Key_() && P2.prefetchPromise){
+        await P2.prefetchPromise;
+        if(D2.list && D2.loadedKey===defaultD2Key_()){
+          renderTasksD2();
+          return;
+        }
+      }
+
       D2.list=await gasCall('apiD2ListTasks',D2.filters);
       D2.filters.page=D2.list.pagination.page;
       D2.loadedAt=Date.now();
@@ -2221,6 +2238,14 @@ document.addEventListener('DOMContentLoaded', () => {
     body.innerHTML=`<tr><td colspan="7"><div class="admin-loading"><span class="backend-spinner"></span><span>Đang tải hồ sơ văn bản...</span></div></td></tr>`;
 
     try{
+      if(requestKey===defaultD1Key_() && P2.prefetchPromise){
+        await P2.prefetchPromise;
+        if(D1.list && D1.loadedKey===defaultD1Key_()){
+          renderDocumentsD1();
+          return;
+        }
+      }
+
       const data=await gasCall('apiD1ListDocuments',D1.filters);
       D1.list=data;
       D1.filters.page=data.pagination.page;
@@ -2847,6 +2872,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       setTimeout(()=>loadNotificationsB6(),600);
       setTimeout(()=>loadDashboardAgendaF1(),900);
+      startP2Prefetch_();
       finishAccessGateway_(data.user);
     } catch(err) {
       showAccessError_(err.message||String(err));
