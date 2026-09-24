@@ -74,9 +74,17 @@ const D1DocumentService = (() => {
 
   function userMap_() {
     const map = {};
-    RepositoryService.getAll('USERS').forEach(u => {
+    AuthService.listUsersCached().forEach(u => {
       map[u.user_id] = u.full_name || u.email || u.user_id;
     });
+    return map;
+  }
+
+  function usersForResult_(me) {
+    const map = userMap_();
+    if (me?.userId && !map[me.userId]) {
+      map[me.userId] = me.fullName || me.email || me.userId;
+    }
     return map;
   }
 
@@ -88,7 +96,7 @@ const D1DocumentService = (() => {
 
   function assertAssignee_(userId) {
     if (!userId) return;
-    const u = RepositoryService.findById('USERS','user_id',userId);
+    const u = AuthService.listUsersCached().find(x => x.user_id === userId);
     if (!u || u.status !== 'ACTIVE') {
       throw new Error('Người xử lý không tồn tại hoặc đã ngừng hoạt động.');
     }
@@ -252,7 +260,8 @@ const D1DocumentService = (() => {
     const pageSize = Math.max(5, Math.min(Number(filters.pageSize || 10), 50));
 
     const users = userMap_();
-    let all = RepositoryService.getAll('DOCUMENTS').map(d => enrich_(d,users));
+    const sourceAll = RepositoryService.getAll('DOCUMENTS');
+    let all = sourceAll.map(d => enrich_(d,users));
 
     // Tổng hợp stat trước filter tab để dashboard bộ lọc ổn định.
     const now = new Date();
@@ -315,8 +324,6 @@ const D1DocumentService = (() => {
     const start = (safePage - 1) * pageSize;
     const items = all.slice(start,start + pageSize);
 
-    const sourceAll = RepositoryService.getAll('DOCUMENTS');
-
     const years = Array.from(new Set(
       sourceAll.map(d => {
         const dt = new Date(d.received_date || d.issued_date || d.created_at);
@@ -348,8 +355,7 @@ const D1DocumentService = (() => {
         years,
         issuers,
         fields,
-        users:RepositoryService.getAll('USERS')
-          .filter(u => u.status === 'ACTIVE')
+        users:AuthService.listActiveUsersCached()
           .map(u => ({
             user_id:u.user_id,
             full_name:u.full_name || u.email,
@@ -470,7 +476,7 @@ const D1DocumentService = (() => {
       direction:data.direction
     });
 
-    return enrich_(data,userMap_());
+    return enrich_(data,usersForResult_(me));
   }
 
   function update(documentId,payload) {
