@@ -1166,6 +1166,15 @@ document.addEventListener('DOMContentLoaded', () => {
       renderCalendarB3();
       return;
     }
+
+    if(!force && P2.prefetchPromise){
+      await P2.prefetchPromise;
+      if(P1.calendarLoaded){
+        renderCalendarB3();
+        return;
+      }
+    }
+
     try{
       const data=await gasCall('apiF1ListCalendar',{});
       B2.calendarEvents=data?.items||[];
@@ -1181,6 +1190,15 @@ document.addEventListener('DOMContentLoaded', () => {
       renderMeetingsB3();
       return;
     }
+
+    if(!force && !F1.meetingQuery && P2.prefetchPromise){
+      await P2.prefetchPromise;
+      if(P1.meetingsLoaded){
+        renderMeetingsB3();
+        return;
+      }
+    }
+
     try{
       const data=await gasCall('apiF1ListMeetings',{q:F1.meetingQuery||''});
       B2.meetings=data?.items||[];
@@ -3900,8 +3918,8 @@ document.addEventListener('DOMContentLoaded', () => {
         await gasCall('apiB5CreateUser',payload);
       }
       closeAdminUserModalB5();
-      await loadAdminB5();
       showToast('Đã lưu người dùng','Thông tin tài khoản đã được cập nhật.');
+      setTimeout(()=>loadAdminB5(),80);
     }catch(err){
       showToast('Không thể lưu',err.message||String(err));
     }finally{
@@ -3948,8 +3966,8 @@ document.addEventListener('DOMContentLoaded', () => {
         await gasCall('apiB5CreateDepartment',payload);
       }
       closeAdminDepartmentModalB5();
-      await loadAdminB5();
       showToast('Đã lưu đơn vị','Danh mục đơn vị đã được cập nhật.');
+      setTimeout(()=>loadAdminB5(),80);
     }catch(err){
       showToast('Không thể lưu',err.message||String(err));
     }finally{
