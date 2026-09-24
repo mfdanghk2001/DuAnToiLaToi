@@ -1,6 +1,23 @@
 const DriveService = (() => {
-  function getFolderIdByKey(key) {
+  const FOLDER_CACHE_KEY = 'VPDU_FOLDER_SETTINGS_V1';
+
+  function folderSettings_() {
+    const cache = CacheService.getScriptCache();
+    const hit = cache.get(FOLDER_CACHE_KEY);
+    if (hit) {
+      try { return JSON.parse(hit); } catch (e) {}
+    }
     const settings = RepositoryService.getAll('SETTINGS');
+    try { cache.put(FOLDER_CACHE_KEY, JSON.stringify(settings), 300); } catch (e) {}
+    return settings;
+  }
+
+  function clearFolderCache() {
+    try { CacheService.getScriptCache().remove(FOLDER_CACHE_KEY); } catch (e) {}
+  }
+
+  function getFolderIdByKey(key) {
+    const settings = folderSettings_();
     const map = {
       INCOMING: 'FOLDER_INCOMING',
       OUTGOING: 'FOLDER_OUTGOING',
@@ -71,6 +88,7 @@ const DriveService = (() => {
 
   return {
     getFolderIdByKey,
+    clearFolderCache,
     saveBase64File,
     saveBase64FileToFolder,
     createMeetingFolder
