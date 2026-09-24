@@ -2941,6 +2941,55 @@ document.addEventListener('DOMContentLoaded', () => {
     const t=e.target.closest('.b2-task-detail');if(t&&!e.target.closest('.icon-btn'))openB2Task(t.dataset.id);
   });
 
+  function applyWarmBootstrap_(warm){
+    warm=warm||{};
+
+    if(warm.documents){
+      D1.list=warm.documents;
+      D1.filters.page=warm.documents.pagination?.page||1;
+      D1.loadedAt=Date.now();
+      D1.loadedKey=defaultD1Key_();
+    }
+
+    if(warm.tasks){
+      D2.list=warm.tasks;
+      D2.filters.page=warm.tasks.pagination?.page||1;
+      D2.loadedAt=Date.now();
+      D2.loadedKey=defaultD2Key_();
+    }
+
+    if(warm.todayCalendar?.items){
+      loadDashboardAgendaF1(warm.todayCalendar.items);
+    }
+
+    if(Array.isArray(warm.notifications)){
+      B6.notifications=warm.notifications;
+      renderNotificationsB6();
+    }
+  }
+
+  function applyBootstrapData_(data){
+    if(!data?.ok) return false;
+
+    showAccessIdentity_(data.user);
+    B2.user=data.user;
+    B2.users=data.users||[];
+    B2.dashboard=data.dashboard;
+    B2.documents=[];
+    B2.tasks=[];
+    B2.calendarEvents=[];
+    B2.meetings=[];
+
+    applyWarmBootstrap_(data.warm);
+    renderAllB2();
+    applyAccessB5();
+
+    setAccessStep_('workspace',['identity','permission']);
+    hideBackendBanner();
+    finishAccessGateway_(data.user);
+    return true;
+  }
+
   const bootstrapB2 = async () => {
     if(accessBootstrapRunning) return;
 
@@ -2966,26 +3015,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      showAccessIdentity_(data.user);
-      B2.user=data.user;
-      B2.users=data.users||[];
-      B2.dashboard=data.dashboard;
-      B2.documents=[];
-      B2.tasks=[];
-      B2.calendarEvents=[];
-      B2.meetings=[];
-      renderAllB2();
-      applyAccessB5();
-
-      setAccessStep_('workspace',['identity','permission']);
-      hideBackendBanner();
-      setTimeout(()=>loadNotificationsB6(),600);
-      startP2Prefetch_();
-      setTimeout(()=>{
-        const box=document.getElementById('dashboardAgendaList');
-        if(box?.querySelector('.backend-spinner')) loadDashboardAgendaF1();
-      },3500);
-      finishAccessGateway_(data.user);
+      applyBootstrapData_(data);
     } catch(err) {
       sessionStorage.removeItem(SESSION_KEY);
       showLoginGateway_(err.message||'Phiên đăng nhập không hợp lệ.');
@@ -3024,8 +3054,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       sessionStorage.setItem(SESSION_KEY,result.token);
-      showAccessIdentity_(result.user);
-      await bootstrapB2();
+
+      if(result.workspace?.ok){
+        applyBootstrapData_(result.workspace);
+      }else{
+        await bootstrapB2();
+      }
     }catch(err){
       setAccessStep_('identity',[]);
       setLoginError_(err.message||String(err));
