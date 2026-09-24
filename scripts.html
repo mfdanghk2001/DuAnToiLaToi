@@ -585,36 +585,126 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const SESSION_KEY = 'VPDU_SESSION_TOKEN';
 
+  function ensureGlobalBusyP3_(){
+    if(P3.busyEl) return P3.busyEl;
+    const el=document.createElement('div');
+    el.className='global-busy';
+    el.id='globalBusy';
+    el.innerHTML='<span class="global-busy-spinner"></span><span class="global-busy-text">Đang xử lý…</span><span class="global-busy-progress"></span>';
+    document.body.appendChild(el);
+    P3.busyEl=el;
+    return el;
+  }
+
+  function busyLabelP3_(fn){
+    if(/Upload|Add.*File|Export/i.test(fn)) return 'Đang tải tệp và xử lý dữ liệu…';
+    if(/Create|Update|Save|Archive|Cancel|Approve|Reopen|Trash|Rename|Favorite|Mark|Install|Backup|Link|Run/i.test(fn)) return 'Đang lưu thay đổi…';
+    if(/Search/i.test(fn)) return 'Đang tìm kiếm…';
+    if(/Login/i.test(fn)) return 'Đang đăng nhập…';
+    return 'Đang tải dữ liệu…';
+  }
+
+  function beginBusyP3_(fn){
+    P3.activeRequests++;
+    if(P3.activeRequests!==1) return;
+    clearTimeout(P3.busyTimer);
+    P3.busyTimer=setTimeout(()=>{
+      const el=ensureGlobalBusyP3_();
+      el.className='global-busy show';
+      const label=el.querySelector('.global-busy-text');
+      if(label) label.textContent=busyLabelP3_(fn);
+    },140);
+  }
+
+  function endBusyP3_(ok=true){
+    P3.activeRequests=Math.max(0,P3.activeRequests-1);
+    if(P3.activeRequests>0) return;
+    clearTimeout(P3.busyTimer);
+    const el=P3.busyEl;
+    if(!el) return;
+    if(!el.classList.contains('show')) return;
+    el.classList.toggle('success',ok);
+    el.classList.toggle('error',!ok);
+    const label=el.querySelector('.global-busy-text');
+    if(label) label.textContent=ok?'Đã hoàn tất':'Có lỗi khi xử lý';
+    setTimeout(()=>{
+      if(P3.activeRequests===0){
+        el.className='global-busy';
+      }
+    },ok?360:900);
+  }
+
+  function clearReadCacheP3_(){
+    P3.readCache.clear();
+  }
+
+  function cacheKeyP3_(fn,args){
+    let payload='';
+    try{ payload=JSON.stringify(args||[]); }catch(e){ payload=String(args||''); }
+    return fn+'|'+payload;
+  }
+
+  function isMutationP3_(fn){
+    return /Create|Update|Save|Add|Archive|Cancel|Approve|Reopen|Trash|Rename|Favorite|Upload|Install|Backup|Mark|Run|Link|Reset|Change/i.test(fn);
+  }
+
   const authDirectCall = (fn, ...args) => new Promise((resolve, reject) => {
     if (!window.google || !google.script || !google.script.run) {
       reject(new Error('Không tìm thấy môi trường Google Apps Script.'));
       return;
     }
+    beginBusyP3_(fn);
     let runner = google.script.run
-      .withSuccessHandler(resolve)
-      .withFailureHandler(err => reject(new Error(err?.message || String(err))));
+      .withSuccessHandler(result=>{endBusyP3_(true);resolve(result)})
+      .withFailureHandler(err=>{endBusyP3_(false);reject(new Error(err?.message || String(err)))});
     runner[fn](...args);
   });
 
-  const gasCall = (fn, ...args) => new Promise((resolve, reject) => {
+  const gasCall = (fn, ...args) => {
     if (!window.google || !google.script || !google.script.run) {
-      reject(new Error('Không tìm thấy môi trường Google Apps Script.'));
-      return;
+      return Promise.reject(new Error('Không tìm thấy môi trường Google Apps Script.'));
+    }
+
+    const ttl=P3_READ_TTL[fn]||0;
+    const key=ttl?cacheKeyP3_(fn,args):'';
+
+    if(ttl){
+      const cached=P3.readCache.get(key);
+      if(cached && (Date.now()-cached.at)<ttl){
+        return Promise.resolve(cached.data);
+      }
+      if(P3.inflight.has(key)) return P3.inflight.get(key);
     }
 
     const token=sessionStorage.getItem(SESSION_KEY)||'';
-    google.script.run
-      .withSuccessHandler(resolve)
-      .withFailureHandler(err => {
-        const message=err?.message||String(err);
-        if(/Phiên đăng nhập|SESSION_EXPIRED/i.test(message)){
-          sessionStorage.removeItem(SESSION_KEY);
-          setTimeout(()=>showLoginGateway_('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'),0);
-        }
-        reject(new Error(message));
-      })
-      .apiDispatch(fn,args,token);
-  });
+    beginBusyP3_(fn);
+
+    const request=new Promise((resolve,reject)=>{
+      google.script.run
+        .withSuccessHandler(result=>{
+          if(ttl) P3.readCache.set(key,{at:Date.now(),data:result});
+          if(isMutationP3_(fn)) clearReadCacheP3_();
+          endBusyP3_(true);
+          resolve(result);
+        })
+        .withFailureHandler(err=>{
+          const message=err?.message||String(err);
+          endBusyP3_(false);
+          if(/Phiên đăng nhập|SESSION_EXPIRED/i.test(message)){
+            sessionStorage.removeItem(SESSION_KEY);
+            setTimeout(()=>showLoginGateway_('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'),0);
+          }
+          reject(new Error(message));
+        })
+        .apiDispatch(fn,args,token);
+    });
+
+    if(ttl){
+      P3.inflight.set(key,request);
+      request.finally(()=>P3.inflight.delete(key));
+    }
+    return request;
+  };
 
   async function startP2Prefetch_(){
     if(P2.prefetchPromise) return P2.prefetchPromise;
