@@ -1853,26 +1853,32 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const btn=document.getElementById('d2SaveTask');
+    const modal=document.getElementById('d2TaskModal');
+    const editingIdBefore=D2.editingId;
     btn.disabled=true;
     btn.innerHTML='<span class="backend-spinner"></span> Đang lưu...';
 
+    // Phản hồi UI ngay; ghi Sheets/Drive tiếp tục đồng bộ nền.
+    modal?.classList.remove('show');
+    showSyncP2_(editingIdBefore?'Đang cập nhật nhiệm vụ…':'Đang lưu nhiệm vụ…');
+
     try{
-      const result=D2.editingId
-        ? await gasCall('apiD2UpdateTask',D2.editingId,payload)
+      const result=editingIdBefore
+        ? await gasCall('apiD2UpdateTask',editingIdBefore,payload)
         : await gasCall('apiD2CreateTask',payload);
       const taskId=result.task.task_id;
 
       if(D2.selectedFiles.length) await uploadTaskFilesD2(taskId,D2.selectedFiles);
 
-      const wasEditing=Boolean(D2.editingId);
+      const wasEditing=Boolean(editingIdBefore);
       const uploadedCount=D2.selectedFiles.length;
-      document.getElementById('d2TaskModal')?.classList.remove('show');
       clearPendingTaskSourceD2();
       invalidateTasksP1();
 
       showToast('Đã lưu nhiệm vụ',uploadedCount
         ? `Đã lưu nhiệm vụ và ${uploadedCount} tài liệu.`
         : 'Thông tin nhiệm vụ đã được cập nhật.');
+      showSyncP2_('Nhiệm vụ đã đồng bộ','success',1400);
 
       // Làm mới nền, không bắt người dùng chờ thêm một vòng đọc Sheets.
       loadTasksD2();
@@ -1880,6 +1886,8 @@ document.addEventListener('DOMContentLoaded', () => {
       D2.editingId='';
       D2.selectedFiles=[];
     }catch(err){
+      modal?.classList.add('show');
+      showSyncP2_('Đồng bộ thất bại','error',2200);
       showToast('Không thể lưu nhiệm vụ',err.message||String(err));
     }finally{
       btn.disabled=false;
@@ -2493,11 +2501,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const btn=document.getElementById('d1SaveDocument');
+    const modal=document.getElementById('d1DocumentModal');
+    const editingId=D1.editingId;
     btn.disabled=true;
     btn.innerHTML='<span class="backend-spinner"></span> Đang lưu...';
 
+    modal?.classList.remove('show');
+    showSyncP2_(editingId?'Đang cập nhật văn bản…':'Đang lưu văn bản…');
+
     try{
-      const editingId=D1.editingId;
       let saved;
       if(editingId){
         saved=await gasCall('apiD1UpdateDocument',D1.editingId,payload);
@@ -2510,6 +2522,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const uploadedCount=D1.selectedFiles.length;
+      // closeDocumentModalD1() còn dọn editingId/files sau khi server xác nhận.
       closeDocumentModalD1();
       invalidateDocumentsP1();
 
@@ -2519,11 +2532,14 @@ document.addEventListener('DOMContentLoaded', () => {
           ? `Đã lưu hồ sơ và ${uploadedCount} tài liệu lên Google Drive.`
           : 'Thông tin văn bản đã được cập nhật.'
       );
+      showSyncP2_('Văn bản đã đồng bộ','success',1400);
 
       // Refresh nền để thao tác lưu kết thúc ngay sau khi server xác nhận.
       loadDocumentsD1();
       if(editingId) setTimeout(()=>openDocumentD1(saved.document_id),30);
     }catch(err){
+      modal?.classList.add('show');
+      showSyncP2_('Đồng bộ thất bại','error',2200);
       showToast('Không thể lưu văn bản',err.message||String(err));
     }finally{
       btn.disabled=false;
