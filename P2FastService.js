@@ -11,6 +11,8 @@ const P2FastService = (() => {
       documents:null,
       tasks:null,
       todayCalendar:null,
+      calendar:null,
+      meetings:null,
       server_ms:0
     };
 
@@ -47,10 +49,17 @@ const P2FastService = (() => {
 
     if (has('calendar.view')) {
       const today = Utilities.formatDate(new Date(),'Asia/Ho_Chi_Minh','yyyy-MM-dd');
-      result.todayCalendar = F1CompleteService.calendarList({
-        from:today,
-        to:today
-      });
+      result.calendar = F1CompleteService.calendarList({});
+      result.todayCalendar = {
+        items:(result.calendar.items || []).filter(x =>
+          String(x.event_date || '').slice(0,10) === today &&
+          (!x.status || x.status === 'ACTIVE')
+        )
+      };
+    }
+
+    if (has('meetings.view')) {
+      result.meetings = F1CompleteService.meetingList({q:''});
     }
 
     result.server_ms = Date.now() - started;
