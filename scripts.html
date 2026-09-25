@@ -865,6 +865,15 @@ document.addEventListener('DOMContentLoaded', () => {
     C2.outputs={};C2.activeLinkOutputId='';C2.history=[];
     P1.dashboardDirty=false;P1.calendarLoaded=false;P1.meetingsLoaded=false;P1.aiConfigLoaded=false;
     F1.repositoryItems=[];F1.reportLoaded=false;F1.diagnostics=null;F1.meetingCurrent=null;
+
+    // Luôn quay về Dashboard trước khi tài khoản khác đăng nhập để không có
+    // khoảnh khắc hiển thị DOM còn sót của Báo cáo/Quản trị/Kho tài liệu.
+    document.querySelectorAll('.nav-item[data-page]').forEach(item=>{
+      item.classList.toggle('active',item.dataset.page==='dashboard');
+    });
+    showPage('dashboard');
+    notificationPanel?.classList.remove('show');
+    quickMenu?.classList.remove('show');
   }
 
   async function logoutApp_(){
