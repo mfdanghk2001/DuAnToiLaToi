@@ -6,6 +6,9 @@ const RepositoryService = (() => {
   const runtimeIdRows = {};
 
   const ROW_CACHE_TTL = {
+    // Session validation is on the hot path of every protected API call.
+    // Cache briefly so a cold request does not have to scan AUTH_SESSIONS repeatedly.
+    AUTH_SESSIONS:60,
     DOCUMENTS:20,
     TASKS:20,
     CALENDAR:20,
