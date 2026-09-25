@@ -419,11 +419,16 @@ document.addEventListener('DOMContentLoaded', () => {
     repoFolderId:'',
     repoRootId:'',
     repoData:null,
-    report:null
+    repoCache:{},
+    repoCacheAt:{},
+    report:null,
+    reportCache:{},
+    reportCacheAt:{}
   };
 
   const B5 = {
     admin:null,
+    loadedAt:0,
     editingUserId:'',
     editingDepartmentId:'',
     roleFilter:'ALL',
@@ -432,6 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const B6 = {
     notifications:[],
+    notificationsLoadedAt:0,
     activityLogs:[]
   };
 
@@ -844,10 +850,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function clearClientSessionP2_(){
-    D1.list=null;D1.current=null;D1.loadedAt=0;D1.loadedKey='';
-    D2.list=null;D2.current=null;D2.loadedAt=0;D2.loadedKey='';
+    D1.list=null;D1.current=null;D1.loadedAt=0;D1.loadedKey='';D1.editingId='';D1.selectedFiles=[];
+    D2.list=null;D2.current=null;D2.loadedAt=0;D2.loadedKey='';D2.editingId='';D2.selectedFiles=[];D2.pendingSource={type:'',id:''};
     P2.prefetchPromise=null;P2.prefetched=false;
-    B2.user=null;B2.users=[];B2.dashboard=null;
+    B2.user=null;B2.users=[];B2.dashboard=null;B2.documents=[];B2.tasks=[];B2.calendarEvents=[];B2.meetings=[];
+
+    // Xóa toàn bộ cache mang dữ liệu theo tài khoản để tránh hiển thị dữ liệu
+    // của người dùng trước sau khi đăng xuất / đổi tài khoản trong cùng một tab.
+    B4.repoFolderId='';B4.repoRootId='';B4.repoData=null;B4.repoCache={};B4.repoCacheAt={};
+    B4.report=null;B4.reportCache={};B4.reportCacheAt={};
+    B5.admin=null;B5.loadedAt=0;B5.editingUserId='';B5.editingDepartmentId='';
+    B6.notifications=[];B6.notificationsLoadedAt=0;B6.activityLogs=[];
+    C1.config=null;C1.selectedFiles=[];C1.fileFolderId='';C1.fileRootId='';C1.fileHistory=[];
+    C2.outputs={};C2.activeLinkOutputId='';C2.history=[];
+    P1.dashboardDirty=false;P1.calendarLoaded=false;P1.meetingsLoaded=false;P1.aiConfigLoaded=false;
+    F1.repositoryItems=[];F1.reportLoaded=false;F1.diagnostics=null;F1.meetingCurrent=null;
   }
 
   async function logoutApp_(){
@@ -3047,6 +3064,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if(Array.isArray(warm.notifications)){
       B6.notifications=warm.notifications;
+      B6.notificationsLoadedAt=Date.now();
       renderNotificationsB6();
     }
   }
@@ -3593,13 +3611,19 @@ document.addEventListener('DOMContentLoaded', () => {
       .forEach(el=>el.textContent=displayRole);
   }
 
-  async function loadAdminB5(){
+  async function loadAdminB5(force=false){
+    if(!force && B5.admin && B5.loadedAt && Date.now()-B5.loadedAt<P1.cacheMs){
+      renderAdminB5();
+      return;
+    }
+
     const body=document.getElementById('adminUserTableBody');
     if(body) body.innerHTML=`<tr><td colspan="6"><div class="admin-loading"><span class="backend-spinner"></span><span>Đang tải dữ liệu quản trị...</span></div></td></tr>`;
 
     try{
       const data=await gasCall('apiB5GetAdminData');
       B5.admin=data;
+      B5.loadedAt=Date.now();
       renderAdminB5();
     }catch(err){
       if(body) body.innerHTML=`<tr><td colspan="6"><div class="empty-data"><i data-lucide="shield-alert"></i><strong>Không thể mở Quản trị</strong><span>${esc(err.message||String(err))}</span></div></td></tr>`;
@@ -3893,7 +3917,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await gasCall('apiB5CreateUser',payload);
       }
       closeAdminUserModalB5();
-      await loadAdminB5();
+      await loadAdminB5(true);
       showToast('Đã lưu người dùng','Thông tin tài khoản đã được cập nhật.');
     }catch(err){
       showToast('Không thể lưu',err.message||String(err));
@@ -3941,7 +3965,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await gasCall('apiB5CreateDepartment',payload);
       }
       closeAdminDepartmentModalB5();
-      await loadAdminB5();
+      await loadAdminB5(true);
       showToast('Đã lưu đơn vị','Danh mục đơn vị đã được cập nhật.');
     }catch(err){
       showToast('Không thể lưu',err.message||String(err));
@@ -4060,12 +4084,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if(count) count.textContent=unread>99?'99+':String(unread);
   }
 
-  async function loadNotificationsB6(){
+  async function loadNotificationsB6(force=false){
+    if(!force && B6.notificationsLoadedAt && Date.now()-B6.notificationsLoadedAt<30000){
+      renderNotificationsB6();
+      return;
+    }
+
     const list=document.getElementById('notificationList');
     if(list) list.innerHTML=`<div class="notif-loading"><span class="backend-spinner"></span><span>Đang tải thông báo...</span></div>`;
 
     try{
       B6.notifications=await gasCall('apiB6GetNotifications')||[];
+      B6.notificationsLoadedAt=Date.now();
       renderNotificationsB6();
     }catch(err){
       if(list) list.innerHTML=`<div class="notif-empty"><i data-lucide="circle-alert"></i><strong>Không tải được thông báo</strong><span>${esc(err.message||String(err))}</span></div>`;
@@ -4255,7 +4285,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('activityRunReminderBtn')?.addEventListener('click',async()=>{
     try{
       const r=await gasCall('apiB6RunReminderScan');
-      await loadNotificationsB6();
+      await loadNotificationsB6(true);
       showToast('Đã quét nhắc việc',`Tạo mới ${r.created||0} thông báo.`);
     }catch(err){
       showToast('Không thể quét',err.message||String(err));
@@ -5369,15 +5399,35 @@ document.addEventListener('DOMContentLoaded', () => {
     return !m.includes('pdf')&&!m.includes('word')&&!m.includes('document')&&!m.includes('sheet')&&!m.includes('excel')&&!m.includes('spreadsheet')&&!m.includes('image');
   };
 
-  async function loadRepositoryB4(folderId=''){
+  function invalidateRepositoryCacheF1_(){
+    B4.repoCache={};
+    B4.repoCacheAt={};
+  }
+
+  async function loadRepositoryB4(folderId='',force=false){
     const folderGrid=document.getElementById('repoFolderGrid');
     const fileGrid=document.getElementById('repoFileGrid');
     if(!folderGrid||!fileGrid) return;
+
+    const key=folderId||'__ROOT__';
+    const cached=B4.repoCache[key];
+    const cachedAt=B4.repoCacheAt[key]||0;
+    if(!force && cached && Date.now()-cachedAt<60000){
+      B4.repoData=cached;
+      B4.repoFolderId=cached.folder.id;
+      B4.repoRootId=cached.rootFolderId;
+      F1.repositoryMode='folder';
+      renderRepositoryB4();
+      return;
+    }
+
     folderGrid.innerHTML='<div class="repo-loading" style="grid-column:1/-1"><span class="backend-spinner"></span><span>Đang đọc Google Drive...</span></div>';
     fileGrid.innerHTML='';
     try{
       const data=await gasCall('apiF1ListRepository',folderId||'');
       B4.repoData=data;B4.repoFolderId=data.folder.id;B4.repoRootId=data.rootFolderId;
+      B4.repoCache[key]=data;B4.repoCacheAt[key]=Date.now();
+      B4.repoCache[data.folder.id]=data;B4.repoCacheAt[data.folder.id]=Date.now();
       F1.repositoryMode='folder';
       renderRepositoryB4();
     }catch(err){folderGrid.innerHTML=`<div class="repo-empty"><i data-lucide="circle-alert"></i><strong>Không đọc được kho</strong><span>${esc(err.message||String(err))}</span></div>`;lucide.createIcons()}
@@ -5439,7 +5489,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function createRepoFolderB4(){
     const name=prompt('Tên thư mục mới:');if(!name?.trim())return;
-    try{await gasCall('apiF1CreateRepositoryFolder',B4.repoFolderId||'',name.trim());await loadRepositoryB4(B4.repoFolderId||'');showToast('Đã tạo thư mục','Thư mục đã được tạo.')}catch(err){showToast('Không thể tạo thư mục',err.message||String(err))}
+    try{await gasCall('apiF1CreateRepositoryFolder',B4.repoFolderId||'',name.trim());invalidateRepositoryCacheF1_();await loadRepositoryB4(B4.repoFolderId||'',true);showToast('Đã tạo thư mục','Thư mục đã được tạo.')}catch(err){showToast('Không thể tạo thư mục',err.message||String(err))}
   }
 
   async function uploadRepoFileB4(file){
@@ -5448,6 +5498,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try{
       const encoded=await readFileAsBase64(file);encoded.size=file.size;
       await gasCall('apiF1UploadRepositoryFile',B4.repoFolderId||'',encoded);
+      invalidateRepositoryCacheF1_();
     }catch(err){throw err}
   }
 
@@ -5477,10 +5528,23 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  async function loadReportB4(){
+  async function loadReportB4(force=false){
     try{
       F1.reportFilters={...F1.reportFilters,...reportFiltersF1()};
+      const key=JSON.stringify(F1.reportFilters);
+      const cached=B4.reportCache[key];
+      const cachedAt=B4.reportCacheAt[key]||0;
+
+      if(!force && cached && Date.now()-cachedAt<60000){
+        B4.report=cached;
+        F1.reportLoaded=true;
+        renderReportB4();
+        return;
+      }
+
       B4.report=await gasCall('apiF1GetReport',F1.reportFilters);
+      B4.reportCache[key]=B4.report;
+      B4.reportCacheAt[key]=Date.now();
       F1.reportLoaded=true;renderReportB4();
     }catch(err){showToast('Không tải được báo cáo',err.message||String(err))}
   }
@@ -5592,9 +5656,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('repoSort')?.addEventListener('change',renderRepositoryB4);
   document.addEventListener('click',async e=>{
     const side=e.target.closest('.repo-side-folder');if(side){loadRepositoryB4(side.dataset.id);return}
-    const fav=e.target.closest('.f1-repo-favorite');if(fav){e.preventDefault();e.stopPropagation();try{await gasCall('apiF1FavoriteRepositoryItem',fav.dataset.type,fav.dataset.id,fav.dataset.favorite!=='1');if(F1.repositoryMode==='favorite')await loadRepoFlatF1('favorite');else await loadRepositoryB4(B4.repoFolderId||'')}catch(err){showToast('Không thể đánh dấu',err.message||String(err))}return}
-    const rename=e.target.closest('.f1-repo-rename');if(rename){e.preventDefault();e.stopPropagation();const name=prompt('Tên mới:',rename.dataset.name||'');if(!name?.trim())return;try{await gasCall('apiF1RenameRepositoryItem',rename.dataset.type,rename.dataset.id,name.trim());await loadRepositoryB4(B4.repoFolderId||'');showToast('Đã đổi tên',name.trim())}catch(err){showToast('Không thể đổi tên',err.message||String(err))}return}
-    const trash=e.target.closest('.f1-repo-trash');if(trash){e.preventDefault();e.stopPropagation();if(!confirm(`Đưa "${trash.dataset.name}" vào thùng rác Google Drive?`))return;try{await gasCall('apiF1TrashRepositoryItem',trash.dataset.type,trash.dataset.id);await loadRepositoryB4(B4.repoFolderId||'');showToast('Đã chuyển vào thùng rác','Có thể khôi phục trong Google Drive.')}catch(err){showToast('Không thể xóa',err.message||String(err))}}
+    const fav=e.target.closest('.f1-repo-favorite');if(fav){e.preventDefault();e.stopPropagation();try{await gasCall('apiF1FavoriteRepositoryItem',fav.dataset.type,fav.dataset.id,fav.dataset.favorite!=='1');invalidateRepositoryCacheF1_();if(F1.repositoryMode==='favorite')await loadRepoFlatF1('favorite');else await loadRepositoryB4(B4.repoFolderId||'',true)}catch(err){showToast('Không thể đánh dấu',err.message||String(err))}return}
+    const rename=e.target.closest('.f1-repo-rename');if(rename){e.preventDefault();e.stopPropagation();const name=prompt('Tên mới:',rename.dataset.name||'');if(!name?.trim())return;try{await gasCall('apiF1RenameRepositoryItem',rename.dataset.type,rename.dataset.id,name.trim());invalidateRepositoryCacheF1_();await loadRepositoryB4(B4.repoFolderId||'',true);showToast('Đã đổi tên',name.trim())}catch(err){showToast('Không thể đổi tên',err.message||String(err))}return}
+    const trash=e.target.closest('.f1-repo-trash');if(trash){e.preventDefault();e.stopPropagation();if(!confirm(`Đưa "${trash.dataset.name}" vào thùng rác Google Drive?`))return;try{await gasCall('apiF1TrashRepositoryItem',trash.dataset.type,trash.dataset.id);invalidateRepositoryCacheF1_();await loadRepositoryB4(B4.repoFolderId||'',true);showToast('Đã chuyển vào thùng rác','Có thể khôi phục trong Google Drive.')}catch(err){showToast('Không thể xóa',err.message||String(err))}}
   });
 
   document.querySelectorAll('[data-report-period]').forEach(btn=>btn.addEventListener('click',()=>{
@@ -5615,7 +5679,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('reportDateFrom')?.addEventListener('change',()=>{if(F1.reportFilters.period==='CUSTOM')loadReportB4()});
   document.getElementById('reportDateTo')?.addEventListener('change',()=>{if(F1.reportFilters.period==='CUSTOM')loadReportB4()});
   document.getElementById('reportDepartmentFilter')?.addEventListener('change',loadReportB4);
-  document.getElementById('reportRefreshBtn')?.addEventListener('click',loadReportB4);
+  document.getElementById('reportRefreshBtn')?.addEventListener('click',()=>loadReportB4(true));
   document.getElementById('reportExportPdf')?.addEventListener('click',exportReportPdfF1);
   document.querySelectorAll('[data-report-template]').forEach(btn=>btn.addEventListener('click',()=>{F1.reportFilters.period=btn.dataset.reportTemplate;document.querySelectorAll('[data-report-period]').forEach(x=>x.classList.toggle('active',x.dataset.reportPeriod===F1.reportFilters.period));loadReportB4()}));
   const anchorInput=document.getElementById('reportAnchorDate');if(anchorInput&&!anchorInput.value)anchorInput.value=dateKeyLocal(new Date());
