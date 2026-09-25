@@ -161,6 +161,13 @@ const PasswordAuthService = (() => {
 
     const cutoff = Date.now() - SESSION_RETENTION_DAYS * 24 * 60 * 60 * 1000;
     try {
+      // Sheet nhỏ thì chưa cần làm cleanup; tránh tăng latency login vô ích.
+      const sh = SystemConfig.getSheet(SESSION_SHEET);
+      if (sh.getLastRow() <= 300) {
+        try { cache.put(SESSION_CLEANUP_KEY,'1',21600); } catch (e) {}
+        return;
+      }
+
       RepositoryService.deleteWhere(SESSION_SHEET, row => {
         const expiresAt = row.expires_at ? new Date(row.expires_at).getTime() : 0;
         const revokedAt = row.revoked_at ? new Date(row.revoked_at).getTime() : 0;
