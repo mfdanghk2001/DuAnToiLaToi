@@ -160,10 +160,10 @@ const B6NotificationService = (() => {
             reference_id: t.task_id
           });
           if (n) {
-          notifications.push(n);
-          notificationIndex.add(notificationKey_(n.user_id,n.type,n.reference_type,n.reference_id));
-          created++;
-        }
+            notifications.push(n);
+            notificationIndex.add(notificationKey_(n.user_id,n.type,n.reference_type,n.reference_id));
+            created++;
+          }
         }
       } else if (due <= next24h) {
         if (!exists_(notificationIndex, owner, 'TASK_DUE_SOON', 'TASK', t.task_id)) {
@@ -176,10 +176,10 @@ const B6NotificationService = (() => {
             reference_id: t.task_id
           });
           if (n) {
-          notifications.push(n);
-          notificationIndex.add(notificationKey_(n.user_id,n.type,n.reference_type,n.reference_id));
-          created++;
-        }
+            notifications.push(n);
+            notificationIndex.add(notificationKey_(n.user_id,n.type,n.reference_type,n.reference_id));
+            created++;
+          }
         }
       }
     });
@@ -206,10 +206,10 @@ const B6NotificationService = (() => {
             reference_id: d.document_id
           });
           if (n) {
-          notifications.push(n);
-          notificationIndex.add(notificationKey_(n.user_id,n.type,n.reference_type,n.reference_id));
-          created++;
-        }
+            notifications.push(n);
+            notificationIndex.add(notificationKey_(n.user_id,n.type,n.reference_type,n.reference_id));
+            created++;
+          }
         }
       }
     });
