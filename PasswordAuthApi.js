@@ -1,3 +1,19 @@
+function toClientSafe_(value) {
+  if (value === null || value === undefined) return value === undefined ? null : value;
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map(toClientSafe_);
+  if (typeof value === 'object') {
+    const out = {};
+    Object.keys(value).forEach(key => {
+      const v = value[key];
+      if (typeof v === 'function') return;
+      out[key] = toClientSafe_(v);
+    });
+    return out;
+  }
+  return value;
+}
+
 function apiPasswordLogin(login, password) {
   try {
     const result = PasswordAuthService.login(login, password);
@@ -5,7 +21,7 @@ function apiPasswordLogin(login, password) {
       AuthService.setRuntimeUser(result.user);
       result.workspace = P1FastService.bootstrap();
     }
-    return result;
+    return toClientSafe_(result);
   } catch (e) {
     return {
       ok:false,
@@ -16,19 +32,19 @@ function apiPasswordLogin(login, password) {
 }
 
 function apiPasswordLogout(token) {
-  return PasswordAuthService.logout(token || '');
+  return toClientSafe_(PasswordAuthService.logout(token || ''));
 }
 
 function apiPasswordAdminSetUserPassword(userId, newPassword) {
-  return PasswordAuthService.setUserPassword(userId, newPassword);
+  return toClientSafe_(PasswordAuthService.setUserPassword(userId, newPassword));
 }
 
 function apiPasswordChangeOwnPassword(currentPassword, newPassword) {
-  return PasswordAuthService.changeOwnPassword(currentPassword, newPassword);
+  return toClientSafe_(PasswordAuthService.changeOwnPassword(currentPassword, newPassword));
 }
 
 function apiPasswordStatus(userId) {
-  return PasswordAuthService.passwordStatus(userId);
+  return toClientSafe_(PasswordAuthService.passwordStatus(userId));
 }
 
 function apiDispatch(apiName, args, token) {
@@ -61,5 +77,5 @@ function apiDispatch(apiName, args, token) {
     throw new Error('Không tìm thấy API: ' + apiName);
   }
 
-  return fn.apply(null, args);
+  return toClientSafe_(fn.apply(null, args));
 }

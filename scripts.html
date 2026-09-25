@@ -1935,6 +1935,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const result=editingIdBefore
         ? await gasCall('apiD2UpdateTask',editingIdBefore,payload)
         : await gasCall('apiD2CreateTask',payload);
+
+      if(!result || !result.task || !result.task.task_id){
+        throw new Error('Máy chủ đã xử lý yêu cầu nhưng không trả về mã nhiệm vụ. Vui lòng tải lại danh sách trước khi thử lại để tránh tạo trùng.');
+      }
       const taskId=result.task.task_id;
 
       if(D2.selectedFiles.length) await uploadTaskFilesD2(taskId,D2.selectedFiles);
@@ -2617,6 +2621,10 @@ document.addEventListener('DOMContentLoaded', () => {
         saved=await gasCall('apiD1UpdateDocument',D1.editingId,payload);
       }else{
         saved=await gasCall('apiD1CreateDocument',payload);
+      }
+
+      if(!saved || !saved.document_id){
+        throw new Error('Máy chủ đã xử lý yêu cầu nhưng không trả về mã văn bản. Vui lòng tải lại danh sách trước khi thử lại để tránh tạo trùng.');
       }
 
       if(D1.selectedFiles.length){
