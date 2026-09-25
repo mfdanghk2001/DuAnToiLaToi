@@ -244,10 +244,24 @@ const RepositoryService = (() => {
       if (predicate(obj)) deleteRows.push(i+2);
     });
 
-    for (let i=deleteRows.length-1;i>=0;i--) {
-      sh.deleteRow(deleteRows[i]);
+    if (deleteRows.length) {
+      // Xóa theo block liên tiếp thay vì deleteRow từng hàng.
+      // Nhanh hơn rõ rệt với session cleanup / replace meeting members.
+      const groups = [];
+      deleteRows.forEach(rowNumber => {
+        const last = groups[groups.length - 1];
+        if (last && last.start + last.count === rowNumber) {
+          last.count++;
+        } else {
+          groups.push({start:rowNumber,count:1});
+        }
+      });
+
+      for (let i=groups.length-1;i>=0;i--) {
+        sh.deleteRows(groups[i].start,groups[i].count);
+      }
+      invalidateSheetCaches_(sheetName);
     }
-    if (deleteRows.length) invalidateSheetCaches_(sheetName);
     return {deleted:deleteRows.length};
   }
 
