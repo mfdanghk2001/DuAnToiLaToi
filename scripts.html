@@ -581,9 +581,16 @@ document.addEventListener('DOMContentLoaded', () => {
       .withSuccessHandler(resolve)
       .withFailureHandler(err => {
         const message=err?.message||String(err);
-        if(/Phiên đăng nhập|SESSION_EXPIRED/i.test(message)){
+        const sessionExpired=/Phiên đăng nhập|SESSION_EXPIRED/i.test(message);
+        if(sessionExpired){
           sessionStorage.removeItem(SESSION_KEY);
-          setTimeout(()=>showLoginGateway_('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'),0);
+
+          // Khi vừa mở web, bootstrap có thể gặp token cũ/hết hạn từ tab trước.
+          // Đây là trạng thái bình thường: quay về form login sạch, không báo lỗi đỏ.
+          // Chỉ cảnh báo khi phiên hết hạn trong lúc người dùng đang sử dụng hệ thống.
+          if(!accessBootstrapRunning){
+            setTimeout(()=>showLoginGateway_('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'),0);
+          }
         }
         reject(new Error(message));
       })
@@ -3094,7 +3101,12 @@ document.addEventListener('DOMContentLoaded', () => {
       applyBootstrapData_(data);
     } catch(err) {
       sessionStorage.removeItem(SESSION_KEY);
-      showLoginGateway_(err.message||'Phiên đăng nhập không hợp lệ.');
+      const message=err?.message||String(err);
+      const sessionExpired=/Phiên đăng nhập|SESSION_EXPIRED/i.test(message);
+
+      // Token cũ/hết hạn lúc khởi động không phải lỗi thao tác của người dùng.
+      // Trả về màn login sạch; các lỗi bootstrap khác vẫn được hiển thị.
+      showLoginGateway_(sessionExpired ? '' : (message||'Không thể đăng nhập.'));
     } finally {
       accessBootstrapRunning=false;
       gateway?.classList.remove('access-authenticating');
