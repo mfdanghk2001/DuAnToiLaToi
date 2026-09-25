@@ -14,7 +14,9 @@ const PasswordAuthService = (() => {
   const PEPPER_PROP = 'VPDU_AUTH_PEPPER';
   const BOOTSTRAP_PROP = 'VPDU_BOOTSTRAP_PASSWORD';
   const SESSION_PREFIX = 'VPDU_SESSION_';
+  const SESSION_CLEANUP_KEY = 'VPDU_AUTH_SESSION_CLEANUP_V1';
   const SESSION_HOURS = 8;
+  const SESSION_RETENTION_DAYS = 7;
   const MAX_FAILURES = 5;
   const LOCK_MINUTES = 15;
   let runtimeReady = false;
@@ -149,8 +151,33 @@ const PasswordAuthService = (() => {
     ).replace(/=+$/,'') + Utilities.getUuid().replace(/-/g,'');
   }
 
+  function maybeCleanupSessions_() {
+    // AUTH_SESSIONS is append-only during normal use. Without cleanup the sheet grows
+    // forever and cold session validation becomes progressively slower.
+    const cache = CacheService.getScriptCache();
+    try {
+      if (cache.get(SESSION_CLEANUP_KEY)) return;
+    } catch (e) {}
+
+    const cutoff = Date.now() - SESSION_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    try {
+      RepositoryService.deleteWhere(SESSION_SHEET, row => {
+        const expiresAt = row.expires_at ? new Date(row.expires_at).getTime() : 0;
+        const revokedAt = row.revoked_at ? new Date(row.revoked_at).getTime() : 0;
+        const expiredOld = Number.isFinite(expiresAt) && expiresAt > 0 && expiresAt < cutoff;
+        const revokedOld = Number.isFinite(revokedAt) && revokedAt > 0 && revokedAt < cutoff;
+        return expiredOld || revokedOld;
+      });
+    } catch (e) {
+      console.warn('[VPDU][AUTH] session cleanup skipped:', e && e.message ? e.message : e);
+    }
+
+    try { cache.put(SESSION_CLEANUP_KEY,'1',21600); } catch (e) {}
+  }
+
   function createSession_(userId) {
     ensureReady_();
+    maybeCleanupSessions_();
 
     const token = newToken_();
     const tokenHash = sha256_(token);
