@@ -83,12 +83,15 @@ const B6NotificationService = (() => {
     return data;
   }
 
-  function exists_(all, userId, type, refType, refId) {
-    return all.some(n =>
-      n.user_id === userId &&
-      n.type === type &&
-      n.reference_type === refType &&
-      String(n.reference_id) === String(refId)
+  function notificationKey_(userId, type, refType, refId) {
+    return [userId,type,refType,String(refId)].join('|');
+  }
+
+  function exists_(indexOrRows, userId, type, refType, refId) {
+    const key = notificationKey_(userId,type,refType,refId);
+    if (indexOrRows instanceof Set) return indexOrRows.has(key);
+    return indexOrRows.some(n =>
+      notificationKey_(n.user_id,n.type,n.reference_type,n.reference_id) === key
     );
   }
 
@@ -112,6 +115,9 @@ const B6NotificationService = (() => {
     const activeUserIds = new Set(users.map(u => u.user_id));
 
     const notifications = RepositoryService.getAll('NOTIFICATIONS');
+    const notificationIndex = new Set(
+      notifications.map(n => notificationKey_(n.user_id,n.type,n.reference_type,n.reference_id))
+    );
 
     let created = 0;
 
@@ -123,7 +129,7 @@ const B6NotificationService = (() => {
       const owner = t.owner_user_id;
       if (!owner || !activeUserIds.has(owner)) return;
 
-      if (!exists_(notifications, owner, 'TASK_ASSIGNED', 'TASK', t.task_id)) {
+      if (!exists_(notificationIndex, owner, 'TASK_ASSIGNED', 'TASK', t.task_id)) {
         const n = create_({
           user_id: owner,
           type: 'TASK_ASSIGNED',
@@ -132,7 +138,11 @@ const B6NotificationService = (() => {
           reference_type: 'TASK',
           reference_id: t.task_id
         });
-        if (n) { notifications.push(n); created++; }
+        if (n) {
+          notifications.push(n);
+          notificationIndex.add(notificationKey_(n.user_id,n.type,n.reference_type,n.reference_id));
+          created++;
+        }
       }
 
       if (!t.due_date) return;
@@ -140,7 +150,7 @@ const B6NotificationService = (() => {
       if (isNaN(due)) return;
 
       if (due < now) {
-        if (!exists_(notifications, owner, 'TASK_OVERDUE', 'TASK', t.task_id)) {
+        if (!exists_(notificationIndex, owner, 'TASK_OVERDUE', 'TASK', t.task_id)) {
           const n = create_({
             user_id: owner,
             type: 'TASK_OVERDUE',
@@ -149,10 +159,14 @@ const B6NotificationService = (() => {
             reference_type: 'TASK',
             reference_id: t.task_id
           });
-          if (n) { notifications.push(n); created++; }
+          if (n) {
+          notifications.push(n);
+          notificationIndex.add(notificationKey_(n.user_id,n.type,n.reference_type,n.reference_id));
+          created++;
+        }
         }
       } else if (due <= next24h) {
-        if (!exists_(notifications, owner, 'TASK_DUE_SOON', 'TASK', t.task_id)) {
+        if (!exists_(notificationIndex, owner, 'TASK_DUE_SOON', 'TASK', t.task_id)) {
           const n = create_({
             user_id: owner,
             type: 'TASK_DUE_SOON',
@@ -161,7 +175,11 @@ const B6NotificationService = (() => {
             reference_type: 'TASK',
             reference_id: t.task_id
           });
-          if (n) { notifications.push(n); created++; }
+          if (n) {
+          notifications.push(n);
+          notificationIndex.add(notificationKey_(n.user_id,n.type,n.reference_type,n.reference_id));
+          created++;
+        }
         }
       }
     });
@@ -178,7 +196,7 @@ const B6NotificationService = (() => {
       if (isNaN(due)) return;
 
       if (due >= now && due <= next24h) {
-        if (!exists_(notifications, assignee, 'DOCUMENT_DUE_SOON', 'DOCUMENT', d.document_id)) {
+        if (!exists_(notificationIndex, assignee, 'DOCUMENT_DUE_SOON', 'DOCUMENT', d.document_id)) {
           const n = create_({
             user_id: assignee,
             type: 'DOCUMENT_DUE_SOON',
@@ -187,7 +205,11 @@ const B6NotificationService = (() => {
             reference_type: 'DOCUMENT',
             reference_id: d.document_id
           });
-          if (n) { notifications.push(n); created++; }
+          if (n) {
+          notifications.push(n);
+          notificationIndex.add(notificationKey_(n.user_id,n.type,n.reference_type,n.reference_id));
+          created++;
+        }
         }
       }
     });
@@ -213,7 +235,7 @@ const B6NotificationService = (() => {
         .forEach(x => recipients.add(x.user_id));
 
       recipients.forEach(userId => {
-        if (exists_(notifications, userId, 'MEETING_UPCOMING', 'MEETING', m.meeting_id)) return;
+        if (exists_(notificationIndex, userId, 'MEETING_UPCOMING', 'MEETING', m.meeting_id)) return;
 
         const n = create_({
           user_id: userId,
@@ -223,7 +245,11 @@ const B6NotificationService = (() => {
           reference_type: 'MEETING',
           reference_id: m.meeting_id
         });
-        if (n) { notifications.push(n); created++; }
+        if (n) {
+          notifications.push(n);
+          notificationIndex.add(notificationKey_(n.user_id,n.type,n.reference_type,n.reference_id));
+          created++;
+        }
       });
     });
 
