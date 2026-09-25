@@ -77,5 +77,19 @@ function apiDispatch(apiName, args, token) {
     throw new Error('Không tìm thấy API: ' + apiName);
   }
 
-  return toClientSafe_(fn.apply(null, args));
+  const startedAt = Date.now();
+  try {
+    const result = fn.apply(null, args);
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs >= 1200) {
+      console.log('[VPDU][SLOW_API] ' + apiName + ' ' + elapsedMs + 'ms');
+    }
+    return toClientSafe_(result);
+  } catch (e) {
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs >= 1200) {
+      console.warn('[VPDU][SLOW_API_ERROR] ' + apiName + ' ' + elapsedMs + 'ms');
+    }
+    throw e;
+  }
 }
